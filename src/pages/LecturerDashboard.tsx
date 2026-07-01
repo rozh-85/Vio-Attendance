@@ -5,9 +5,10 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ArrowRight, Download, Plus, UserPlus } from '@/components/icons';
+import { ArrowRight, Download, Logout, Plus, UserPlus } from '@/components/icons';
 import { useSessions } from '@/hooks/useSessions';
 import { useDataService } from '@/services/data/context';
+import { useAuth } from '@/services/auth/context';
 import { exportAttendanceToExcel } from '@/services/report/excel';
 import { formatDateTime } from '@/utils/time';
 import { paths } from '@/routes';
@@ -15,6 +16,7 @@ import { paths } from '@/routes';
 export function LecturerDashboard() {
   const navigate = useNavigate();
   const data = useDataService();
+  const { authRequired, signOut } = useAuth();
   const { sessions, loading, createSession } = useSessions();
 
   const [form, setForm] = useState({ lecturerName: '', title: '', location: '' });
@@ -33,6 +35,11 @@ export function LecturerDashboard() {
     } finally {
       setCreating(false);
     }
+  }
+
+  async function onSignOut() {
+    await signOut();
+    navigate(paths.login, { replace: true });
   }
 
   async function onExportAll() {
@@ -77,6 +84,15 @@ export function LecturerDashboard() {
           >
             Export Excel
           </Button>
+          {authRequired && (
+            <Button
+              variant="ghost"
+              leftIcon={<Logout width={18} height={18} />}
+              onClick={onSignOut}
+            >
+              Sign out
+            </Button>
+          )}
         </div>
       </header>
 

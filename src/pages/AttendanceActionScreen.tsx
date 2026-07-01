@@ -4,7 +4,7 @@ import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, Book, Check, Login, Logout } from '@/components/icons';
+import { Book, Check, Login, Logout } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
 import type { Session } from '@/types';
@@ -113,13 +113,6 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
 
   return (
     <Screen width="sm">
-      <Link
-        to={paths.dashboard}
-        className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-ink-500 hover:text-ink-700"
-      >
-        <ArrowLeft width={18} height={18} /> Back
-      </Link>
-
       <h1 className="text-3xl font-bold">{c.title}</h1>
       <p className="mt-1 text-ink-500">{c.subtitle}</p>
 

@@ -1,6 +1,7 @@
 /** Centralised route paths + builders so links never drift out of sync. */
 export const paths = {
   dashboard: '/',
+  login: '/login',
   session: (id: string) => `/session/${id}`,
   register: '/register',
   recover: '/recover',
@@ -10,6 +11,7 @@ export const paths = {
 
 export const routePatterns = {
   dashboard: '/',
+  login: '/login',
   session: '/session/:sessionId',
   register: '/register',
   recover: '/recover',

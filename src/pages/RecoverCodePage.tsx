@@ -4,7 +4,6 @@ import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
 import type { Student } from '@/types';
 import { paths } from '@/routes';
@@ -28,13 +27,6 @@ export function RecoverCodePage() {
 
   return (
     <Screen width="sm">
-      <Link
-        to={paths.dashboard}
-        className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-ink-500 hover:text-ink-700"
-      >
-        <ArrowLeft width={18} height={18} /> Back
-      </Link>
-
       <h1 className="text-3xl font-bold">Recover your code</h1>
       <p className="mt-1 text-ink-500">
         Enter the phone number you registered with and we'll show your code.

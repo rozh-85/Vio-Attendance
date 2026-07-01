@@ -137,7 +137,10 @@ alter table public.attendance enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select, insert on public.students to anon, authenticated;
-grant select, insert, update on public.sessions to anon, authenticated;
+-- Students may read sessions (to load the check-in screen), but only a
+-- signed-in lecturer may create or modify them.
+grant select on public.sessions to anon, authenticated;
+grant insert, update on public.sessions to authenticated;
 grant select, insert, update on public.attendance to anon, authenticated;
 grant execute on function public.next_student_code() to anon, authenticated;
 
@@ -146,6 +149,8 @@ drop policy if exists students_insert_public on public.students;
 drop policy if exists sessions_select_public on public.sessions;
 drop policy if exists sessions_insert_public on public.sessions;
 drop policy if exists sessions_update_public on public.sessions;
+drop policy if exists sessions_insert_lecturer on public.sessions;
+drop policy if exists sessions_update_lecturer on public.sessions;
 drop policy if exists attendance_select_public on public.attendance;
 drop policy if exists attendance_insert_public on public.attendance;
 drop policy if exists attendance_update_public on public.attendance;
@@ -165,14 +170,16 @@ create policy sessions_select_public
   to anon, authenticated
   using (true);
 
-create policy sessions_insert_public
+-- Only authenticated lecturers can create or change sessions. Students use the
+-- anon key, so this blocks them from tampering even via the raw Supabase API.
+create policy sessions_insert_lecturer
   on public.sessions for insert
-  to anon, authenticated
+  to authenticated
   with check (true);
 
-create policy sessions_update_public
+create policy sessions_update_lecturer
   on public.sessions for update
-  to anon, authenticated
+  to authenticated
   using (true)
   with check (true);
 
