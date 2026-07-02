@@ -144,6 +144,36 @@ export class SupabaseDataService implements DataService {
     return this.toStudent(data as StudentRow);
   }
 
+  async deleteStudent(studentId: string): Promise<void> {
+    const student = await this.getStudentByPhone(''); // This won't find anything, just to check if student exists
+    const { data: studentData, error: fetchError } = await this.client
+      .from('students')
+      .select('id')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!studentData) {
+      throw new DataError('STUDENT_NOT_FOUND', 'Student not found.');
+    }
+
+    // Delete all attendance records for this student
+    const { error: attendanceError } = await this.client
+      .from('attendance')
+      .delete()
+      .eq('student_id', studentId);
+
+    if (attendanceError) throw attendanceError;
+
+    // Delete the student
+    const { error: studentError } = await this.client
+      .from('students')
+      .delete()
+      .eq('id', studentId);
+
+    if (studentError) throw studentError;
+  }
+
   // ── Sessions ──────────────────────────────────────────────────────────────
   async listSessions(): Promise<Session[]> {
     const { data, error } = await this.client

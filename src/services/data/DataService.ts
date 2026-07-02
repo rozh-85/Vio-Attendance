@@ -21,6 +21,8 @@ export interface DataService {
   getStudentByCode(code: string): Promise<Student | null>;
   /** Registers a new student and assigns the next sequential code. */
   registerStudent(input: NewStudentInput): Promise<Student>;
+  /** Deletes a student and their associated attendance records. Codes are not renumbered. */
+  deleteStudent(studentId: string): Promise<void>;
 
   // ── Sessions ──────────────────────────────────────────────────────────────
   listSessions(): Promise<Session[]>;

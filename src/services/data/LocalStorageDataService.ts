@@ -96,6 +96,29 @@ export class LocalStorageDataService implements DataService {
     });
   }
 
+  async deleteStudent(studentId: string): Promise<void> {
+    return this.mutate(async () => {
+      const student = await this.getStudentByCode(studentId);
+      if (!student) {
+        throw new DataError('STUDENT_NOT_FOUND', 'Student not found.');
+      }
+
+      // Delete the student
+      const students = await this.listStudents();
+      this.write(
+        KEYS.students,
+        students.filter((s) => s.id !== studentId),
+      );
+
+      // Delete all attendance records for this student
+      const records = await this.listAttendance();
+      this.write(
+        KEYS.attendance,
+        records.filter((r) => r.studentId !== studentId),
+      );
+    });
+  }
+
   // ── Sessions ──────────────────────────────────────────────────────────────
   async listSessions(): Promise<Session[]> {
     return this.read<Session[]>(KEYS.sessions, []);

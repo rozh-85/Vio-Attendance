@@ -1,7 +1,9 @@
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
+import { Button } from './ui/Button';
 import type { SessionAttendee } from '@/types';
 import { formatClock } from '@/utils/time';
+import { Trash } from './icons';
 
 function StatusBadge({ status }: { status: SessionAttendee['status'] }) {
   if (status === 'checked-in')
@@ -11,7 +13,13 @@ function StatusBadge({ status }: { status: SessionAttendee['status'] }) {
   return <Badge tone="neutral">Absent</Badge>;
 }
 
-export function AttendeeTable({ attendees }: { attendees: SessionAttendee[] }) {
+export function AttendeeTable({
+  attendees,
+  onDeleteStudent,
+}: {
+  attendees: SessionAttendee[];
+  onDeleteStudent?: (studentId: string, studentCode: string, studentName: string) => void;
+}) {
   if (attendees.length === 0) {
     return (
       <Card className="p-10 text-center text-ink-500">
@@ -33,6 +41,7 @@ export function AttendeeTable({ attendees }: { attendees: SessionAttendee[] }) {
               <th className="px-5 py-3 font-semibold">Status</th>
               <th className="px-5 py-3 font-semibold">Check-in</th>
               <th className="px-5 py-3 font-semibold">Check-out</th>
+              {onDeleteStudent && <th className="px-5 py-3 font-semibold">Action</th>}
             </tr>
           </thead>
           <tbody>
@@ -64,6 +73,20 @@ export function AttendeeTable({ attendees }: { attendees: SessionAttendee[] }) {
                 <td className="px-5 py-3.5 tabular-nums text-ink-700">
                   {formatClock(record?.checkOutAt)}
                 </td>
+                {onDeleteStudent && (
+                  <td className="px-5 py-3.5">
+                    <button
+                      type="button"
+                      className="text-rose-600 hover:text-rose-700 transition"
+                      onClick={() =>
+                        onDeleteStudent(student.id, student.code, student.fullName)
+                      }
+                      title="Delete student"
+                    >
+                      <Trash width={18} height={18} />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

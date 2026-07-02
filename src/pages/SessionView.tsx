@@ -30,6 +30,12 @@ import type { ReactNode } from 'react';
 
 type ModalKind = 'register' | 'check-in' | 'check-out' | null;
 
+interface DeleteStudentState {
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+}
+
 export function SessionView() {
   const { sessionId = '' } = useParams();
   const data = useDataService();
@@ -41,6 +47,8 @@ export function SessionView() {
   const [exporting, setExporting] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'all'>('all');
+  const [deleteStudent, setDeleteStudent] = useState<DeleteStudentState | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filteredAttendees = useMemo(() => {
     if (statusFilter === 'all') return attendees;
@@ -104,6 +112,26 @@ export function SessionView() {
     } finally {
       setExporting(false);
     }
+  }
+
+  async function onConfirmDeleteStudent() {
+    if (!deleteStudent) return;
+
+    setDeleting(true);
+    try {
+      await data.deleteStudent(deleteStudent.studentId);
+      setDeleteStudent(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function onDeleteStudentClick(
+    studentId: string,
+    studentCode: string,
+    studentName: string,
+  ) {
+    setDeleteStudent({ studentId, studentCode, studentName });
   }
 
   return (
@@ -220,7 +248,10 @@ export function SessionView() {
       {/* Students */}
       <div className="mt-8">
         <h2 className="mb-3 text-lg font-bold">Students</h2>
-        <AttendeeTable attendees={filteredAttendees} />
+        <AttendeeTable
+          attendees={filteredAttendees}
+          onDeleteStudent={onDeleteStudentClick}
+        />
       </div>
 
       {/* Registration modal */}
@@ -288,6 +319,36 @@ export function SessionView() {
             onClick={onCloseSession}
           >
             Close session
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Confirm delete student */}
+      <Modal
+        open={!!deleteStudent}
+        onClose={() => setDeleteStudent(null)}
+        title="Delete this student?"
+        description="Are you sure you want to delete this student? This will remove the student but will not renumber other codes."
+      >
+        <div className="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-ink-700">
+          <div className="font-semibold">{deleteStudent?.studentName}</div>
+          <div className="text-ink-500">Code: {deleteStudent?.studentCode}</div>
+        </div>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            fullWidth
+            onClick={() => setDeleteStudent(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            fullWidth
+            loading={deleting}
+            onClick={onConfirmDeleteStudent}
+          >
+            Delete student
           </Button>
         </div>
       </Modal>
