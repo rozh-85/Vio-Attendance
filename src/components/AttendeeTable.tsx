@@ -1,6 +1,5 @@
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
-import { Button } from './ui/Button';
 import type { SessionAttendee } from '@/types';
 import { formatClock } from '@/utils/time';
 import { Trash } from './icons';

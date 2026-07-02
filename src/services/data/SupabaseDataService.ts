@@ -145,7 +145,6 @@ export class SupabaseDataService implements DataService {
   }
 
   async deleteStudent(studentId: string): Promise<void> {
-    const student = await this.getStudentByPhone(''); // This won't find anything, just to check if student exists
     const { data: studentData, error: fetchError } = await this.client
       .from('students')
       .select('id')
