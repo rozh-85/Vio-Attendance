@@ -42,6 +42,11 @@ export function SessionView() {
   const [confirmClose, setConfirmClose] = useState(false);
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'all'>('all');
 
+  const filteredAttendees = useMemo(() => {
+    if (statusFilter === 'all') return attendees;
+    return attendees.filter((attendee) => attendee.status === statusFilter);
+  }, [attendees, statusFilter]);
+
   if (loading) {
     return (
       <Screen width="xl">
@@ -65,11 +70,6 @@ export function SessionView() {
   }
 
   const isActive = session.status === 'active';
-
-  const filteredAttendees = useMemo(() => {
-    if (statusFilter === 'all') return attendees;
-    return attendees.filter((attendee) => attendee.status === statusFilter);
-  }, [attendees, statusFilter]);
 
   async function openCheckIn() {
     if (isActive && !session!.checkInOpen) await update({ checkInOpen: true });
