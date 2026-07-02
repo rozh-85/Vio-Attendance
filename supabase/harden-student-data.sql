@@ -146,12 +146,22 @@ begin
 end;
 $$;
 
--- ── Revoke all direct anon access to the sensitive tables ─────────────────────
+-- ── (1) Row-level security ON for every table ─────────────────────────────────
+-- Idempotent: enabling it when it is already on is a harmless no-op.
+alter table public.students   enable row level security;
+alter table public.sessions   enable row level security;
+alter table public.attendance enable row level security;
+
+grant usage on schema public to anon, authenticated;
+
+-- ── (2/3/4) Remove ALL direct anon access to the sensitive tables ─────────────
+-- After this the anon key cannot SELECT, INSERT, UPDATE or DELETE these tables
+-- directly — it can only call the safe functions above.
 revoke all on public.students   from anon;
 revoke all on public.attendance from anon;
 revoke execute on function public.next_student_code() from anon;
 
--- Drop the old permissive policies that allowed anon read/write.
+-- Drop every old permissive policy that allowed anon read/write.
 drop policy if exists students_select_public   on public.students;
 drop policy if exists students_insert_public   on public.students;
 drop policy if exists students_update_public   on public.students;
@@ -159,7 +169,34 @@ drop policy if exists attendance_select_public  on public.attendance;
 drop policy if exists attendance_insert_public  on public.attendance;
 drop policy if exists attendance_update_public  on public.attendance;
 
--- ── Lecturers (authenticated) keep full access to both tables ─────────────────
+-- ── Sessions: anyone may READ (to load the check-in screen); only a signed-in
+--     lecturer may create / change them. Anon gets no write access. ────────────
+revoke insert, update, delete on public.sessions from anon;
+grant select on public.sessions to anon, authenticated;
+grant insert, update on public.sessions to authenticated;
+
+drop policy if exists sessions_select_public    on public.sessions;
+drop policy if exists sessions_insert_public    on public.sessions;
+drop policy if exists sessions_update_public    on public.sessions;
+drop policy if exists sessions_insert_lecturer  on public.sessions;
+drop policy if exists sessions_update_lecturer  on public.sessions;
+
+create policy sessions_select_public
+  on public.sessions for select
+  to anon, authenticated
+  using (true);
+
+create policy sessions_insert_lecturer
+  on public.sessions for insert
+  to authenticated
+  with check (true);
+
+create policy sessions_update_lecturer
+  on public.sessions for update
+  to authenticated
+  using (true) with check (true);
+
+-- ── (6) Lecturers (authenticated / admin login) keep full access ──────────────
 grant select, insert, update, delete on public.students   to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;
 
@@ -176,7 +213,7 @@ create policy attendance_all_authenticated
   to authenticated
   using (true) with check (true);
 
--- ── Expose the student functions to the anon key (and lecturers) ──────────────
+-- ── (5) Expose only the safe student functions to the anon key ────────────────
 grant execute on function public.register_student(text, text, text, text) to anon, authenticated;
 grant execute on function public.recover_student_code(text)               to anon, authenticated;
 grant execute on function public.check_in(uuid, text)                     to anon, authenticated;
