@@ -8,9 +8,9 @@ import type {
   Student,
   StudentEdit,
 } from '@/types';
-import { formatCode, normalizePhone } from '@/utils/id';
+import { normalizePhone } from '@/utils/id';
 import type { DataService } from './DataService';
-import { DataError } from './errors';
+import { DataError, type DataErrorCode } from './errors';
 
 /**
  * Supabase-backed implementation of {@link DataService}.
@@ -77,6 +77,20 @@ export class SupabaseDataService implements DataService {
     return (data as AttendanceRow | null) ?? null;
   }
 
+  /**
+   * The student-facing RPCs (`register_student`, `check_in`, …) signal expected
+   * business errors by raising an exception whose message is a {@link
+   * DataErrorCode}. Translate those back into a typed {@link DataError} so the
+   * UI shows the same friendly message as the local backend; re-throw anything
+   * unexpected untouched.
+   */
+  private throwRpcError(error: { message?: string }): never {
+    const code = error.message as DataErrorCode;
+    const message = RPC_ERROR_MESSAGES[code];
+    if (message) throw new DataError(code, message);
+    throw error as unknown as Error;
+  }
+
   // ── Students ──────────────────────────────────────────────────────────────
   async listStudents(): Promise<Student[]> {
     const { data, error } = await this.client
@@ -88,12 +102,13 @@ export class SupabaseDataService implements DataService {
   }
 
   async getStudentByPhone(phone: string): Promise<Student | null> {
-    const { data, error } = await this.client
-      .from('students')
-      .select('*')
-      .eq('phone', normalizePhone(phone))
-      .maybeSingle();
-    if (error) throw error;
+    // Routed through a security-definer function so the public anon key can look
+    // up a single student by their own phone number without being able to read
+    // (enumerate) the whole roster. See supabase/harden-student-data.sql.
+    const { data, error } = await this.client.rpc('recover_student_code', {
+      p_phone: normalizePhone(phone),
+    });
+    if (error) this.throwRpcError(error);
     return data ? this.toStudent(data as StudentRow) : null;
   }
 
@@ -108,41 +123,16 @@ export class SupabaseDataService implements DataService {
   }
 
   async registerStudent(input: NewStudentInput): Promise<Student> {
-    const phone = normalizePhone(input.phone);
-    if (await this.getStudentByPhone(phone)) {
-      throw new DataError(
-        'PHONE_TAKEN',
-        'This phone number is already registered.',
-      );
-    }
-
-    // `next_student_code` is a Postgres function returning the next sequence
-    // value; see supabase/schema.sql. Falls back to a count if unavailable.
-    let code: string;
-    const { data: seq, error: seqError } = await this.client.rpc(
-      'next_student_code',
-    );
-    if (!seqError && typeof seq === 'number') {
-      code = formatCode(seq);
-    } else {
-      const { count } = await this.client
-        .from('students')
-        .select('*', { count: 'exact', head: true });
-      code = formatCode((count ?? 0) + 1);
-    }
-
-    const { data, error } = await this.client
-      .from('students')
-      .insert({
-        code,
-        full_name: input.fullName.trim(),
-        phone,
-        college: input.college.trim(),
-        department: input.department.trim(),
-      })
-      .select('*')
-      .single();
-    if (error) throw error;
+    // The whole registration (duplicate-phone guard, code allocation, insert)
+    // runs inside a security-definer function, so the anon key never needs
+    // read/write rights on the students table. See harden-student-data.sql.
+    const { data, error } = await this.client.rpc('register_student', {
+      p_full_name: input.fullName.trim(),
+      p_phone: normalizePhone(input.phone),
+      p_college: input.college.trim(),
+      p_department: input.department.trim(),
+    });
+    if (error) this.throwRpcError(error);
     return this.toStudent(data as StudentRow);
   }
 
@@ -286,95 +276,24 @@ export class SupabaseDataService implements DataService {
     return (data as AttendanceRow[]).map((r) => this.toRecord(r));
   }
 
-  private async requireStudentAndSession(sessionId: string, code: string) {
-    const session = await this.getSession(sessionId);
-    if (!session) throw new DataError('SESSION_NOT_FOUND', 'Session not found.');
-    if (session.status === 'closed') {
-      throw new DataError('SESSION_CLOSED', 'This session has ended.');
-    }
-    const student = await this.getStudentByCode(code);
-    if (!student) {
-      throw new DataError('STUDENT_NOT_FOUND', 'No student found for that code.');
-    }
-    return { session, student };
-  }
-
   async checkIn(sessionId: string, code: string): Promise<AttendanceRecord> {
-    const { session, student } = await this.requireStudentAndSession(
-      sessionId,
-      code,
-    );
-    if (!session.checkInOpen) {
-      throw new DataError('CHECK_IN_CLOSED', 'Check-in is not open.');
-    }
-
-    const row = await this.getAttendanceRow(sessionId, student.id);
-    const now = new Date().toISOString();
-
-    if (row?.check_in_at && !row.check_out_at) {
-      throw new DataError('ALREADY_CHECKED_IN', 'You are already checked in.');
-    }
-
-    if (row) {
-      const { data, error } = await this.client
-        .from('attendance')
-        .update({ check_in_at: now, check_out_at: null })
-        .eq('id', row.id)
-        .select('*')
-        .single();
-      if (error) throw error;
-      return this.toRecord(data as AttendanceRow);
-    }
-
-    const { data, error } = await this.client
-      .from('attendance')
-      .insert({ session_id: sessionId, student_id: student.id, check_in_at: now })
-      .select('*')
-      .single();
-    if (error) {
-      if (hasPostgresErrorCode(error, '23505')) {
-        const concurrent = await this.getAttendanceRow(sessionId, student.id);
-        if (concurrent) {
-          throw new DataError(
-            'ALREADY_CHECKED_IN',
-            'You are already checked in.',
-          );
-        }
-      }
-      throw error;
-    }
+    // All validation + write happens in the `check_in` security-definer
+    // function so the anon key needs no direct rights on the attendance or
+    // students tables. See supabase/harden-student-data.sql.
+    const { data, error } = await this.client.rpc('check_in', {
+      p_session_id: sessionId,
+      p_code: code.trim(),
+    });
+    if (error) this.throwRpcError(error);
     return this.toRecord(data as AttendanceRow);
   }
 
   async checkOut(sessionId: string, code: string): Promise<AttendanceRecord> {
-    const { session, student } = await this.requireStudentAndSession(
-      sessionId,
-      code,
-    );
-    if (!session.checkOutOpen) {
-      throw new DataError('CHECK_OUT_CLOSED', 'Check-out is not open.');
-    }
-
-    const row = await this.getAttendanceRow(sessionId, student.id);
-
-    if (!row?.check_in_at) {
-      throw new DataError('NOT_CHECKED_IN', 'You have not checked in.');
-    }
-    if (row.check_out_at) {
-      throw new DataError('ALREADY_CHECKED_OUT', 'You have already checked out.');
-    }
-
-    const { data, error } = await this.client
-      .from('attendance')
-      .update({ check_out_at: new Date().toISOString() })
-      .eq('id', row.id)
-      .is('check_out_at', null)
-      .select('*')
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) {
-      throw new DataError('ALREADY_CHECKED_OUT', 'You have already checked out.');
-    }
+    const { data, error } = await this.client.rpc('check_out', {
+      p_session_id: sessionId,
+      p_code: code.trim(),
+    });
+    if (error) this.throwRpcError(error);
     return this.toRecord(data as AttendanceRow);
   }
 
@@ -451,6 +370,21 @@ interface AttendanceRow {
   check_in_at: string | null;
   check_out_at: string | null;
 }
+
+// Friendly messages for the business errors raised by the student-facing RPCs,
+// mirroring the messages the local backend throws. Keyed by the code the
+// Postgres function raises (see supabase/harden-student-data.sql).
+const RPC_ERROR_MESSAGES: Partial<Record<DataErrorCode, string>> = {
+  PHONE_TAKEN: 'This phone number is already registered.',
+  STUDENT_NOT_FOUND: 'No student found for that code.',
+  SESSION_NOT_FOUND: 'Session not found.',
+  SESSION_CLOSED: 'This session has ended.',
+  CHECK_IN_CLOSED: 'Check-in is not open.',
+  CHECK_OUT_CLOSED: 'Check-out is not open.',
+  NOT_CHECKED_IN: 'You have not checked in.',
+  ALREADY_CHECKED_IN: 'You are already checked in.',
+  ALREADY_CHECKED_OUT: 'You have already checked out.',
+};
 
 function hasPostgresErrorCode(err: unknown, code: string): boolean {
   return (
