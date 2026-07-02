@@ -25,7 +25,8 @@ import { exportLectureAttendanceToExcel } from '@/services/report/lectureTemplat
 import { absoluteUrl } from '@/utils/url';
 import { formatDate, formatClock } from '@/utils/time';
 import { paths } from '@/routes';
-import type { AttendanceStatus, ReactNode } from '@/types';
+import type { AttendanceStatus } from '@/types';
+import type { ReactNode } from 'react';
 
 type ModalKind = 'register' | 'check-in' | 'check-out' | null;
 
