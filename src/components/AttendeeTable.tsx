@@ -80,21 +80,21 @@ export function AttendeeTable({
                 </td>
                 {showActions && (
                   <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {onEditStudent && (
                         <button
                           type="button"
-                          className="text-brand-600 hover:text-brand-700 transition"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
                           onClick={() => onEditStudent(attendee)}
                           title="Edit student"
                         >
-                          <Pencil width={18} height={18} />
+                          <Pencil width={17} height={17} />
                         </button>
                       )}
                       {onDeleteStudent && (
                         <button
                           type="button"
-                          className="text-rose-600 hover:text-rose-700 transition"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 transition hover:bg-rose-50 hover:text-rose-600"
                           onClick={() =>
                             onDeleteStudent(
                               student.id,
@@ -104,7 +104,7 @@ export function AttendeeTable({
                           }
                           title="Delete student"
                         >
-                          <Trash width={18} height={18} />
+                          <Trash width={17} height={17} />
                         </button>
                       )}
                     </div>
