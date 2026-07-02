@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
@@ -25,7 +25,7 @@ import { exportLectureAttendanceToExcel } from '@/services/report/lectureTemplat
 import { absoluteUrl } from '@/utils/url';
 import { formatDate, formatClock } from '@/utils/time';
 import { paths } from '@/routes';
-import type { ReactNode } from 'react';
+import type { AttendanceStatus, ReactNode } from '@/types';
 
 type ModalKind = 'register' | 'check-in' | 'check-out' | null;
 
@@ -39,6 +39,7 @@ export function SessionView() {
   const [closing, setClosing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'all'>('all');
 
   if (loading) {
     return (
@@ -63,6 +64,11 @@ export function SessionView() {
   }
 
   const isActive = session.status === 'active';
+
+  const filteredAttendees = useMemo(() => {
+    if (statusFilter === 'all') return attendees;
+    return attendees.filter((attendee) => attendee.status === statusFilter);
+  }, [attendees, statusFilter]);
 
   async function openCheckIn() {
     if (isActive && !session!.checkInOpen) await update({ checkInOpen: true });
@@ -157,6 +163,33 @@ export function SessionView() {
         />
       </div>
 
+      {/* Filters */}
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        {(['all', 'checked-in', 'checked-out', 'absent'] as const).map(
+          (filter) => (
+            <button
+              key={filter}
+              type="button"
+              className={
+                'rounded-full border px-4 py-2 text-sm font-semibold transition ' +
+                (statusFilter === filter
+                  ? 'border-brand-600 bg-brand-50 text-brand-700'
+                  : 'border-slate-200 bg-white text-ink-600 hover:border-slate-300 hover:bg-slate-50')
+              }
+              onClick={() => setStatusFilter(filter)}
+            >
+              {filter === 'all'
+                ? 'All'
+                : filter === 'checked-in'
+                ? 'Checked in'
+                : filter === 'checked-out'
+                ? 'Checked out'
+                : 'Absent'}
+            </button>
+          ),
+        )}
+      </div>
+
       {/* QR actions */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <QrActionButton
@@ -186,7 +219,7 @@ export function SessionView() {
       {/* Students */}
       <div className="mt-8">
         <h2 className="mb-3 text-lg font-bold">Students</h2>
-        <AttendeeTable attendees={attendees} />
+        <AttendeeTable attendees={filteredAttendees} />
       </div>
 
       {/* Registration modal */}
