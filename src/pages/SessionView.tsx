@@ -39,7 +39,7 @@ interface DeleteStudentState {
 export function SessionView() {
   const { sessionId = '' } = useParams();
   const data = useDataService();
-  const { session, attendees, stats, loading, error, update, close } =
+  const { session, attendees, stats, loading, error, update, close, refresh } =
     useSessionDetail(sessionId);
 
   const [modal, setModal] = useState<ModalKind>(null);
@@ -120,6 +120,7 @@ export function SessionView() {
     setDeleting(true);
     try {
       await data.deleteStudent(deleteStudent.studentId);
+      await refresh();
       setDeleteStudent(null);
     } finally {
       setDeleting(false);
