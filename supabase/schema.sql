@@ -136,7 +136,7 @@ alter table public.sessions enable row level security;
 alter table public.attendance enable row level security;
 
 grant usage on schema public to anon, authenticated;
-grant select, insert on public.students to anon, authenticated;
+grant select, insert, update on public.students to anon, authenticated;
 -- Students may read sessions (to load the check-in screen), but only a
 -- signed-in lecturer may create or modify them.
 grant select on public.sessions to anon, authenticated;
@@ -146,6 +146,7 @@ grant execute on function public.next_student_code() to anon, authenticated;
 
 drop policy if exists students_select_public on public.students;
 drop policy if exists students_insert_public on public.students;
+drop policy if exists students_update_public on public.students;
 drop policy if exists sessions_select_public on public.sessions;
 drop policy if exists sessions_insert_public on public.sessions;
 drop policy if exists sessions_update_public on public.sessions;
@@ -163,6 +164,14 @@ create policy students_select_public
 create policy students_insert_public
   on public.students for insert
   to anon, authenticated
+  with check (true);
+
+-- Allows the lecturer's manual "Edit student" feature to correct names, phone,
+-- department, etc. Tighten to `to authenticated` if students should not edit.
+create policy students_update_public
+  on public.students for update
+  to anon, authenticated
+  using (true)
   with check (true);
 
 create policy sessions_select_public
