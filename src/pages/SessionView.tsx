@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Toggle } from '@/components/ui/Toggle';
 import { StatCard } from '@/components/ui/StatCard';
+import { Input } from '@/components/ui/Input';
 import { QRPanel } from '@/components/QRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
 import {
@@ -47,13 +48,30 @@ export function SessionView() {
   const [exporting, setExporting] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [deleteStudent, setDeleteStudent] = useState<DeleteStudentState | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const filteredAttendees = useMemo(() => {
-    if (statusFilter === 'all') return attendees;
-    return attendees.filter((attendee) => attendee.status === statusFilter);
-  }, [attendees, statusFilter]);
+    let result = attendees;
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      result = result.filter((attendee) => attendee.status === statusFilter);
+    }
+
+    // Filter by search query (name or code)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (attendee) =>
+          attendee.student.fullName.toLowerCase().includes(query) ||
+          attendee.student.code.toLowerCase().includes(query),
+      );
+    }
+
+    return result;
+  }, [attendees, statusFilter, searchQuery]);
 
   if (loading) {
     return (
@@ -248,7 +266,15 @@ export function SessionView() {
 
       {/* Students */}
       <div className="mt-8">
-        <h2 className="mb-3 text-lg font-bold">Students</h2>
+        <h2 className="mb-4 text-lg font-bold">Students</h2>
+        <div className="mb-4">
+          <Input
+            type="text"
+            placeholder="Search by student name or code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
         <AttendeeTable
           attendees={filteredAttendees}
           onDeleteStudent={onDeleteStudentClick}
