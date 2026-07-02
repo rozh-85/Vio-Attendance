@@ -1,9 +1,11 @@
 import type {
+  AttendanceEdit,
   AttendanceRecord,
   NewSessionInput,
   NewStudentInput,
   Session,
   Student,
+  StudentEdit,
 } from '@/types';
 import { formatCode, normalizePhone, uid } from '@/utils/id';
 import type { DataService } from './DataService';
@@ -93,6 +95,44 @@ export class LocalStorageDataService implements DataService {
       const students = await this.listStudents();
       this.write(KEYS.students, [...students, student]);
       return student;
+    });
+  }
+
+  async updateStudent(id: string, patch: StudentEdit): Promise<Student> {
+    return this.mutate(async () => {
+      const students = await this.listStudents();
+      const idx = students.findIndex((s) => s.id === id);
+      if (idx === -1) {
+        throw new DataError('STUDENT_NOT_FOUND', 'Student not found.');
+      }
+
+      if (patch.phone !== undefined) {
+        const target = normalizePhone(patch.phone);
+        const clash = students.find(
+          (s) => s.id !== id && normalizePhone(s.phone) === target,
+        );
+        if (clash) {
+          throw new DataError(
+            'PHONE_TAKEN',
+            'This phone number is already registered.',
+          );
+        }
+      }
+
+      const current = students[idx];
+      const updated: Student = {
+        ...current,
+        ...(patch.fullName !== undefined && { fullName: patch.fullName.trim() }),
+        ...(patch.phone !== undefined && { phone: patch.phone.trim() }),
+        ...(patch.college !== undefined && { college: patch.college.trim() }),
+        ...(patch.department !== undefined && {
+          department: patch.department.trim(),
+        }),
+        id,
+      };
+      students[idx] = updated;
+      this.write(KEYS.students, students);
+      return updated;
     });
   }
 
@@ -302,6 +342,34 @@ export class LocalStorageDataService implements DataService {
         records.map((r) => (r.id === record.id ? updated : r)),
       );
       return updated;
+    });
+  }
+
+  async setAttendance(
+    sessionId: string,
+    studentId: string,
+    edit: AttendanceEdit,
+  ): Promise<AttendanceRecord> {
+    return this.mutate(async () => {
+      const records = await this.listAttendance();
+      const existing = records.find(
+        (r) => r.sessionId === sessionId && r.studentId === studentId,
+      );
+      const checkInAt = edit.checkInAt ?? undefined;
+      const checkOutAt = edit.checkOutAt ?? undefined;
+
+      let record: AttendanceRecord;
+      if (existing) {
+        record = { ...existing, checkInAt, checkOutAt };
+        this.write(
+          KEYS.attendance,
+          records.map((r) => (r.id === existing.id ? record : r)),
+        );
+      } else {
+        record = { id: uid(), sessionId, studentId, checkInAt, checkOutAt };
+        this.write(KEYS.attendance, [...records, record]);
+      }
+      return record;
     });
   }
 

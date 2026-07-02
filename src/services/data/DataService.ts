@@ -1,9 +1,11 @@
 import type {
+  AttendanceEdit,
   AttendanceRecord,
   NewSessionInput,
   NewStudentInput,
   Session,
   Student,
+  StudentEdit,
 } from '@/types';
 
 /**
@@ -21,6 +23,8 @@ export interface DataService {
   getStudentByCode(code: string): Promise<Student | null>;
   /** Registers a new student and assigns the next sequential code. */
   registerStudent(input: NewStudentInput): Promise<Student>;
+  /** Updates editable student fields (name, phone, college, department). */
+  updateStudent(id: string, patch: StudentEdit): Promise<Student>;
   /** Deletes a student and their associated attendance records. Codes are not renumbered. */
   deleteStudent(studentId: string): Promise<void>;
 
@@ -38,6 +42,15 @@ export interface DataService {
   checkIn(sessionId: string, code: string): Promise<AttendanceRecord>;
   /** Marks a student (by code) as checked out of a session. */
   checkOut(sessionId: string, code: string): Promise<AttendanceRecord>;
+  /**
+   * Manually sets a student's attendance times for a session (upsert). Used for
+   * corrections — bypasses the check-in/check-out gates and session status.
+   */
+  setAttendance(
+    sessionId: string,
+    studentId: string,
+    edit: AttendanceEdit,
+  ): Promise<AttendanceRecord>;
 
   /** Wipes all data. Handy for demos / resetting the local backend. */
   reset(): Promise<void>;

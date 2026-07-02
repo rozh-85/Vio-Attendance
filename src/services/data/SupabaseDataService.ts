@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+  AttendanceEdit,
   AttendanceRecord,
   NewSessionInput,
   NewStudentInput,
   Session,
   Student,
+  StudentEdit,
 } from '@/types';
 import { formatCode, normalizePhone } from '@/utils/id';
 import type { DataService } from './DataService';
@@ -141,6 +143,31 @@ export class SupabaseDataService implements DataService {
       .select('*')
       .single();
     if (error) throw error;
+    return this.toStudent(data as StudentRow);
+  }
+
+  async updateStudent(id: string, patch: StudentEdit): Promise<Student> {
+    const row: Partial<StudentRow> = {};
+    if (patch.fullName !== undefined) row.full_name = patch.fullName.trim();
+    if (patch.phone !== undefined) row.phone = normalizePhone(patch.phone);
+    if (patch.college !== undefined) row.college = patch.college.trim();
+    if (patch.department !== undefined) row.department = patch.department.trim();
+
+    const { data, error } = await this.client
+      .from('students')
+      .update(row)
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) {
+      if (hasPostgresErrorCode(error, '23505')) {
+        throw new DataError(
+          'PHONE_TAKEN',
+          'This phone number is already registered.',
+        );
+      }
+      throw error;
+    }
     return this.toStudent(data as StudentRow);
   }
 
@@ -348,6 +375,41 @@ export class SupabaseDataService implements DataService {
     if (!data) {
       throw new DataError('ALREADY_CHECKED_OUT', 'You have already checked out.');
     }
+    return this.toRecord(data as AttendanceRow);
+  }
+
+  async setAttendance(
+    sessionId: string,
+    studentId: string,
+    edit: AttendanceEdit,
+  ): Promise<AttendanceRecord> {
+    const existing = await this.getAttendanceRow(sessionId, studentId);
+
+    if (existing) {
+      const { data, error } = await this.client
+        .from('attendance')
+        .update({
+          check_in_at: edit.checkInAt,
+          check_out_at: edit.checkOutAt,
+        })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return this.toRecord(data as AttendanceRow);
+    }
+
+    const { data, error } = await this.client
+      .from('attendance')
+      .insert({
+        session_id: sessionId,
+        student_id: studentId,
+        check_in_at: edit.checkInAt,
+        check_out_at: edit.checkOutAt,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
     return this.toRecord(data as AttendanceRow);
   }
 

@@ -11,6 +11,10 @@ import { Input } from '@/components/ui/Input';
 import { QRPanel } from '@/components/QRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
 import {
+  EditAttendeeModal,
+  type EditAttendeeValues,
+} from '@/components/EditAttendeeModal';
+import {
   ArrowLeft,
   ArrowRight,
   Download,
@@ -26,7 +30,7 @@ import { exportLectureAttendanceToExcel } from '@/services/report/lectureTemplat
 import { absoluteUrl } from '@/utils/url';
 import { formatDate, formatClock } from '@/utils/time';
 import { paths } from '@/routes';
-import type { AttendanceStatus } from '@/types';
+import type { AttendanceStatus, SessionAttendee } from '@/types';
 import type { ReactNode } from 'react';
 
 type ModalKind = 'register' | 'check-in' | 'check-out' | null;
@@ -51,6 +55,9 @@ export function SessionView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteStudent, setDeleteStudent] = useState<DeleteStudentState | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editAttendee, setEditAttendee] = useState<SessionAttendee | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const filteredAttendees = useMemo(() => {
     let result = attendees;
@@ -151,6 +158,37 @@ export function SessionView() {
     studentName: string,
   ) {
     setDeleteStudent({ studentId, studentCode, studentName });
+  }
+
+  function onEditStudentClick(attendee: SessionAttendee) {
+    setEditError(null);
+    setEditAttendee(attendee);
+  }
+
+  async function onSaveEdit(values: EditAttendeeValues) {
+    if (!editAttendee || !session) return;
+
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await data.updateStudent(editAttendee.student.id, {
+        fullName: values.fullName,
+        department: values.department,
+        phone: values.phone,
+      });
+      await data.setAttendance(session.id, editAttendee.student.id, {
+        checkInAt: values.checkInAt,
+        checkOutAt: values.checkOutAt,
+      });
+      await refresh();
+      setEditAttendee(null);
+    } catch (err) {
+      setEditError(
+        err instanceof Error ? err.message : 'Failed to save changes.',
+      );
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   return (
@@ -278,6 +316,7 @@ export function SessionView() {
         <AttendeeTable
           attendees={filteredAttendees}
           onDeleteStudent={onDeleteStudentClick}
+          onEditStudent={onEditStudentClick}
         />
       </div>
 
@@ -379,6 +418,17 @@ export function SessionView() {
           </Button>
         </div>
       </Modal>
+
+      {/* Edit student */}
+      {editAttendee && (
+        <EditAttendeeModal
+          attendee={editAttendee}
+          saving={savingEdit}
+          error={editError}
+          onClose={() => setEditAttendee(null)}
+          onSave={onSaveEdit}
+        />
+      )}
     </Screen>
   );
 }

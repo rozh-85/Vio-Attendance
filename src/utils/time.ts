@@ -26,3 +26,19 @@ export function formatDateTime(iso?: string): string {
   if (!iso) return '—';
   return format(new Date(iso), 'd MMM yyyy, hh:mm a');
 }
+
+/** Converts an ISO timestamp to a value for an `<input type="datetime-local">`. */
+export function toDateTimeLocalValue(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return format(d, "yyyy-MM-dd'T'HH:mm");
+}
+
+/** Converts a `datetime-local` input value back to an ISO timestamp (or null). */
+export function fromDateTimeLocalValue(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}

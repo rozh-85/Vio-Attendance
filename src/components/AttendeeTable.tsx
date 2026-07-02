@@ -2,7 +2,7 @@ import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import type { SessionAttendee } from '@/types';
 import { formatClock } from '@/utils/time';
-import { Trash } from './icons';
+import { Pencil, Trash } from './icons';
 
 function StatusBadge({ status }: { status: SessionAttendee['status'] }) {
   if (status === 'checked-in')
@@ -15,10 +15,14 @@ function StatusBadge({ status }: { status: SessionAttendee['status'] }) {
 export function AttendeeTable({
   attendees,
   onDeleteStudent,
+  onEditStudent,
 }: {
   attendees: SessionAttendee[];
   onDeleteStudent?: (studentId: string, studentCode: string, studentName: string) => void;
+  onEditStudent?: (attendee: SessionAttendee) => void;
 }) {
+  const showActions = !!onDeleteStudent || !!onEditStudent;
+
   if (attendees.length === 0) {
     return (
       <Card className="p-10 text-center text-ink-500">
@@ -40,11 +44,13 @@ export function AttendeeTable({
               <th className="px-5 py-3 font-semibold">Status</th>
               <th className="px-5 py-3 font-semibold">Check-in</th>
               <th className="px-5 py-3 font-semibold">Check-out</th>
-              {onDeleteStudent && <th className="px-5 py-3 font-semibold">Action</th>}
+              {showActions && <th className="px-5 py-3 font-semibold">Actions</th>}
             </tr>
           </thead>
           <tbody>
-            {attendees.map(({ student, record, status }) => (
+            {attendees.map((attendee) => {
+              const { student, record, status } = attendee;
+              return (
               <tr
                 key={student.id}
                 className="border-b border-slate-100 last:border-0"
@@ -72,22 +78,41 @@ export function AttendeeTable({
                 <td className="px-5 py-3.5 tabular-nums text-ink-700">
                   {formatClock(record?.checkOutAt)}
                 </td>
-                {onDeleteStudent && (
+                {showActions && (
                   <td className="px-5 py-3.5">
-                    <button
-                      type="button"
-                      className="text-rose-600 hover:text-rose-700 transition"
-                      onClick={() =>
-                        onDeleteStudent(student.id, student.code, student.fullName)
-                      }
-                      title="Delete student"
-                    >
-                      <Trash width={18} height={18} />
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {onEditStudent && (
+                        <button
+                          type="button"
+                          className="text-brand-600 hover:text-brand-700 transition"
+                          onClick={() => onEditStudent(attendee)}
+                          title="Edit student"
+                        >
+                          <Pencil width={18} height={18} />
+                        </button>
+                      )}
+                      {onDeleteStudent && (
+                        <button
+                          type="button"
+                          className="text-rose-600 hover:text-rose-700 transition"
+                          onClick={() =>
+                            onDeleteStudent(
+                              student.id,
+                              student.code,
+                              student.fullName,
+                            )
+                          }
+                          title="Delete student"
+                        >
+                          <Trash width={18} height={18} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

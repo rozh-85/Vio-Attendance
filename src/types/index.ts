@@ -21,6 +21,9 @@ export interface Student {
 
 export type NewStudentInput = Omit<Student, 'id' | 'code' | 'createdAt'>;
 
+/** Editable student fields for manual correction. */
+export type StudentEdit = Partial<Pick<Student, 'fullName' | 'phone' | 'college' | 'department'>>;
+
 export type SessionStatus = 'active' | 'closed';
 
 export interface Session {
@@ -45,6 +48,12 @@ export interface AttendanceRecord {
   studentId: string;
   checkInAt?: string; // ISO timestamp
   checkOutAt?: string; // ISO timestamp
+}
+
+/** Manually set check-in / check-out timestamps. `null` clears the value. */
+export interface AttendanceEdit {
+  checkInAt: string | null; // ISO timestamp or null
+  checkOutAt: string | null; // ISO timestamp or null
 }
 
 export type AttendanceStatus = 'absent' | 'checked-in' | 'checked-out';
