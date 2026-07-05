@@ -11,6 +11,7 @@ import {
 
 export interface EditAttendeeValues {
   fullName: string;
+  college: string;
   department: string;
   phone: string;
   checkInAt: string | null;
@@ -47,6 +48,7 @@ export function EditAttendeeModal({
   const { student, record } = attendee;
 
   const [fullName, setFullName] = useState(student.fullName);
+  const [college, setCollege] = useState(student.college);
   const [department, setDepartment] = useState(student.department);
   const [phone, setPhone] = useState(student.phone);
   // `datetime-local` string values ('' means unset).
@@ -74,6 +76,7 @@ export function EditAttendeeModal({
     if (validationError) return;
     onSave({
       fullName: fullName.trim(),
+      college: college.trim(),
       department: department.trim(),
       phone: phone.trim(),
       checkInAt: fromDateTimeLocalValue(checkIn),
@@ -94,6 +97,11 @@ export function EditAttendeeModal({
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
+        />
+        <Input
+          label="College"
+          value={college}
+          onChange={(e) => setCollege(e.target.value)}
         />
         <Input
           label="Department"

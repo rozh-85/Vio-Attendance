@@ -174,6 +174,7 @@ export function SessionView() {
     try {
       await data.updateStudent(editAttendee.student.id, {
         fullName: values.fullName,
+        college: values.college,
         department: values.department,
         phone: values.phone,
       });
