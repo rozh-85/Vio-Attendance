@@ -9,6 +9,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { StatCard } from '@/components/ui/StatCard';
 import { Input } from '@/components/ui/Input';
 import { QRPanel } from '@/components/QRPanel';
+import { RotatingQRPanel } from '@/components/RotatingQRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
 import {
   EditAttendeeModal,
@@ -340,7 +341,11 @@ export function SessionView() {
         title="Check-In QR"
         description="Students scan, then type their code to check in."
       >
-        <QRPanel url={absoluteUrl(paths.checkIn(session.id))} />
+        <RotatingQRPanel
+          sessionId={session.id}
+          mode="in"
+          path={paths.checkIn(session.id)}
+        />
         <GateToggle
           label="Accepting check-ins"
           checked={session.checkInOpen}
@@ -355,7 +360,11 @@ export function SessionView() {
         title="Check-Out QR"
         description="Students scan, then type their code to check out."
       >
-        <QRPanel url={absoluteUrl(paths.checkOut(session.id))} />
+        <RotatingQRPanel
+          sessionId={session.id}
+          mode="out"
+          path={paths.checkOut(session.id)}
+        />
         <GateToggle
           label="Accepting check-outs"
           checked={session.checkOutOpen}

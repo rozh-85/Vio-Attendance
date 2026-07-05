@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -9,6 +9,7 @@ import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
 import type { Session } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
+import { isQrTokenValid } from '@/utils/qrToken';
 import { paths } from '@/routes';
 
 type Mode = 'check-in' | 'check-out';
@@ -32,8 +33,19 @@ const copy = {
 
 export function AttendanceActionScreen({ mode }: { mode: Mode }) {
   const { sessionId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const data = useDataService();
   const c = copy[mode];
+
+  // Freeze the QR-token check at mount: it proves the student scanned a *live*
+  // code, not an old screenshot someone forwarded to them.
+  const [qrOk] = useState(() =>
+    isQrTokenValid(
+      sessionId,
+      mode === 'check-in' ? 'in' : 'out',
+      searchParams.get('t'),
+    ),
+  );
 
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,6 +152,11 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
           {mode === 'check-in' ? 'Check-in' : 'Check-out'} is not open yet. Please
           wait for your lecturer to open it.
         </div>
+      ) : !qrOk ? (
+        <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          This QR code has expired or is invalid. Please scan the live code shown
+          on the lecturer's screen — screenshots and forwarded links won't work.
+        </div>
       ) : null}
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
@@ -166,7 +183,9 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
           fullWidth
           leftIcon={c.icon}
           loading={submitting}
-          disabled={!code.trim() || session.status === 'closed' || !gateOpen}
+          disabled={
+            !code.trim() || session.status === 'closed' || !gateOpen || !qrOk
+          }
         >
           {c.button}
         </Button>
