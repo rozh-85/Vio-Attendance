@@ -5,13 +5,16 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { AddStudentModal } from '@/components/AddStudentModal';
 import { ArrowRight, Download, Logout, Plus, UserPlus } from '@/components/icons';
 import { useSessions } from '@/hooks/useSessions';
 import { useDataService } from '@/services/data/context';
+import { isDataError } from '@/services/data';
 import { useAuth } from '@/services/auth/context';
 import { exportAttendanceToExcel } from '@/services/report/excel';
 import { formatDateTime } from '@/utils/time';
 import { paths } from '@/routes';
+import type { NewStudentInput, Student } from '@/types';
 
 export function LecturerDashboard() {
   const navigate = useNavigate();
@@ -23,8 +26,34 @@ export function LecturerDashboard() {
   const [creating, setCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  const [showAdd, setShowAdd] = useState(false);
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addedStudent, setAddedStudent] = useState<Student | null>(null);
+
   const set = (key: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [key]: v }));
+
+  function openAddStudent() {
+    setAddError(null);
+    setAddedStudent(null);
+    setShowAdd(true);
+  }
+
+  async function onAddStudent(values: NewStudentInput) {
+    setAddSaving(true);
+    setAddError(null);
+    try {
+      const created = await data.registerStudent(values);
+      setAddedStudent(created);
+    } catch (err) {
+      setAddError(
+        isDataError(err) ? err.message : 'Could not add student. Please try again.',
+      );
+    } finally {
+      setAddSaving(false);
+    }
+  }
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -65,16 +94,18 @@ export function LecturerDashboard() {
           </div>
           <h1 className="text-3xl font-bold">Lecturer dashboard</h1>
           <p className="mt-1 text-ink-500">
-            Start a session, then show QR codes for students to register and
-            check in.
+            Add students, start a session, then show QR codes for check in and
+            out.
           </p>
         </div>
         <div className="flex gap-2">
-          <Link to={paths.register}>
-            <Button variant="outline" leftIcon={<UserPlus width={18} height={18} />}>
-              Registration link
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            leftIcon={<UserPlus width={18} height={18} />}
+            onClick={openAddStudent}
+          >
+            Add student
+          </Button>
           <Button
             variant="secondary"
             leftIcon={<Download width={18} height={18} />}
@@ -170,6 +201,20 @@ export function LecturerDashboard() {
           </div>
         )}
       </section>
+
+      {showAdd && (
+        <AddStudentModal
+          saving={addSaving}
+          error={addError}
+          createdStudent={addedStudent}
+          onSave={onAddStudent}
+          onAddAnother={() => {
+            setAddedStudent(null);
+            setAddError(null);
+          }}
+          onClose={() => setShowAdd(false)}
+        />
+      )}
     </Screen>
   );
 }

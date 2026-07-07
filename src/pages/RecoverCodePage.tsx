@@ -1,12 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useDataService } from '@/services/data/context';
 import type { Student } from '@/types';
-import { paths } from '@/routes';
 
 export function RecoverCodePage() {
   const data = useDataService();
@@ -53,11 +51,8 @@ export function RecoverCodePage() {
 
         {result === 'not-found' && (
           <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            No registration found for that number.{' '}
-            <Link to={paths.register} className="font-semibold underline">
-              Register instead
-            </Link>
-            .
+            No registration found for that number. Please ask your lecturer to
+            register you.
           </div>
         )}
 
