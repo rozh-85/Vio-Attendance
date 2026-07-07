@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { DataServiceProvider } from '@/services/data/context';
 import { AuthProvider } from '@/services/auth/context';
 import { RequireAuth } from '@/components/RequireAuth';
@@ -9,6 +9,7 @@ import { CheckInPage } from '@/pages/CheckInPage';
 import { CheckOutPage } from '@/pages/CheckOutPage';
 import { RecoverCodePage } from '@/pages/RecoverCodePage';
 import { LoginPage } from '@/pages/LoginPage';
+import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export default function App() {
   return (
@@ -34,19 +35,17 @@ export default function App() {
               }
             />
 
-            {/* Public — student-facing + the lecturer login screen. */}
-            {/* Self-registration was removed: only a signed-in lecturer can add
-                students now (see the "Add student" button in the dashboard). */}
-            <Route path={routePatterns.login} element={<LoginPage />} />
+            {/* Admin sign-in lives at the non-obvious /admin path. */}
+            <Route path={routePatterns.admin} element={<LoginPage />} />
+
+            {/* Public — student-facing only. */}
             <Route path={routePatterns.recover} element={<RecoverCodePage />} />
             <Route path={routePatterns.checkIn} element={<CheckInPage />} />
             <Route path={routePatterns.checkOut} element={<CheckOutPage />} />
 
-            {/* Unknown paths → dashboard, which itself redirects to login if needed. */}
-            <Route
-              path="*"
-              element={<Navigate to={routePatterns.dashboard} replace />}
-            />
+            {/* Everything else — /login, /register, and any unknown URL — shows
+                the neutral student page. It never reveals the admin login. */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

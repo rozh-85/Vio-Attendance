@@ -1,17 +1,17 @@
 import type { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/services/auth/context';
-import { paths } from '@/routes';
+import { NotFoundPage } from '@/pages/NotFoundPage';
 
 /**
- * Route guard for lecturer-only screens. Redirects unauthenticated visitors to
- * the login page, remembering where they were headed. When no auth backend is
- * configured the guard is a no-op (see AuthContext.authRequired).
+ * Route guard for lecturer-only screens. When signed out it shows the neutral
+ * student page instead of redirecting to the login — this way a student who
+ * lands on an admin URL never learns the admin area or sign-in page exists.
+ * The lecturer signs in by going directly to the /admin path. When no auth
+ * backend is configured the guard is a no-op (see AuthContext.authRequired).
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { authRequired, user, loading } = useAuth();
-  const location = useLocation();
 
   if (!authRequired) return <>{children}</>;
 
@@ -24,7 +24,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to={paths.login} replace state={{ from: location }} />;
+    return <NotFoundPage />;
   }
 
   return <>{children}</>;

@@ -1,7 +1,10 @@
 /** Centralised route paths + builders so links never drift out of sync. */
 export const paths = {
   dashboard: '/',
-  login: '/login',
+  // Admin sign-in lives at a non-obvious path so students never stumble onto
+  // it. Everything else students might guess (/login, /register, unknown URLs)
+  // falls through to the neutral NotFound page.
+  admin: '/admin',
   session: (id: string) => `/session/${id}`,
   recover: '/recover',
   checkIn: (sessionId: string) => `/checkin/${sessionId}`,
@@ -10,7 +13,7 @@ export const paths = {
 
 export const routePatterns = {
   dashboard: '/',
-  login: '/login',
+  admin: '/admin',
   session: '/session/:sessionId',
   recover: '/recover',
   checkIn: '/checkin/:sessionId',

@@ -68,7 +68,7 @@ export function LecturerDashboard() {
 
   async function onSignOut() {
     await signOut();
-    navigate(paths.login, { replace: true });
+    navigate(paths.admin, { replace: true });
   }
 
   async function onExportAll() {
