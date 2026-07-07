@@ -8,7 +8,6 @@ import { Modal } from '@/components/ui/Modal';
 import { Toggle } from '@/components/ui/Toggle';
 import { StatCard } from '@/components/ui/StatCard';
 import { Input } from '@/components/ui/Input';
-import { QRPanel } from '@/components/QRPanel';
 import { RotatingQRPanel } from '@/components/RotatingQRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
 import { AddStudentModal } from '@/components/AddStudentModal';
@@ -30,7 +29,6 @@ import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
 import { exportLectureAttendanceToExcel } from '@/services/report/lectureTemplateExcel';
-import { absoluteUrl } from '@/utils/url';
 import { formatDate, formatClock } from '@/utils/time';
 import { paths } from '@/routes';
 import type {
