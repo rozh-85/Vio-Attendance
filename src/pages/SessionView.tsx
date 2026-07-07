@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { QRPanel } from '@/components/QRPanel';
 import { RotatingQRPanel } from '@/components/RotatingQRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
+import { AddStudentModal } from '@/components/AddStudentModal';
 import {
   EditAttendeeModal,
   type EditAttendeeValues,
@@ -27,14 +28,20 @@ import {
 } from '@/components/icons';
 import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { useDataService } from '@/services/data/context';
+import { isDataError } from '@/services/data';
 import { exportLectureAttendanceToExcel } from '@/services/report/lectureTemplateExcel';
 import { absoluteUrl } from '@/utils/url';
 import { formatDate, formatClock } from '@/utils/time';
 import { paths } from '@/routes';
-import type { AttendanceStatus, SessionAttendee } from '@/types';
+import type {
+  AttendanceStatus,
+  NewStudentInput,
+  SessionAttendee,
+  Student,
+} from '@/types';
 import type { ReactNode } from 'react';
 
-type ModalKind = 'register' | 'check-in' | 'check-out' | null;
+type ModalKind = 'check-in' | 'check-out' | null;
 
 interface DeleteStudentState {
   studentId: string;
@@ -59,6 +66,10 @@ export function SessionView() {
   const [editAttendee, setEditAttendee] = useState<SessionAttendee | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addedStudent, setAddedStudent] = useState<Student | null>(null);
 
   const filteredAttendees = useMemo(() => {
     let result = attendees;
@@ -164,6 +175,28 @@ export function SessionView() {
   function onEditStudentClick(attendee: SessionAttendee) {
     setEditError(null);
     setEditAttendee(attendee);
+  }
+
+  function openAddStudent() {
+    setAddError(null);
+    setAddedStudent(null);
+    setShowAdd(true);
+  }
+
+  async function onAddStudent(values: NewStudentInput) {
+    setAddSaving(true);
+    setAddError(null);
+    try {
+      const created = await data.registerStudent(values);
+      await refresh();
+      setAddedStudent(created);
+    } catch (err) {
+      setAddError(
+        isDataError(err) ? err.message : 'Could not add student. Please try again.',
+      );
+    } finally {
+      setAddSaving(false);
+    }
   }
 
   async function onSaveEdit(values: EditAttendeeValues) {
@@ -282,9 +315,10 @@ export function SessionView() {
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <QrActionButton
           icon={<UserPlus />}
-          title="Registration QR"
-          subtitle="New students scan to sign up"
-          onClick={() => setModal('register')}
+          circleIcon={<UserPlus />}
+          title="Add student"
+          subtitle="Register a student manually"
+          onClick={openAddStudent}
         />
         <QrActionButton
           icon={<Login />}
@@ -322,18 +356,20 @@ export function SessionView() {
         />
       </div>
 
-      {/* Registration modal */}
-      <Modal
-        open={modal === 'register'}
-        onClose={() => setModal(null)}
-        title="Registration QR"
-        description="Students scan this to register and receive their code."
-      >
-        <QRPanel
-          url={absoluteUrl(paths.register)}
-          caption="Point your phone camera here to sign up."
+      {/* Add student (manual, admin-only) */}
+      {showAdd && (
+        <AddStudentModal
+          saving={addSaving}
+          error={addError}
+          createdStudent={addedStudent}
+          onSave={onAddStudent}
+          onAddAnother={() => {
+            setAddedStudent(null);
+            setAddError(null);
+          }}
+          onClose={() => setShowAdd(false)}
         />
-      </Modal>
+      )}
 
       {/* Check-in modal */}
       <Modal
@@ -464,6 +500,7 @@ function GateToggle({
 
 function QrActionButton({
   icon,
+  circleIcon = <QrIcon />,
   title,
   subtitle,
   onClick,
@@ -471,6 +508,7 @@ function QrActionButton({
   disabled = false,
 }: {
   icon: ReactNode;
+  circleIcon?: ReactNode;
   title: string;
   subtitle: string;
   onClick: () => void;
@@ -495,7 +533,7 @@ function QrActionButton({
           active ? 'bg-white/20 text-white' : 'bg-brand-50 text-brand-600',
         ].join(' ')}
       >
-        <QrIcon />
+        {circleIcon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 font-bold">

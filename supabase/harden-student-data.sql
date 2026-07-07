@@ -213,8 +213,15 @@ create policy attendance_all_authenticated
   to authenticated
   using (true) with check (true);
 
--- ── (5) Expose only the safe student functions to the anon key ────────────────
-grant execute on function public.register_student(text, text, text, text) to anon, authenticated;
-grant execute on function public.recover_student_code(text)               to anon, authenticated;
-grant execute on function public.check_in(uuid, text)                     to anon, authenticated;
-grant execute on function public.check_out(uuid, text)                    to anon, authenticated;
+-- ── (5) Function access ───────────────────────────────────────────────────────
+-- register_student is ADMIN-ONLY: students can no longer self-register (the
+-- public /register page was removed). Only a signed-in lecturer may add
+-- students. Revoke from PUBLIC too, because Postgres grants EXECUTE to PUBLIC by
+-- default on new functions — anon inherits PUBLIC, so we must strip both.
+revoke execute on function public.register_student(text, text, text, text) from public, anon;
+grant  execute on function public.register_student(text, text, text, text) to authenticated;
+
+-- Student self-service (anon) — recover their own code + check in / out only.
+grant execute on function public.recover_student_code(text) to anon, authenticated;
+grant execute on function public.check_in(uuid, text)       to anon, authenticated;
+grant execute on function public.check_out(uuid, text)      to anon, authenticated;

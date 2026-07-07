@@ -271,7 +271,10 @@ grant insert, update on public.sessions to authenticated;
 grant select, insert, update, delete on public.students   to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;
 
-grant execute on function public.register_student(text, text, text, text) to anon, authenticated;
+-- register_student is ADMIN-ONLY (no public self-registration). Postgres grants
+-- EXECUTE to PUBLIC by default, and anon inherits PUBLIC, so revoke both.
+revoke execute on function public.register_student(text, text, text, text) from public, anon;
+grant  execute on function public.register_student(text, text, text, text) to authenticated;
 grant execute on function public.recover_student_code(text)               to anon, authenticated;
 grant execute on function public.check_in(uuid, text)                     to anon, authenticated;
 grant execute on function public.check_out(uuid, text)                    to anon, authenticated;

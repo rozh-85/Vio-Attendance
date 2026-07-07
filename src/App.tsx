@@ -5,7 +5,6 @@ import { RequireAuth } from '@/components/RequireAuth';
 import { routePatterns } from '@/routes';
 import { LecturerDashboard } from '@/pages/LecturerDashboard';
 import { SessionView } from '@/pages/SessionView';
-import { RegisterPage } from '@/pages/RegisterPage';
 import { CheckInPage } from '@/pages/CheckInPage';
 import { CheckOutPage } from '@/pages/CheckOutPage';
 import { RecoverCodePage } from '@/pages/RecoverCodePage';
@@ -36,8 +35,9 @@ export default function App() {
             />
 
             {/* Public — student-facing + the lecturer login screen. */}
+            {/* Self-registration was removed: only a signed-in lecturer can add
+                students now (see the "Add student" button in the dashboard). */}
             <Route path={routePatterns.login} element={<LoginPage />} />
-            <Route path={routePatterns.register} element={<RegisterPage />} />
             <Route path={routePatterns.recover} element={<RecoverCodePage />} />
             <Route path={routePatterns.checkIn} element={<CheckInPage />} />
             <Route path={routePatterns.checkOut} element={<CheckOutPage />} />
