@@ -2,9 +2,9 @@
 export const paths = {
   dashboard: '/',
   // Admin sign-in lives at a non-obvious path so students never stumble onto
-  // it. Everything else students might guess (/admin, /login, /register,
-  // unknown URLs) falls through to the neutral NotFound page.
-  admin: '/admin01',
+  // it. Everything else students might guess (/login, /register, unknown URLs)
+  // falls through to the neutral NotFound page.
+  admin: '/admin',
   session: (id: string) => `/session/${id}`,
   recover: '/recover',
   checkIn: (sessionId: string) => `/checkin/${sessionId}`,
@@ -13,7 +13,7 @@ export const paths = {
 
 export const routePatterns = {
   dashboard: '/',
-  admin: '/admin01',
+  admin: '/admin',
   session: '/session/:sessionId',
   recover: '/recover',
   checkIn: '/checkin/:sessionId',
