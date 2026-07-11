@@ -5,8 +5,8 @@ import { formatClock, formatDateTime } from '@/utils/time';
 const MIME_XLSX =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const SHEET_NAME = 'Student Attendance';
-const COLUMN_COUNT = 9;
-const FIRST_STUDENT_ROW = 8;
+const COLUMN_COUNT = 8;
+const FIRST_STUDENT_ROW = 5;
 
 interface ZipEntry {
   path: string;
@@ -16,13 +16,12 @@ interface ZipEntry {
 interface AttendanceDetailRow {
   studentCode: string;
   studentName: string;
-  collegeName: string;
-  departmentName: string;
   lectureName: string;
   dateAndTime: string;
   checkInTime: string;
   checkOutTime: string;
-  totalTimePresent: string;
+  status: string;
+  timePresent: string;
 }
 
 interface StudentReport {
@@ -116,27 +115,23 @@ function buildAttendanceReport(
       return {
         studentCode: student.code,
         studentName: student.fullName,
-        collegeName: student.college,
-        departmentName: student.department,
         lectureName: session.title || session.lecturerName,
         dateAndTime: formatDateTime(session.startedAt),
-        checkInTime: record?.checkInAt ? formatClock(record.checkInAt) : '',
+        checkInTime: record?.checkInAt ? formatClock(record.checkInAt) : '—',
         checkOutTime: record?.checkOutAt
           ? formatClock(record.checkOutAt)
           : record?.checkInAt
             ? 'In progress'
-            : '',
-        totalTimePresent: record?.checkInAt
-          ? formatMinutes(presentMinutes)
-          : 'Absent',
+            : '—',
+        status: record?.checkInAt ? 'Present' : 'Absent',
+        timePresent: record?.checkInAt ? formatMinutes(presentMinutes) : '—',
       };
     });
 
     return {
       student,
       lecturesAttended,
-      totalTimePresent:
-        lecturesAttended > 0 ? formatMinutes(studentMinutes) : 'Absent',
+      totalTimePresent: formatMinutes(studentMinutes),
       detailRows,
     };
   });
@@ -156,19 +151,18 @@ function worksheetXml(report: AttendanceReport, lastRow: number): string {
   return xml([
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
     '<sheetPr><outlinePr summaryBelow="1" summaryRight="1"/><pageSetUpPr/></sheetPr>',
-    `<dimension ref="A1:I${lastRow}"/>`,
+    `<dimension ref="A1:H${lastRow}"/>`,
     `<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="${FIRST_STUDENT_ROW - 1}" topLeftCell="A${FIRST_STUDENT_ROW}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${FIRST_STUDENT_ROW}" sqref="A${FIRST_STUDENT_ROW}"/></sheetView></sheetViews>`,
     '<sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>',
     '<cols>',
-    '<col min="1" max="1" width="18" customWidth="1"/>',
-    '<col min="2" max="2" width="28" customWidth="1"/>',
+    '<col min="1" max="1" width="28" customWidth="1"/>',
+    '<col min="2" max="2" width="10" customWidth="1"/>',
     '<col min="3" max="3" width="28" customWidth="1"/>',
-    '<col min="4" max="4" width="28" customWidth="1"/>',
-    '<col min="5" max="5" width="31" customWidth="1"/>',
-    '<col min="6" max="6" width="25" customWidth="1"/>',
-    '<col min="7" max="7" width="17" customWidth="1"/>',
-    '<col min="8" max="8" width="18" customWidth="1"/>',
-    '<col min="9" max="9" width="22" customWidth="1"/>',
+    '<col min="4" max="4" width="24" customWidth="1"/>',
+    '<col min="5" max="5" width="14" customWidth="1"/>',
+    '<col min="6" max="6" width="14" customWidth="1"/>',
+    '<col min="7" max="7" width="12" customWidth="1"/>',
+    '<col min="8" max="8" width="15" customWidth="1"/>',
     '</cols>',
     '<sheetData>',
     ...sheetRows.map((row, index) => {
@@ -187,12 +181,14 @@ function worksheetXml(report: AttendanceReport, lastRow: number): string {
       );
     }),
     '</sheetData>',
-    mergeCellsXml(report),
+    mergeCellsXml(),
     '<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/>',
     '</worksheet>',
   ]);
 }
 
+// One flat table: a single header row, then one row per student per lecture
+// (rows grouped by student), and a bold Total row closing each student group.
 function buildSheetRows(report: AttendanceReport): SheetRow[] {
   const rows: SheetRow[] = [
     {
@@ -200,103 +196,68 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
       style: 1,
       height: 34,
     },
-    { values: fillColumns([]), style: 0 },
     {
-      values: fillColumns(['Total Lectures', String(report.totalLectures)]),
-      style: 3,
-      styles: labelValueStyles(),
-      height: 24,
-    },
-    {
-      values: fillColumns(['Total Lecture Time', report.totalLectureTime]),
-      style: 3,
-      styles: labelValueStyles(),
-      height: 24,
-    },
-    {
-      values: fillColumns(['Total Students', String(report.totalStudents)]),
-      style: 3,
-      styles: labelValueStyles(),
-      height: 24,
-    },
-    {
-      values: fillColumns(['Generated At', report.generatedAt]),
-      style: 3,
-      styles: labelValueStyles(),
+      values: fillColumns([
+        `Generated ${report.generatedAt}   ·   ${report.totalLectures} lectures   ·   ${report.totalStudents} students   ·   Total lecture time ${report.totalLectureTime}`,
+      ]),
+      style: 2,
       height: 24,
     },
     { values: fillColumns([]), style: 0 },
-  ];
-
-  for (const studentReport of report.students) {
-    rows.push({
+    {
       values: fillColumns([
-        `${studentReport.student.code} - ${studentReport.student.fullName} | Total Time Present: ${studentReport.totalTimePresent}`,
-      ]),
-      style: 7,
-      height: 28,
-    });
-    rows.push({
-      values: fillColumns([
-        'Total Time Present',
-        studentReport.totalTimePresent,
-        'Lectures Attended',
-        `${studentReport.lecturesAttended} / ${report.totalLectures}`,
-        'Total Lecture Time',
-        report.totalLectureTime,
-      ]),
-      style: 9,
-      styles: studentSummaryStyles(),
-      height: 28,
-    });
-    rows.push({
-      values: fillColumns([
-        'Student Code',
         'Student Name',
-        'College Name',
-        'Department Name',
-        'Lecture Name',
+        'Code',
+        'Lecture',
         'Date and Time',
-        'Check-in Time',
-        'Check-out Time',
-        'Total Time Present',
+        'Check-In',
+        'Check-Out',
+        'Status',
+        'Hours',
       ]),
       style: 4,
       height: 30,
-    });
+    },
+  ];
 
+  for (const studentReport of report.students) {
     studentReport.detailRows.forEach((detailRow, index) => {
       rows.push({
         values: [
-          detailRow.studentCode,
           detailRow.studentName,
-          detailRow.collegeName,
-          detailRow.departmentName,
+          detailRow.studentCode,
           detailRow.lectureName,
           detailRow.dateAndTime,
           detailRow.checkInTime,
           detailRow.checkOutTime,
-          detailRow.totalTimePresent,
+          detailRow.status,
+          detailRow.timePresent,
         ],
-        style: index % 2 === 0 ? 5 : 6,
-        height: 24,
+        style: index % 2 === 0 ? 6 : 5,
+        height: 22,
       });
     });
-    rows.push({ values: fillColumns([]), style: 0 });
+    rows.push({
+      values: fillColumns([
+        `${studentReport.student.fullName} — Total`,
+        studentReport.student.code,
+        `Attended ${studentReport.lecturesAttended} / ${report.totalLectures} lectures`,
+        '',
+        '',
+        '',
+        '',
+        studentReport.totalTimePresent,
+      ]),
+      style: 8,
+      height: 26,
+    });
   }
 
   return rows;
 }
 
-function mergeCellsXml(report: AttendanceReport): string {
-  const refs = ['A1:I1', 'B3:I3', 'B4:I4', 'B5:I5', 'B6:I6'];
-  let row = FIRST_STUDENT_ROW;
-
-  for (const studentReport of report.students) {
-    refs.push(`A${row}:I${row}`);
-    row += studentReport.detailRows.length + 4;
-  }
-
+function mergeCellsXml(): string {
+  const refs = ['A1:H1', 'A2:H2'];
   return `<mergeCells count="${refs.length}">${refs
     .map((ref) => `<mergeCell ref="${ref}"/>`)
     .join('')}</mergeCells>`;
@@ -307,7 +268,7 @@ function getLastRow(report: AttendanceReport): number {
     FIRST_STUDENT_ROW -
     1 +
     report.students.reduce(
-      (total, student) => total + student.detailRows.length + 4,
+      (total, student) => total + student.detailRows.length + 1,
       0,
     )
   );
@@ -315,14 +276,6 @@ function getLastRow(report: AttendanceReport): number {
 
 function fillColumns(values: string[]): string[] {
   return Array.from({ length: COLUMN_COUNT }, (_, index) => values[index] ?? '');
-}
-
-function labelValueStyles(): number[] {
-  return Array.from({ length: COLUMN_COUNT }, (_, index) => (index === 0 ? 2 : 3));
-}
-
-function studentSummaryStyles(): number[] {
-  return [8, 9, 8, 9, 8, 9, 9, 9, 9];
 }
 
 function minutesBetween(startIso?: string, endIso?: string): number {
@@ -402,7 +355,7 @@ function stylesXml(): string {
     '<fonts count="6">',
     '<font><sz val="12"/><color rgb="FF1F2937"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="18"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
-    '<font><b/><sz val="12"/><color rgb="FF1F4E78"/><name val="Calibri"/><family val="2"/></font>',
+    '<font><b/><sz val="12"/><color rgb="FF9E2A2B"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="13"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="12"/><color rgb="FF1F2937"/><name val="Calibri"/><family val="2"/></font>',
@@ -410,15 +363,15 @@ function stylesXml(): string {
     '<fills count="7">',
     '<fill><patternFill patternType="none"/></fill>',
     '<fill><patternFill patternType="gray125"/></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFDDEFF8"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FF2F80B9"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFC0E6F5"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFB01E2A"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFCEBEE"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFC02128"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFCE4E6"/><bgColor indexed="64"/></patternFill></fill>',
     '<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>',
     '</fills>',
     '<borders count="2">',
     '<border><left/><right/><top/><bottom/><diagonal/></border>',
-    '<border><left style="thin"><color rgb="FF5BC0EB"/></left><right style="thin"><color rgb="FF5BC0EB"/></right><top style="thin"><color rgb="FF5BC0EB"/></top><bottom style="thin"><color rgb="FF5BC0EB"/></bottom><diagonal/></border>',
+    '<border><left style="thin"><color rgb="FFE6A6AC"/></left><right style="thin"><color rgb="FFE6A6AC"/></right><top style="thin"><color rgb="FFE6A6AC"/></top><bottom style="thin"><color rgb="FFE6A6AC"/></bottom><diagonal/></border>',
     '</borders>',
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>',
     '<cellXfs count="10">',
