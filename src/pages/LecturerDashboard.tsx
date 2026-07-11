@@ -106,15 +106,18 @@ export function LecturerDashboard() {
           >
             Add student
           </Button>
-          <Button
-            variant="secondary"
-            leftIcon={<Download width={18} height={18} />}
-            loading={exporting}
-            onClick={onExportAll}
-            disabled={sessions.length === 0}
-          >
-            Export Excel
-          </Button>
+          {/* Hidden for now (set to true to bring it back). */}
+          {false && (
+            <Button
+              variant="secondary"
+              leftIcon={<Download width={18} height={18} />}
+              loading={exporting}
+              onClick={onExportAll}
+              disabled={sessions.length === 0}
+            >
+              Export Excel
+            </Button>
+          )}
           {authRequired && (
             <Button
               variant="ghost"
