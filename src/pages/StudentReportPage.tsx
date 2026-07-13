@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
-import { Search } from '@/components/icons';
+import { Download, Search } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
+import { exportStudentPdf } from '@/services/report/studentPdf';
 import { formatClock, formatDateTime } from '@/utils/time';
 import type { AttendanceRecord, Session, Student } from '@/types';
 
@@ -114,6 +116,35 @@ export function StudentReportPage() {
     setQuery(student.fullName);
   }
 
+  function onExportPdf() {
+    if (!selected || !report) return;
+    exportStudentPdf(
+      selected,
+      {
+        totalSessions: report.eligibleCount,
+        attended: report.attended,
+        absent: report.absent,
+        totalHours: formatMinutes(report.totalMinutes),
+      },
+      report.rows.map(({ session, record, minutes, beforeRegistration }) => ({
+        lecture: session.title || session.lecturerName,
+        date: formatDateTime(session.startedAt),
+        checkIn: record?.checkInAt ? formatClock(record.checkInAt) : '—',
+        checkOut: record?.checkOutAt
+          ? formatClock(record.checkOutAt)
+          : record?.checkInAt
+            ? 'In progress'
+            : '—',
+        status: record?.checkInAt
+          ? 'Present'
+          : beforeRegistration
+            ? 'Not registered yet'
+            : 'Absent',
+        hours: record?.checkInAt ? formatMinutes(minutes) : '—',
+      })),
+    );
+  }
+
   return (
     <AdminLayout>
       <header className="mb-6">
@@ -194,6 +225,13 @@ export function StudentReportPage() {
                     .join(' · ')}
                 </p>
               </div>
+              <Button
+                variant="secondary"
+                leftIcon={<Download width={18} height={18} />}
+                onClick={onExportPdf}
+              >
+                Export PDF
+              </Button>
             </div>
           </Card>
 
