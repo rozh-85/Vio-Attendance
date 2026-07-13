@@ -91,14 +91,38 @@ export class SupabaseDataService implements DataService {
     throw error as unknown as Error;
   }
 
+  /**
+   * Fetches every row of a table in pages. Supabase caps a single select at
+   * 1000 rows; without paging, large rosters silently lose rows and students
+   * show up as falsely absent in reports.
+   */
+  private async fetchAllRows<T>(
+    table: string,
+    orderColumn: string,
+    ascending: boolean,
+    filter?: { column: string; value: string },
+  ): Promise<T[]> {
+    const pageSize = 1000;
+    const rows: T[] = [];
+    for (let from = 0; ; from += pageSize) {
+      let query = this.client
+        .from(table)
+        .select('*')
+        .order(orderColumn, { ascending })
+        .range(from, from + pageSize - 1);
+      if (filter) query = query.eq(filter.column, filter.value);
+      const { data, error } = await query;
+      if (error) throw error;
+      const batch = (data ?? []) as T[];
+      rows.push(...batch);
+      if (batch.length < pageSize) return rows;
+    }
+  }
+
   // ── Students ──────────────────────────────────────────────────────────────
   async listStudents(): Promise<Student[]> {
-    const { data, error } = await this.client
-      .from('students')
-      .select('*')
-      .order('code', { ascending: true });
-    if (error) throw error;
-    return (data as StudentRow[]).map((r) => this.toStudent(r));
+    const rows = await this.fetchAllRows<StudentRow>('students', 'code', true);
+    return rows.map((r) => this.toStudent(r));
   }
 
   async getStudentByPhone(phone: string): Promise<Student | null> {
@@ -192,12 +216,12 @@ export class SupabaseDataService implements DataService {
 
   // ── Sessions ──────────────────────────────────────────────────────────────
   async listSessions(): Promise<Session[]> {
-    const { data, error } = await this.client
-      .from('sessions')
-      .select('*')
-      .order('started_at', { ascending: false });
-    if (error) throw error;
-    return (data as SessionRow[]).map((r) => this.toSession(r));
+    const rows = await this.fetchAllRows<SessionRow>(
+      'sessions',
+      'started_at',
+      false,
+    );
+    return rows.map((r) => this.toSession(r));
   }
 
   async getSession(id: string): Promise<Session | null> {
@@ -269,11 +293,13 @@ export class SupabaseDataService implements DataService {
 
   // ── Attendance ────────────────────────────────────────────────────────────
   async listAttendance(sessionId?: string): Promise<AttendanceRecord[]> {
-    let query = this.client.from('attendance').select('*');
-    if (sessionId) query = query.eq('session_id', sessionId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data as AttendanceRow[]).map((r) => this.toRecord(r));
+    const rows = await this.fetchAllRows<AttendanceRow>(
+      'attendance',
+      'id',
+      true,
+      sessionId ? { column: 'session_id', value: sessionId } : undefined,
+    );
+    return rows.map((r) => this.toRecord(r));
   }
 
   async checkIn(sessionId: string, code: string): Promise<AttendanceRecord> {

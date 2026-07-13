@@ -13,6 +13,11 @@ interface SessionRow {
   session: Session;
   record?: AttendanceRecord;
   minutes: number;
+  /**
+   * Sessions that ended before the student registered are shown but excluded
+   * from the Absent count — the student could not have attended them.
+   */
+  beforeRegistration: boolean;
 }
 
 /**
@@ -79,11 +84,29 @@ export function StudentReportPage() {
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       .map((session) => {
         const record = bySession.get(session.id);
-        return { session, record, minutes: presentMinutes(session, record) };
+        // A session counts toward this student only from the moment they
+        // registered (unless they somehow have a check-in for it anyway).
+        const beforeRegistration =
+          !record?.checkInAt &&
+          !!selected.createdAt &&
+          (session.closedAt ?? session.startedAt) < selected.createdAt;
+        return {
+          session,
+          record,
+          minutes: presentMinutes(session, record),
+          beforeRegistration,
+        };
       });
-    const attended = rows.filter((r) => r.record?.checkInAt).length;
+    const eligible = rows.filter((r) => !r.beforeRegistration);
+    const attended = eligible.filter((r) => r.record?.checkInAt).length;
     const totalMinutes = rows.reduce((sum, r) => sum + r.minutes, 0);
-    return { rows, attended, totalMinutes };
+    return {
+      rows,
+      attended,
+      totalMinutes,
+      eligibleCount: eligible.length,
+      absent: eligible.length - attended,
+    };
   }, [selected, sessions, records]);
 
   function pick(student: Student) {
@@ -175,19 +198,22 @@ export function StudentReportPage() {
           </Card>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard value={sessions.length} label="Total sessions" />
+            <StatCard value={report.eligibleCount} label="Total sessions" />
             <StatCard value={report.attended} label="Attended" tone="success" />
-            <StatCard
-              value={sessions.length - report.attended}
-              label="Absent"
-              tone="warning"
-            />
+            <StatCard value={report.absent} label="Absent" tone="warning" />
             <StatCard
               value={formatMinutes(report.totalMinutes)}
               label="Total hours"
               tone="info"
             />
           </div>
+
+          {report.rows.some((r) => r.beforeRegistration) && (
+            <p className="mt-3 text-xs text-ink-400">
+              Sessions marked “Not registered yet” happened before this student
+              signed up — they are not counted as absent.
+            </p>
+          )}
 
           <Card className="mt-6 overflow-hidden">
             <div className="overflow-x-auto">
@@ -203,7 +229,7 @@ export function StudentReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.rows.map(({ session, record, minutes }) => (
+                  {report.rows.map(({ session, record, minutes, beforeRegistration }) => (
                     <tr
                       key={session.id}
                       className="border-b border-slate-100 last:border-0"
@@ -227,8 +253,10 @@ export function StudentReportPage() {
                       <td className="px-5 py-3.5">
                         {record?.checkInAt ? (
                           <Badge tone="success">Present</Badge>
+                        ) : beforeRegistration ? (
+                          <Badge tone="neutral">Not registered yet</Badge>
                         ) : (
-                          <Badge tone="neutral">Absent</Badge>
+                          <Badge tone="warning">Absent</Badge>
                         )}
                       </td>
                       <td className="px-5 py-3.5 tabular-nums text-ink-700">
