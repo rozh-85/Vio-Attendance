@@ -104,7 +104,8 @@ function buildHtml(
 </head>
 <body>
   <div class="band">
-    <img src="${location.origin}/asiacell-logo.svg" alt="Asiacell" />
+    <img src="${location.origin}/asiacell-logo.png" alt="Asiacell"
+         onerror="this.onerror=null;this.src='${location.origin}/asiacell-logo.svg'" />
     <div>
       <div class="title">Student Attendance Report</div>
       <div class="subtitle">Asiacell · QR Attendance</div>

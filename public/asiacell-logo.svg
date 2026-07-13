@@ -1,9 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Asiacell-style mark. Replace this file with the official logo (keep the
-       same file name) to use the real artwork in PDF exports. -->
-  <rect width="512" height="512" rx="72" fill="#E01B22"/>
-  <path d="M118 212c44-44 104-64 168-52-18-20-44-32-74-34 44-18 96-6 128 26l44 44c-34-16-72-18-106-8-58-24-118-16-160 24z" fill="#D8D8D8"/>
-  <path d="M150 196c36-28 84-38 130-26-14-14-34-22-56-24 34-12 72-2 96 22l20 20c-26-10-54-11-79-3-40-14-81-9-111 11z" fill="#F4F4F4" opacity="0.6"/>
-  <text x="256" y="330" font-family="Arial, Helvetica, sans-serif" font-size="108" font-weight="700" font-style="italic" fill="#FFFFFF" text-anchor="middle">Asiacell</text>
-  <text x="404" y="268" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#FFFFFF">®</text>
+  <!-- Asiacell-style mark (hand-drawn approximation). For the official artwork,
+       upload the real logo as public/asiacell-logo.png — PDF exports prefer it
+       automatically and fall back to this file when it is absent. -->
+  <rect width="512" height="512" fill="#E9232C"/>
+  <g transform="translate(-34 22)">
+    <!-- gull: head/beak on the left, long wing sweeping up-right over the A -->
+    <path d="M84 206
+             C 96 178 118 162 146 158
+             L 128 144 L 158 148
+             C 196 122 258 112 314 130
+             C 274 124 236 130 206 146
+             C 250 138 300 146 336 170
+             C 290 158 246 160 210 174
+             C 166 168 116 182 84 206 Z"
+          fill="#CDD1D4"/>
+    <path d="M108 194
+             C 126 176 150 166 176 164
+             C 216 142 268 136 312 148
+             C 270 146 232 154 202 170
+             C 168 168 134 178 108 194 Z"
+          fill="#F1F2F3" opacity="0.55"/>
+  </g>
+  <text x="250" y="316" font-family="Arial, Helvetica, sans-serif" font-size="104"
+        font-weight="800" letter-spacing="-2" fill="#FFFFFF"
+        text-anchor="middle">Asiacell</text>
+  <text x="452" y="242" font-family="Arial, Helvetica, sans-serif" font-size="26"
+        fill="#FFFFFF">®</text>
 </svg>
