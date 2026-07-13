@@ -75,8 +75,11 @@ function buildHtml(
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #1F2937; font-size: 12px; }
-  .band { display: flex; align-items: center; gap: 16px; background: ${RED}; color: #fff; border-radius: 12px; padding: 16px 20px; }
-  .band img { width: 58px; height: 58px; border-radius: 10px; background: #fff2; }
+  .band { display: flex; align-items: center; gap: 18px; background: ${RED}; color: #fff; border-radius: 12px; padding: 18px 22px; }
+  .brand { font-size: 30px; font-weight: 800; font-style: italic; letter-spacing: -1px; white-space: nowrap; }
+  .brand sup { font-size: 11px; font-style: normal; margin-left: 1px; }
+  .brand-sub { font-size: 9.5px; letter-spacing: 2.5px; text-transform: uppercase; opacity: .85; margin-top: 1px; }
+  .divider { width: 1px; height: 44px; background: rgba(255,255,255,.35); }
   .band .title { font-size: 21px; font-weight: 700; letter-spacing: .2px; }
   .band .subtitle { margin-top: 3px; font-size: 11px; opacity: .9; }
   .band .when { margin-left: auto; text-align: right; font-size: 10.5px; opacity: .9; }
@@ -104,11 +107,13 @@ function buildHtml(
 </head>
 <body>
   <div class="band">
-    <img src="${location.origin}/asiacell-logo.png" alt="Asiacell"
-         onerror="this.onerror=null;this.src='${location.origin}/asiacell-logo.svg'" />
+    <div>
+      <div class="brand">Asiacell<sup>®</sup></div>
+      <div class="brand-sub">QR Attendance</div>
+    </div>
+    <div class="divider"></div>
     <div>
       <div class="title">Student Attendance Report</div>
-      <div class="subtitle">Asiacell · QR Attendance</div>
     </div>
     <div class="when">Generated<br/><b>${esc(formatDateTime(new Date().toISOString()))}</b></div>
   </div>
