@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Screen } from '@/components/Screen';
+import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -86,7 +86,7 @@ export function LecturerDashboard() {
   }
 
   return (
-    <Screen width="lg">
+    <AdminLayout>
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-sm font-bold uppercase tracking-wide text-brand-600">
@@ -218,6 +218,6 @@ export function LecturerDashboard() {
           onClose={() => setShowAdd(false)}
         />
       )}
-    </Screen>
+    </AdminLayout>
   );
 }

@@ -29,6 +29,20 @@ export const ArrowRight = (p: IconProps) => (
   </svg>
 );
 
+export const Search = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.35-4.35" />
+  </svg>
+);
+
+export const Home = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 10.5 12 3l9 7.5" />
+    <path d="M5 9.5V21h14V9.5" />
+  </svg>
+);
+
 export const ArrowLeft = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M19 12H5M11 18l-6-6 6-6" />

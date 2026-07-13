@@ -4,6 +4,7 @@ import { AuthProvider } from '@/services/auth/context';
 import { RequireAuth } from '@/components/RequireAuth';
 import { routePatterns } from '@/routes';
 import { LecturerDashboard } from '@/pages/LecturerDashboard';
+import { StudentReportPage } from '@/pages/StudentReportPage';
 import { SessionView } from '@/pages/SessionView';
 import { CheckInPage } from '@/pages/CheckInPage';
 import { CheckOutPage } from '@/pages/CheckOutPage';
@@ -23,6 +24,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <LecturerDashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.students}
+              element={
+                <RequireAuth>
+                  <StudentReportPage />
                 </RequireAuth>
               }
             />
