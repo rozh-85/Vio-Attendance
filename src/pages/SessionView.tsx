@@ -68,6 +68,9 @@ export function SessionView() {
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addedStudent, setAddedStudent] = useState<Student | null>(null);
+  // Check-out QR only: lecturer can switch off rotation to show one constant
+  // code for the whole session. Check-in always rotates.
+  const [checkOutQrConstant, setCheckOutQrConstant] = useState(false);
 
   const filteredAttendees = useMemo(() => {
     let result = attendees;
@@ -399,7 +402,20 @@ export function SessionView() {
           sessionId={session.id}
           mode="out"
           path={paths.checkOut(session.id)}
+          rotating={!checkOutQrConstant}
         />
+        <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+          <span className="text-sm text-ink-500">
+            {checkOutQrConstant
+              ? 'One constant code for the whole session.'
+              : 'Code changes every few seconds.'}
+          </span>
+          <Toggle
+            checked={checkOutQrConstant}
+            onChange={setCheckOutQrConstant}
+            label="Constant QR"
+          />
+        </div>
         <GateToggle
           label="Accepting check-outs"
           checked={session.checkOutOpen}

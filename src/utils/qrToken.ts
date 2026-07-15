@@ -63,6 +63,21 @@ export function currentQrToken(sessionId: string, mode: QrMode): string {
   return tokenForWindow(sessionId, mode, windowIndexAt(Date.now()));
 }
 
+const STATIC_WINDOW = 'static';
+
+/**
+ * A constant token for this session/mode that never expires. Used when the
+ * lecturer switches the QR to "constant" mode (e.g. so students can check out
+ * from a printed or shared code). Still signed per session, so a token from
+ * one session cannot be reused on another.
+ */
+export function staticQrToken(sessionId: string, mode: QrMode): string {
+  const sig = cyrb53(`${SECRET}|${sessionId}|${mode}|${STATIC_WINDOW}`).toString(
+    36,
+  );
+  return `${STATIC_WINDOW}.${sig}`;
+}
+
 /** True if `token` was issued for this session/mode and is still fresh. */
 export function isQrTokenValid(
   sessionId: string,
@@ -72,6 +87,11 @@ export function isQrTokenValid(
   if (!token) return false;
   const dot = token.indexOf('.');
   if (dot < 0) return false;
+
+  // Constant-mode token: valid for the whole session, no time window.
+  if (token.slice(0, dot) === STATIC_WINDOW) {
+    return token === staticQrToken(sessionId, mode);
+  }
 
   const win = parseInt(token.slice(0, dot), 36);
   if (Number.isNaN(win)) return false;
