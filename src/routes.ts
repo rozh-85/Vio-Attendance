@@ -6,7 +6,6 @@ export const paths = {
   // falls through to the neutral NotFound page.
   admin: '/admin01',
   students: '/students',
-  lectures: '/lectures',
   session: (id: string) => `/session/${id}`,
   recover: '/recover',
   checkIn: (sessionId: string) => `/checkin/${sessionId}`,
@@ -17,7 +16,6 @@ export const routePatterns = {
   dashboard: '/',
   admin: '/admin01',
   students: '/students',
-  lectures: '/lectures',
   session: '/session/:sessionId',
   recover: '/recover',
   checkIn: '/checkin/:sessionId',

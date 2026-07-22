@@ -282,7 +282,7 @@ export function StudentReportPage() {
           </Card>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard value={stats.totalSessions} label="Total sessions" />
+            <StatCard value={stats.totalSessions} label="Total lectures" />
             <StatCard value={stats.attended} label="Attended" tone="success" />
             <StatCard value={stats.absent} label="Absent" tone="warning" />
             <StatCard
@@ -293,9 +293,9 @@ export function StudentReportPage() {
           </div>
 
           <p className="mt-3 text-xs text-ink-400">
-            Untick any session that isn't part of this student's programme —
+            Untick any lecture that isn't part of this student's programme —
             company-wide sessions or lectures they attend at another university.
-            Only ticked sessions count toward the totals above and appear in the
+            Only ticked lectures count toward the totals above and appear in the
             exported PDF.
           </p>
 
@@ -305,7 +305,7 @@ export function StudentReportPage() {
                 <span className="font-semibold text-ink-900">
                   {included.size}
                 </span>{' '}
-                of {rows.length} sessions included
+                of {rows.length} lectures included
               </p>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={selectAll}>
@@ -327,7 +327,7 @@ export function StudentReportPage() {
                       <input
                         type="checkbox"
                         className="size-4 cursor-pointer align-middle accent-brand-600"
-                        aria-label="Include all sessions"
+                        aria-label="Include all lectures"
                         checked={allIncluded}
                         ref={(el) => {
                           if (el)
