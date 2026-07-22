@@ -292,15 +292,18 @@ export function StudentReportPage() {
             />
           </div>
 
-          <p className="mt-3 text-xs text-ink-400">
-            Untick any lecture that isn't part of this student's programme —
-            company-wide sessions or lectures they attend at another university.
-            Only ticked lectures count toward the totals above and appear in the
-            exported PDF.
-          </p>
+          <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 text-sm text-ink-600">
+            <span className="font-semibold text-ink-900">
+              Choose which lectures belong to this student.
+            </span>{' '}
+            Untick any that aren't part of their programme — company-wide
+            sessions or lectures they attend at another university. Only ticked
+            lectures count toward the totals above and appear in the exported
+            PDF.
+          </div>
 
           {rows.length > 0 && (
-            <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="mt-5 mb-3 flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-ink-500">
                 <span className="font-semibold text-ink-900">
                   {included.size}

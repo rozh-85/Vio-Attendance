@@ -78,7 +78,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </nav>
         </div>
 
-        <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <div className="w-full flex-1 px-4 py-8 sm:px-6 sm:py-10 lg:px-10 xl:px-14">
           {children}
         </div>
       </div>
