@@ -5,6 +5,7 @@ import { RequireAuth } from '@/components/RequireAuth';
 import { routePatterns } from '@/routes';
 import { LecturerDashboard } from '@/pages/LecturerDashboard';
 import { StudentReportPage } from '@/pages/StudentReportPage';
+import { LectureReportPage } from '@/pages/LectureReportPage';
 import { SessionView } from '@/pages/SessionView';
 import { CheckInPage } from '@/pages/CheckInPage';
 import { CheckOutPage } from '@/pages/CheckOutPage';
@@ -32,6 +33,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <StudentReportPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.lectures}
+              element={
+                <RequireAuth>
+                  <LectureReportPage />
                 </RequireAuth>
               }
             />

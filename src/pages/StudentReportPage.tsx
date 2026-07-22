@@ -8,7 +8,13 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Download, Search } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
 import { exportStudentPdf } from '@/services/report/studentPdf';
-import { formatClock, formatDateTime } from '@/utils/time';
+import {
+  formatClock,
+  formatDateTime,
+  formatMinutes,
+  presentMinutes,
+} from '@/utils/time';
+import { cn } from '@/utils/cn';
 import type { AttendanceRecord, Session, Student } from '@/types';
 
 interface SessionRow {
@@ -24,7 +30,9 @@ interface SessionRow {
 
 /**
  * Admin page: type a student's name (or code) and see their attendance across
- * every session — check-in/out times, absences and total hours.
+ * every session — check-in/out times, absences and total hours. The lecturer
+ * picks which sessions actually belong to this student before exporting, so
+ * company-wide sessions or lectures they sit elsewhere aren't counted as absent.
  */
 export function StudentReportPage() {
   const data = useDataService();
@@ -35,6 +43,10 @@ export function StudentReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Student | null>(null);
+  // Session ids included in this student's report. Everything they could have
+  // attended is ticked by default; the lecturer unticks the ones that don't
+  // apply to them.
+  const [included, setIncluded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -74,14 +86,14 @@ export function StudentReportPage() {
       .slice(0, 8);
   }, [students, query]);
 
-  const report = useMemo(() => {
-    if (!selected) return null;
+  const rows = useMemo<SessionRow[]>(() => {
+    if (!selected) return [];
     const bySession = new Map(
       records
         .filter((r) => r.studentId === selected.id)
         .map((r) => [r.sessionId, r]),
     );
-    const rows: SessionRow[] = sessions
+    return sessions
       .slice()
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       .map((session) => {
@@ -99,34 +111,66 @@ export function StudentReportPage() {
           beforeRegistration,
         };
       });
-    const eligible = rows.filter((r) => !r.beforeRegistration);
-    const attended = eligible.filter((r) => r.record?.checkInAt).length;
-    const totalMinutes = rows.reduce((sum, r) => sum + r.minutes, 0);
-    return {
-      rows,
-      attended,
-      totalMinutes,
-      eligibleCount: eligible.length,
-      absent: eligible.length - attended,
-    };
   }, [selected, sessions, records]);
+
+  // Reset the selection whenever the student (or their session list) changes:
+  // include everything except sessions that predate their registration.
+  useEffect(() => {
+    setIncluded(
+      new Set(
+        rows.filter((r) => !r.beforeRegistration).map((r) => r.session.id),
+      ),
+    );
+  }, [rows]);
+
+  // Totals reflect only the ticked sessions, so the numbers (and the PDF) match
+  // exactly what the lecturer chose to include.
+  const stats = useMemo(() => {
+    const chosen = rows.filter((r) => included.has(r.session.id));
+    const attended = chosen.filter((r) => r.record?.checkInAt).length;
+    const totalMinutes = chosen.reduce((sum, r) => sum + r.minutes, 0);
+    return {
+      totalSessions: chosen.length,
+      attended,
+      absent: chosen.length - attended,
+      totalMinutes,
+    };
+  }, [rows, included]);
 
   function pick(student: Student) {
     setSelected(student);
     setQuery(student.fullName);
   }
 
+  function toggle(sessionId: string) {
+    setIncluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setIncluded(new Set(rows.map((r) => r.session.id)));
+  }
+
+  function clearAll() {
+    setIncluded(new Set());
+  }
+
   function onExportPdf() {
-    if (!selected || !report) return;
+    if (!selected) return;
+    const chosen = rows.filter((r) => included.has(r.session.id));
     exportStudentPdf(
       selected,
       {
-        totalSessions: report.eligibleCount,
-        attended: report.attended,
-        absent: report.absent,
-        totalHours: formatMinutes(report.totalMinutes),
+        totalSessions: stats.totalSessions,
+        attended: stats.attended,
+        absent: stats.absent,
+        totalHours: formatMinutes(stats.totalMinutes),
       },
-      report.rows.map(({ session, record, minutes, beforeRegistration }) => ({
+      chosen.map(({ session, record, minutes, beforeRegistration }) => ({
         lecture: session.title || session.lecturerName,
         date: formatDateTime(session.startedAt),
         checkIn: record?.checkInAt ? formatClock(record.checkInAt) : '—',
@@ -144,6 +188,8 @@ export function StudentReportPage() {
       })),
     );
   }
+
+  const allIncluded = rows.length > 0 && included.size === rows.length;
 
   return (
     <AdminLayout>
@@ -208,7 +254,7 @@ export function StudentReportPage() {
         )}
       </Card>
 
-      {selected && report && (
+      {selected && (
         <>
           <Card className="mt-6 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -236,28 +282,63 @@ export function StudentReportPage() {
           </Card>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard value={report.eligibleCount} label="Total sessions" />
-            <StatCard value={report.attended} label="Attended" tone="success" />
-            <StatCard value={report.absent} label="Absent" tone="warning" />
+            <StatCard value={stats.totalSessions} label="Total sessions" />
+            <StatCard value={stats.attended} label="Attended" tone="success" />
+            <StatCard value={stats.absent} label="Absent" tone="warning" />
             <StatCard
-              value={formatMinutes(report.totalMinutes)}
+              value={formatMinutes(stats.totalMinutes)}
               label="Total hours"
               tone="info"
             />
           </div>
 
-          {report.rows.some((r) => r.beforeRegistration) && (
-            <p className="mt-3 text-xs text-ink-400">
-              Sessions marked “Not registered yet” happened before this student
-              signed up — they are not counted as absent.
-            </p>
+          <p className="mt-3 text-xs text-ink-400">
+            Untick any session that isn't part of this student's programme —
+            company-wide sessions or lectures they attend at another university.
+            Only ticked sessions count toward the totals above and appear in the
+            exported PDF.
+          </p>
+
+          {rows.length > 0 && (
+            <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-ink-500">
+                <span className="font-semibold text-ink-900">
+                  {included.size}
+                </span>{' '}
+                of {rows.length} sessions included
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={selectAll}>
+                  Select all
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearAll}>
+                  Clear
+                </Button>
+              </div>
+            </div>
           )}
 
-          <Card className="mt-6 overflow-hidden">
+          <Card className={cn('overflow-hidden', rows.length === 0 && 'mt-6')}>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-ink-400">
+                    <th className="px-5 py-3">
+                      <input
+                        type="checkbox"
+                        className="size-4 cursor-pointer align-middle accent-brand-600"
+                        aria-label="Include all sessions"
+                        checked={allIncluded}
+                        ref={(el) => {
+                          if (el)
+                            el.indeterminate =
+                              included.size > 0 && !allIncluded;
+                        }}
+                        onChange={(e) =>
+                          e.target.checked ? selectAll() : clearAll()
+                        }
+                      />
+                    </th>
                     <th className="px-5 py-3 font-semibold">Lecture</th>
                     <th className="px-5 py-3 font-semibold">Date</th>
                     <th className="px-5 py-3 font-semibold">Check-in</th>
@@ -267,45 +348,85 @@ export function StudentReportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.rows.map(({ session, record, minutes, beforeRegistration }) => (
-                    <tr
-                      key={session.id}
-                      className="border-b border-slate-100 last:border-0"
-                    >
-                      <td className="px-5 py-3.5 font-semibold text-ink-900">
-                        {session.title || session.lecturerName}
-                      </td>
-                      <td className="px-5 py-3.5 text-ink-500">
-                        {formatDateTime(session.startedAt)}
-                      </td>
-                      <td className="px-5 py-3.5 tabular-nums text-ink-700">
-                        {record?.checkInAt ? formatClock(record.checkInAt) : '—'}
-                      </td>
-                      <td className="px-5 py-3.5 tabular-nums text-ink-700">
-                        {record?.checkOutAt
-                          ? formatClock(record.checkOutAt)
-                          : record?.checkInAt
-                            ? 'In progress'
-                            : '—'}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        {record?.checkInAt ? (
-                          <Badge tone="success">Present</Badge>
-                        ) : beforeRegistration ? (
-                          <Badge tone="neutral">Not registered yet</Badge>
-                        ) : (
-                          <Badge tone="warning">Absent</Badge>
+                  {rows.map(({ session, record, minutes, beforeRegistration }) => {
+                    const isIn = included.has(session.id);
+                    return (
+                      <tr
+                        key={session.id}
+                        className={cn(
+                          'border-b border-slate-100 transition-colors last:border-0',
+                          isIn ? 'hover:bg-slate-50/60' : 'bg-slate-50/40',
                         )}
-                      </td>
-                      <td className="px-5 py-3.5 tabular-nums text-ink-700">
-                        {record?.checkInAt ? formatMinutes(minutes) : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                  {report.rows.length === 0 && (
+                      >
+                        <td className="px-5 py-3.5">
+                          <input
+                            type="checkbox"
+                            className="size-4 cursor-pointer align-middle accent-brand-600"
+                            aria-label={`Include ${session.title || session.lecturerName}`}
+                            checked={isIn}
+                            onChange={() => toggle(session.id)}
+                          />
+                        </td>
+                        <td
+                          className={cn(
+                            'px-5 py-3.5 font-semibold',
+                            isIn ? 'text-ink-900' : 'text-ink-400',
+                          )}
+                        >
+                          {session.title || session.lecturerName}
+                        </td>
+                        <td
+                          className={cn(
+                            'px-5 py-3.5',
+                            isIn ? 'text-ink-500' : 'text-ink-300',
+                          )}
+                        >
+                          {formatDateTime(session.startedAt)}
+                        </td>
+                        <td
+                          className={cn(
+                            'px-5 py-3.5 tabular-nums',
+                            isIn ? 'text-ink-700' : 'text-ink-300',
+                          )}
+                        >
+                          {record?.checkInAt ? formatClock(record.checkInAt) : '—'}
+                        </td>
+                        <td
+                          className={cn(
+                            'px-5 py-3.5 tabular-nums',
+                            isIn ? 'text-ink-700' : 'text-ink-300',
+                          )}
+                        >
+                          {record?.checkOutAt
+                            ? formatClock(record.checkOutAt)
+                            : record?.checkInAt
+                              ? 'In progress'
+                              : '—'}
+                        </td>
+                        <td className={cn('px-5 py-3.5', !isIn && 'opacity-60')}>
+                          {record?.checkInAt ? (
+                            <Badge tone="success">Present</Badge>
+                          ) : beforeRegistration ? (
+                            <Badge tone="neutral">Not registered yet</Badge>
+                          ) : (
+                            <Badge tone="warning">Absent</Badge>
+                          )}
+                        </td>
+                        <td
+                          className={cn(
+                            'px-5 py-3.5 tabular-nums',
+                            isIn ? 'text-ink-700' : 'text-ink-300',
+                          )}
+                        >
+                          {record?.checkInAt ? formatMinutes(minutes) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {rows.length === 0 && (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="px-5 py-8 text-center text-ink-500"
                       >
                         No sessions yet.
@@ -320,26 +441,4 @@ export function StudentReportPage() {
       )}
     </AdminLayout>
   );
-}
-
-// Minutes present in a session, capped to the session window (same rules as
-// the Excel reports): an open check-out counts up to the session end or now.
-function presentMinutes(session: Session, record?: AttendanceRecord): number {
-  if (!record?.checkInAt) return 0;
-  const sessionEnd = session.closedAt ?? new Date().toISOString();
-  const start = Math.max(
-    new Date(record.checkInAt).getTime(),
-    new Date(session.startedAt).getTime(),
-  );
-  const end = Math.min(
-    new Date(record.checkOutAt ?? sessionEnd).getTime(),
-    new Date(sessionEnd).getTime(),
-  );
-  return Math.max(0, Math.round((end - start) / 60000));
-}
-
-function formatMinutes(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
