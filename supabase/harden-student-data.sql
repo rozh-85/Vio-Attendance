@@ -13,6 +13,11 @@
 --     • register_student      • recover_student_code
 --     • check_in              • check_out
 -- Signed-in lecturers (the `authenticated` role) keep full access as before.
+--
+-- SUPERSEDED IN PART: `check_in` below is the two-argument version. If you have
+-- already run device-checkin-tracking.sql, re-running this file would restore
+-- it alongside the newer four-argument one and make calls ambiguous. Run
+-- device-checkin-tracking.sql again afterwards to put things right.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ── Student self-service functions (run with definer rights, bypassing RLS) ───

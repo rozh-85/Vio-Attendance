@@ -10,6 +10,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Input } from '@/components/ui/Input';
 import { RotatingQRPanel } from '@/components/RotatingQRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
+import { SharedDevicesCard } from '@/components/SharedDevicesCard';
 import { AddStudentModal } from '@/components/AddStudentModal';
 import {
   EditAttendeeModal,
@@ -50,8 +51,18 @@ interface DeleteStudentState {
 export function SessionView() {
   const { sessionId = '' } = useParams();
   const data = useDataService();
-  const { session, attendees, stats, loading, error, update, close, refresh } =
-    useSessionDetail(sessionId);
+  const {
+    session,
+    attendees,
+    stats,
+    sharedDevices,
+    sharedDeviceNames,
+    loading,
+    error,
+    update,
+    close,
+    refresh,
+  } = useSessionDetail(sessionId);
 
   const [modal, setModal] = useState<ModalKind>(null);
   const [closing, setClosing] = useState(false);
@@ -340,6 +351,9 @@ export function SessionView() {
         />
       </div>
 
+      {/* One phone, several students */}
+      <SharedDevicesCard groups={sharedDevices} />
+
       {/* Students */}
       <div className="mt-8">
         <h2 className="mb-4 text-lg font-bold">Students</h2>
@@ -353,6 +367,7 @@ export function SessionView() {
         </div>
         <AttendeeTable
           attendees={filteredAttendees}
+          sharedDeviceNames={sharedDeviceNames}
           onDeleteStudent={onDeleteStudentClick}
           onEditStudent={onEditStudentClick}
         />

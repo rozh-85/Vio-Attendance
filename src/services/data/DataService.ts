@@ -1,6 +1,8 @@
 import type {
   AttendanceEdit,
   AttendanceRecord,
+  CheckInEvent,
+  DeviceInfo,
   NewSessionInput,
   NewStudentInput,
   Session,
@@ -38,10 +40,24 @@ export interface DataService {
 
   // ── Attendance ────────────────────────────────────────────────────────────
   listAttendance(sessionId?: string): Promise<AttendanceRecord[]>;
-  /** Marks a student (by code) as checked in to a session. */
-  checkIn(sessionId: string, code: string): Promise<AttendanceRecord>;
+  /**
+   * Marks a student (by code) as checked in to a session. When `device` is
+   * supplied the check-in is also written to the append-only device log, and
+   * refused with `DEVICE_LIMIT_REACHED` once that phone has checked in more
+   * than `MAX_STUDENTS_PER_DEVICE` students in the current window.
+   */
+  checkIn(
+    sessionId: string,
+    code: string,
+    device?: DeviceInfo,
+  ): Promise<AttendanceRecord>;
   /** Marks a student (by code) as checked out of a session. */
   checkOut(sessionId: string, code: string): Promise<AttendanceRecord>;
+  /**
+   * The device log, newest first. `sinceIso` bounds the window so the
+   * lecturer's screen never pulls the whole history. Lecturer-only.
+   */
+  listCheckInEvents(sinceIso?: string): Promise<CheckInEvent[]>;
   /**
    * Manually sets a student's attendance times for a session (upsert). Used for
    * corrections — bypasses the check-in/check-out gates and session status.

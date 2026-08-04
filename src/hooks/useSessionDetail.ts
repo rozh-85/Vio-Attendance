@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDataService } from '@/services/data/context';
+import {
+  findSharedDeviceGroups,
+  sharedDeviceNamesByStudent,
+} from '@/services/attendance/sharedDevices';
+import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
 import type {
   AttendanceRecord,
   AttendanceStatus,
+  CheckInEvent,
   Session,
   SessionAttendee,
   Student,
@@ -11,6 +17,30 @@ import type {
 function statusOf(record?: AttendanceRecord): AttendanceStatus {
   if (!record?.checkInAt) return 'absent';
   return record.checkOutAt ? 'checked-out' : 'checked-in';
+}
+
+/**
+ * Loads the device log around this lecture — from one device-session window
+ * before it started, so a phone that started its rounds in an earlier lecture
+ * still shows up here.
+ *
+ * The log is a nice-to-have: a database that has not run
+ * `supabase/device-checkin-tracking.sql` yet has no `check_in_events` table, and
+ * that must not take the whole session screen down.
+ */
+async function loadCheckInEvents(
+  data: ReturnType<typeof useDataService>,
+  session: Session,
+): Promise<CheckInEvent[]> {
+  const since = new Date(
+    new Date(session.startedAt).getTime() -
+      DEVICE_SESSION_WINDOW_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+  try {
+    return await data.listCheckInEvents(since);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -23,6 +53,7 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
   const [session, setSession] = useState<Session | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [events, setEvents] = useState<CheckInEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +67,7 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
       setSession(s);
       setStudents(st);
       setRecords(rec);
+      setEvents(s ? await loadCheckInEvents(data, s) : []);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load session.');
@@ -65,6 +97,18 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
       })
       .sort((a, b) => a.student.code.localeCompare(b.student.code));
   }, [students, records]);
+
+  /** Phones that checked in more than one student around this lecture. */
+  const sharedDevices = useMemo(
+    () => findSharedDeviceGroups(events, students, { sessionId }),
+    [events, students, sessionId],
+  );
+
+  /** studentId → names of the others who used the same phone. */
+  const sharedDeviceNames = useMemo(
+    () => sharedDeviceNamesByStudent(sharedDevices),
+    [sharedDevices],
+  );
 
   const stats = useMemo(() => {
     const checkedIn = attendees.filter((a) => a.status === 'checked-in').length;
@@ -99,6 +143,8 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
     attendees,
     records,
     stats,
+    sharedDevices,
+    sharedDeviceNames,
     loading,
     error,
     refresh,

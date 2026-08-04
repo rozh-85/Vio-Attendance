@@ -9,6 +9,7 @@ import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
 import type { Session } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
+import { currentDevice } from '@/utils/device';
 import { isQrTokenValid } from '@/utils/qrToken';
 import { paths } from '@/routes';
 
@@ -70,9 +71,11 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
     setError(null);
     setSubmitting(true);
     try {
+      // Check-in carries the phone's identity so the lecturer can see when one
+      // phone checked in several students. Check-out doesn't need it.
       const record =
         mode === 'check-in'
-          ? await data.checkIn(sessionId, code.trim())
+          ? await data.checkIn(sessionId, code.trim(), currentDevice())
           : await data.checkOut(sessionId, code.trim());
       setDoneAt(
         mode === 'check-in' ? record.checkInAt ?? null : record.checkOutAt ?? null,
