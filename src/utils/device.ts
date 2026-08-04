@@ -3,8 +3,11 @@
  *
  * The first time a phone checks a student in it stores one random id in its
  * localStorage. That id rides along with every later check-in, so the lecturer
- * can see when a single phone was used to check in several different students —
- * the classic "check me in, I'm not there" case.
+ * can see when a single phone was used to check in more than one student — the
+ * classic "check me in, I'm not there" case.
+ *
+ * Nothing is ever blocked: a phone may check in as many students as it likes,
+ * and every one of them is reported.
  *
  * NOTE: this is a visibility tool, not a security boundary. A student who
  * clears their site data or opens a private tab gets a fresh id. It makes
@@ -23,14 +26,6 @@ const DEVICE_ID_KEY = 'qra.deviceId';
  * change both together (see supabase/device-checkin-tracking.sql).
  */
 export const DEVICE_SESSION_WINDOW_HOURS = 8;
-
-/**
- * How many different students may check in from one phone inside that window.
- * The next student is turned away and told to use their own phone. Mirrored by
- * `v_max_students` in the SQL `check_in` function — raise both to a large
- * number to keep the reporting but drop the limit.
- */
-export const MAX_STUDENTS_PER_DEVICE = 3;
 
 /** Fallback for browsers where storage is unavailable (private mode). */
 let memoryDeviceId = '';

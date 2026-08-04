@@ -1,10 +1,7 @@
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import type { SharedDeviceGroup } from '@/services/attendance/sharedDevices';
-import {
-  DEVICE_SESSION_WINDOW_HOURS,
-  MAX_STUDENTS_PER_DEVICE,
-} from '@/utils/device';
+import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
 import { formatClock, formatDate } from '@/utils/time';
 
 /**
@@ -28,10 +25,9 @@ export function SharedDevicesCard({ groups }: { groups: SharedDeviceGroup[] }) {
         </Badge>
       </div>
       <p className="mt-1 text-sm text-ink-600">
-        One phone was used to check in several students within{' '}
+        These phones checked in more than one student within{' '}
         {DEVICE_SESSION_WINDOW_HOURS} hours. The first name opened the phone's
-        session — the rest were most likely checked in by them. A phone is
-        blocked after {MAX_STUDENTS_PER_DEVICE} students.
+        session — the rest were most likely checked in by them.
       </p>
 
       <ul className="mt-4 space-y-3">
