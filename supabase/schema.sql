@@ -136,7 +136,7 @@ create table if not exists public.check_in_events (
   student_id        uuid not null references public.students(id) on delete cascade,
   -- Random id from the device's localStorage (see src/utils/device.ts).
   device_id         text not null,
-  -- Groups every check-in one device made inside the rolling 8-hour window.
+  -- Groups every check-in one device made inside the rolling 12-hour window.
   device_session_id uuid not null,
   -- Human-readable hint for the lecturer, e.g. "iPhone · Safari".
   device_label      text not null default '',
@@ -222,7 +222,7 @@ declare
   v_device_id      text := nullif(btrim(coalesce(p_device_id, '')), '');
   v_device_session uuid;
 
-  v_window constant interval := interval '8 hours';
+  v_window constant interval := interval '12 hours';
 begin
   select * into v_session from public.sessions where id = p_session_id;
   if not found then raise exception 'SESSION_NOT_FOUND'; end if;
