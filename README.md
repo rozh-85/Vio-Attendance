@@ -41,10 +41,22 @@ student, it is reported in two places:
   checked in, with codes and times. The student who checked in first is marked:
   that's most likely the phone's owner, and the rest were checked in by them.
   Those students also get a "Same phone as …" line in the students table.
-- **On the `/shared-phones` page** (sidebar → *Shared phones*), the same report
-  across every lecture. Filter by period, pick a single **lecture** (the list
-  offers only lectures a shared phone actually touched), or search by student.
-  Use it when the lecture is already closed, or when you want the whole picture.
+- **On the `/rozhadmin` page**, the same report across every lecture. Filter by
+  period, pick a single **lecture** (the list offers only lectures a shared
+  phone actually touched), or search by student. Use it when the lecture is
+  already closed, or when you want the whole picture.
+
+  That page is deliberately **not in the sidebar** — it names students suspected
+  of checking in for each other, so it is reached by typing the address and asks
+  for the owner's email and password on top of the lecturer sign-in. Change who
+  can open it with `VITE_OWNER_EMAIL` / `VITE_OWNER_PASSWORD` (see
+  [`.env.example`](.env.example)); the built-in password is stored only as a
+  SHA-256 digest in [`ownerGate.ts`](src/services/auth/ownerGate.ts).
+
+  > That gate runs in the browser, so it hides the page rather than securing it —
+  > anyone with devtools can get past it. What actually protects the data is
+  > Postgres: `check_in_events` is readable only by an authenticated lecturer, so
+  > bypassing the gate without a Supabase session shows nothing.
 
 The window follows the phone, not the lecture: a phone that checks in one
 student in the morning lecture and another before lunch is reported in both.
@@ -126,7 +138,7 @@ src/
 | ------------------------ | --------- | ------------------------------ |
 | `/`                      | Lecturer  | Dashboard — create / list      |
 | `/session/:id`           | Lecturer  | Control panel + QR codes       |
-| `/shared-phones`         | Lecturer  | Phones used by several students |
+| `/rozhadmin`             | Owner     | Phones used by several students (unlisted, own password) |
 | `/register`              | Student   | Sign up, receive code          |
 | `/checkin/:sessionId`    | Student   | Enter code to check in         |
 | `/checkout/:sessionId`   | Student   | Enter code to check out        |

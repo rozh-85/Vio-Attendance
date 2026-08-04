@@ -6,6 +6,7 @@ import { routePatterns } from '@/routes';
 import { LecturerDashboard } from '@/pages/LecturerDashboard';
 import { StudentReportPage } from '@/pages/StudentReportPage';
 import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
+import { OwnerGate } from '@/components/OwnerGate';
 import { SessionView } from '@/pages/SessionView';
 import { CheckInPage } from '@/pages/CheckInPage';
 import { CheckOutPage } from '@/pages/CheckOutPage';
@@ -36,11 +37,14 @@ export default function App() {
                 </RequireAuth>
               }
             />
+            {/* Unlisted owner report: lecturer sign-in, then its own password. */}
             <Route
               path={routePatterns.devices}
               element={
                 <RequireAuth>
-                  <SharedDevicesPage />
+                  <OwnerGate>
+                    <SharedDevicesPage />
+                  </OwnerGate>
                 </RequireAuth>
               }
             />

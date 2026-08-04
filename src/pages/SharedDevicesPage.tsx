@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { StatCard } from '@/components/ui/StatCard';
 import { SharedDeviceGroupList } from '@/components/SharedDevicesCard';
 import { useDataService } from '@/services/data/context';
+import { lockOwner } from '@/services/auth/ownerGate';
 import { findSharedDeviceGroups } from '@/services/attendance/sharedDevices';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
 import { formatDate } from '@/utils/time';
@@ -156,7 +158,18 @@ export function SharedDevicesPage() {
 
   return (
     <AdminLayout>
-      <h1 className="text-3xl font-bold">Shared phones</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-3xl font-bold">Shared phones</h1>
+        <Button
+          variant="outline"
+          onClick={() => {
+            lockOwner();
+            window.location.reload();
+          }}
+        >
+          Lock report
+        </Button>
+      </div>
       <p className="mt-1 max-w-3xl text-ink-500">
         Every phone that checked in more than one student. A phone's first
         check-in opens an {DEVICE_SESSION_WINDOW_HOURS}-hour window; anyone else
