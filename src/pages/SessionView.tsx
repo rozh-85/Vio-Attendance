@@ -356,7 +356,8 @@ export function SessionView() {
       <SharedDevicesCard
         groups={sharedDevices}
         sessionsById={sessionsById}
-        currentSessionId={session.id}
+        highlightSessionId={session.id}
+        highlightLabel="this lecture"
       />
 
       {/* Students */}

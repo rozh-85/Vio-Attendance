@@ -13,8 +13,10 @@ interface GroupListProps {
   groups: SharedDeviceGroup[];
   /** Used to name the lecture each check-in landed in. */
   sessionsById: Map<string, Session>;
-  /** When set, check-ins in this lecture are marked apart from the others. */
-  currentSessionId?: string;
+  /** When set, check-ins in this lecture are picked out from the others. */
+  highlightSessionId?: string;
+  /** Suffix on a highlighted check-in, e.g. "this lecture". Colour-only when omitted. */
+  highlightLabel?: string;
 }
 
 function sessionName(
@@ -30,12 +32,14 @@ function MemberRow({
   member,
   position,
   sessionsById,
-  currentSessionId,
+  highlightSessionId,
+  highlightLabel,
 }: {
   member: SharedDeviceMember;
   position: number;
   sessionsById: Map<string, Session>;
-  currentSessionId?: string;
+  highlightSessionId?: string;
+  highlightLabel?: string;
 }) {
   return (
     <li>
@@ -60,19 +64,19 @@ function MemberRow({
           working two sessions that were open at the same time. */}
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {member.checkIns.map((checkIn) => {
-          const isCurrent = checkIn.sessionId === currentSessionId;
+          const highlighted = checkIn.sessionId === highlightSessionId;
           return (
             <span
               key={`${checkIn.sessionId}-${checkIn.at}`}
               className={cn(
                 'rounded-lg px-2 py-1 text-xs font-medium',
-                isCurrent
+                highlighted
                   ? 'bg-brand-50 text-brand-700'
                   : 'bg-slate-100 text-ink-600',
               )}
             >
               {sessionName(sessionsById, checkIn.sessionId)}
-              {isCurrent && ' · this lecture'} ·{' '}
+              {highlighted && highlightLabel && ` · ${highlightLabel}`} ·{' '}
               <span className="tabular-nums">{formatClock(checkIn.at)}</span>
             </span>
           );
@@ -86,7 +90,8 @@ function MemberRow({
 export function SharedDeviceGroupList({
   groups,
   sessionsById,
-  currentSessionId,
+  highlightSessionId,
+  highlightLabel,
 }: GroupListProps) {
   return (
     <ul className="space-y-3">
@@ -121,7 +126,8 @@ export function SharedDeviceGroupList({
                 member={member}
                 position={index + 1}
                 sessionsById={sessionsById}
-                currentSessionId={currentSessionId}
+                highlightSessionId={highlightSessionId}
+                highlightLabel={highlightLabel}
               />
             ))}
           </ol>
@@ -139,7 +145,8 @@ export function SharedDeviceGroupList({
 export function SharedDevicesCard({
   groups,
   sessionsById,
-  currentSessionId,
+  highlightSessionId,
+  highlightLabel,
 }: GroupListProps) {
   if (groups.length === 0) return null;
 
@@ -167,7 +174,8 @@ export function SharedDevicesCard({
         <SharedDeviceGroupList
           groups={groups}
           sessionsById={sessionsById}
-          currentSessionId={currentSessionId}
+          highlightSessionId={highlightSessionId}
+          highlightLabel={highlightLabel}
         />
       </div>
     </Card>

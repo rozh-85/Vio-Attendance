@@ -42,8 +42,9 @@ student, it is reported in two places:
   that's most likely the phone's owner, and the rest were checked in by them.
   Those students also get a "Same phone as …" line in the students table.
 - **On the `/shared-phones` page** (sidebar → *Shared phones*), the same report
-  across every lecture, filterable by period and searchable by student. Use it
-  when the lecture is already closed, or when you want the whole picture.
+  across every lecture. Filter by period, pick a single **lecture** (the list
+  offers only lectures a shared phone actually touched), or search by student.
+  Use it when the lecture is already closed, or when you want the whole picture.
 
 The window follows the phone, not the lecture: a phone that checks in one
 student in the morning lecture and another before lunch is reported in both.

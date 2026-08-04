@@ -8,6 +8,7 @@ import { SharedDeviceGroupList } from '@/components/SharedDevicesCard';
 import { useDataService } from '@/services/data/context';
 import { findSharedDeviceGroups } from '@/services/attendance/sharedDevices';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
+import { formatDate } from '@/utils/time';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
 import type { CheckInEvent, Session, Student } from '@/types';
@@ -34,6 +35,8 @@ export function SharedDevicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [hours, setHours] = useState<number>(24 * 7);
   const [query, setQuery] = useState('');
+  /** '' = every lecture; otherwise only phones that touched this one. */
+  const [lectureId, setLectureId] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -82,30 +85,74 @@ export function SharedDevicesPage() {
     [events, students],
   );
 
+  /**
+   * Only the lectures a shared phone actually touched — there is no point
+   * offering a lecture where every check-in came from its own phone.
+   */
+  const lectureOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const group of groups) {
+      for (const id of group.sessionIds) {
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    return [...counts]
+      .map(([id, phones]) => ({
+        id,
+        phones,
+        session: sessionsById.get(id),
+        label: sessionsById.get(id)?.title || 'Another lecture',
+      }))
+      .sort((a, b) =>
+        (b.session?.startedAt ?? '').localeCompare(a.session?.startedAt ?? ''),
+      );
+  }, [groups, sessionsById]);
+
+  // Changing the period can retire the lecture that was picked.
+  useEffect(() => {
+    if (lectureId && !lectureOptions.some((o) => o.id === lectureId)) {
+      setLectureId('');
+    }
+  }, [lectureOptions, lectureId]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return groups;
-    return groups.filter((group) =>
-      group.members.some(
+    return groups.filter((group) => {
+      if (lectureId && !group.sessionIds.includes(lectureId)) return false;
+      if (!q) return true;
+      return group.members.some(
         (m) =>
           m.student.fullName.toLowerCase().includes(q) ||
           m.student.code.toLowerCase() === q ||
           m.student.department.toLowerCase().includes(q),
-      ),
-    );
-  }, [groups, query]);
+      );
+    });
+  }, [groups, query, lectureId]);
 
+  /**
+   * Describes what is on screen, so the numbers follow the filters. With a
+   * lecture picked, the student count is the students checked in *to that
+   * lecture* — the groups still list everyone the phone touched, but counting
+   * those would overstate the lecture's own problem.
+   */
   const stats = useMemo(() => {
     const studentIds = new Set(
-      groups.flatMap((g) => g.members.map((m) => m.student.id)),
+      filtered.flatMap((g) =>
+        g.members
+          .filter(
+            (m) =>
+              !lectureId || m.checkIns.some((c) => c.sessionId === lectureId),
+          )
+          .map((m) => m.student.id),
+      ),
     );
-    const sessionIds = new Set(groups.flatMap((g) => g.sessionIds));
+    const sessionIds = new Set(filtered.flatMap((g) => g.sessionIds));
     return {
-      phones: groups.length,
+      phones: filtered.length,
       students: studentIds.size,
       lectures: sessionIds.size,
     };
-  }, [groups]);
+  }, [filtered, lectureId]);
 
   return (
     <AdminLayout>
@@ -137,14 +184,40 @@ export function SharedDevicesPage() {
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard value={stats.phones} label="Shared phones" tone="warning" />
-        <StatCard value={stats.students} label="Students involved" />
+        <StatCard
+          value={stats.students}
+          label={lectureId ? 'Students in this lecture' : 'Students involved'}
+        />
         <StatCard value={stats.lectures} label="Lectures touched" tone="info" />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold text-ink-900">
+            Lecture
+          </span>
+          <select
+            className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-ink-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            value={lectureId}
+            onChange={(e) => setLectureId(e.target.value)}
+          >
+            <option value="">
+              All lectures ({lectureOptions.length} with shared phones)
+            </option>
+            {lectureOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+                {option.session && ` — ${formatDate(option.session.startedAt)}`}
+                {` · ${option.phones} ${option.phones === 1 ? 'phone' : 'phones'}`}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <Input
+          label="Search"
           type="text"
-          placeholder="Search by student name, code or department…"
+          placeholder="Student name, code or department…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -163,12 +236,13 @@ export function SharedDevicesPage() {
           <Card className="p-10 text-center text-ink-500">
             {groups.length === 0
               ? 'No shared phones in this period — every check-in came from its own phone.'
-              : 'No shared phone matches that search.'}
+              : 'No shared phone matches these filters.'}
           </Card>
         ) : (
           <SharedDeviceGroupList
             groups={filtered}
             sessionsById={sessionsById}
+            highlightSessionId={lectureId || undefined}
           />
         )}
       </div>
