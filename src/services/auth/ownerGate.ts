@@ -5,18 +5,30 @@
  * lives at its own unlisted URL and asks for the owner's own credentials
  * before it renders.
  *
- * WHAT THIS IS AND IS NOT
- * This check runs in the browser, so it cannot keep out anyone with devtools —
- * they can flip the unlock flag by hand. It keeps the page out of casual sight;
- * the *data* is protected by Postgres, where `check_in_events` is readable only
- * by an authenticated lecturer (see supabase/device-checkin-tracking.sql).
- * Bypassing this gate without a Supabase session shows an empty page.
+ * WHAT ACTUALLY PROTECTS THE DATA
+ * The form runs in the browser, so by itself it could be bypassed with devtools.
+ * It is not by itself: the password typed here is the same one Postgres checks.
+ * `check_in_events` is readable by no one directly — the only way in is the
+ * `list_check_in_events` function, which returns rows only when the password
+ * hashes to the digest stored in the database (see
+ * `supabase/lock-device-log.sql`). Flipping the unlock flag in devtools
+ * therefore yields an empty report.
  *
- * The password is stored as a SHA-256 digest, never in the clear, so the
- * bundle cannot be read for a password that may be used elsewhere too.
+ * That matters because every lecturer signs in with the same Supabase account,
+ * so the account cannot tell the owner apart from them — this password is what
+ * does.
+ *
+ * The password itself is never in the bundle: only its SHA-256 digest, which
+ * cannot be turned back into the password.
  */
 
-const UNLOCK_KEY = 'qra.ownerUnlocked';
+/**
+ * Holds the owner password for this tab. It is sent to Postgres on every read
+ * of the device log, so it has to survive navigation between the report and the
+ * dashboard — but not the tab closing, since a lecturer's laptop is often left
+ * open in the room.
+ */
+const SECRET_KEY = 'qra.ownerKey';
 
 /** Override in `.env` to change who can open the report. */
 const OWNER_EMAIL =
@@ -26,9 +38,15 @@ const OWNER_EMAIL =
 /**
  * SHA-256 of the owner's password. Set `VITE_OWNER_PASSWORD` in `.env` to use a
  * different one — it is hashed here the same way before comparing.
+ *
+ * Changing the password means changing it in the database too, or the report
+ * will open and then come up empty. See `supabase/lock-device-log.sql`.
  */
 const OWNER_PASSWORD_SHA256 =
   '3a1bdf732b0f1fa4866609122fb117a528f860ca8e030575f626e4272d5b17a0';
+
+/** Fallback for browsers where sessionStorage is unavailable (private mode). */
+let memorySecret: string | null = null;
 
 async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
@@ -60,28 +78,35 @@ export async function verifyOwner(
 }
 
 /**
- * Unlocked state lives in sessionStorage, so closing the tab re-locks the page —
- * a lecturer's laptop is often left open in the room.
+ * The owner password for this tab, or null. Postgres wants it verbatim so it
+ * can hash it itself — sending the digest instead would be no protection at
+ * all, since the digest is sitting in the JavaScript bundle for anyone to read.
  */
-export function isOwnerUnlocked(): boolean {
+export function ownerSecret(): string | null {
   try {
-    return sessionStorage.getItem(UNLOCK_KEY) === '1';
+    return sessionStorage.getItem(SECRET_KEY) ?? memorySecret;
   } catch {
-    return false;
+    return memorySecret;
   }
 }
 
-export function unlockOwner(): void {
+export function isOwnerUnlocked(): boolean {
+  return ownerSecret() !== null;
+}
+
+export function unlockOwner(password: string): void {
+  memorySecret = password;
   try {
-    sessionStorage.setItem(UNLOCK_KEY, '1');
+    sessionStorage.setItem(SECRET_KEY, password);
   } catch {
-    // Storage blocked: the page stays open for this render only.
+    // Storage blocked: the password lives in memory for this page load only.
   }
 }
 
 export function lockOwner(): void {
+  memorySecret = null;
   try {
-    sessionStorage.removeItem(UNLOCK_KEY);
+    sessionStorage.removeItem(SECRET_KEY);
   } catch {
     // Nothing stored, nothing to clear.
   }

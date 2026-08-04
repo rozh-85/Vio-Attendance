@@ -25,7 +25,9 @@ export function OwnerGate({ children }: { children: ReactNode }) {
     setError(null);
     try {
       if (await verifyOwner(email, password)) {
-        unlockOwner();
+        // Kept for the tab's lifetime: Postgres re-checks it on every read of
+        // the device log.
+        unlockOwner(password);
         setUnlocked(true);
       } else {
         setError('Wrong email or password.');
