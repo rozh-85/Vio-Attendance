@@ -12,7 +12,7 @@ import type {
 } from '@/types';
 import { normalizePhone } from '@/utils/id';
 import type { DataService } from './DataService';
-import { DataError, DEVICE_LIMIT_MESSAGE, type DataErrorCode } from './errors';
+import { DataError, type DataErrorCode } from './errors';
 
 /**
  * Supabase-backed implementation of {@link DataService}.
@@ -478,7 +478,6 @@ const RPC_ERROR_MESSAGES: Partial<Record<DataErrorCode, string>> = {
   NOT_CHECKED_IN: 'You have not checked in.',
   ALREADY_CHECKED_IN: 'You are already checked in.',
   ALREADY_CHECKED_OUT: 'You have already checked out.',
-  DEVICE_LIMIT_REACHED: DEVICE_LIMIT_MESSAGE,
 };
 
 function hasPostgresErrorCode(err: unknown, code: string): boolean {

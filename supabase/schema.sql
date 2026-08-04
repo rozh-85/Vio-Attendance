@@ -196,9 +196,10 @@ as $$
   select * from public.students where phone = p_phone limit 1;
 $$;
 
--- Records the device the check-in came from and refuses a phone that has
--- already checked in `v_max_students` different students inside `v_window`.
--- Both constants mirror src/utils/device.ts — change them together.
+-- Records the device the check-in came from, grouping every check-in one phone
+-- makes inside `v_window` so the lecturer can see a phone used by more than one
+-- student. Nothing is refused — the log only records. `v_window` mirrors
+-- DEVICE_SESSION_WINDOW_HOURS in src/utils/device.ts.
 drop function if exists public.check_in(uuid, text);
 
 create or replace function public.check_in(
@@ -220,10 +221,8 @@ declare
 
   v_device_id      text := nullif(btrim(coalesce(p_device_id, '')), '');
   v_device_session uuid;
-  v_other_students integer;
 
-  v_window       constant interval := interval '8 hours';
-  v_max_students constant integer  := 3;
+  v_window constant interval := interval '8 hours';
 begin
   select * into v_session from public.sessions where id = p_session_id;
   if not found then raise exception 'SESSION_NOT_FOUND'; end if;
@@ -236,7 +235,6 @@ begin
 
   -- Which device session does this check-in belong to? Re-use the one this
   -- phone opened if it is still inside the window, otherwise start a new one.
-  -- Resolved before anything is written, so a refused check-in leaves no trace.
   if v_device_id is not null then
     select device_session_id
       into v_device_session
@@ -248,16 +246,6 @@ begin
 
     if v_device_session is null then
       v_device_session := gen_random_uuid();
-    else
-      select count(distinct student_id)
-        into v_other_students
-        from public.check_in_events
-       where device_session_id = v_device_session
-         and student_id <> v_student.id;
-
-      if v_other_students >= v_max_students then
-        raise exception 'DEVICE_LIMIT_REACHED';
-      end if;
     end if;
   end if;
 

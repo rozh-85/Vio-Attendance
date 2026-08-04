@@ -42,9 +42,9 @@ export interface DataService {
   listAttendance(sessionId?: string): Promise<AttendanceRecord[]>;
   /**
    * Marks a student (by code) as checked in to a session. When `device` is
-   * supplied the check-in is also written to the append-only device log, and
-   * refused with `DEVICE_LIMIT_REACHED` once that phone has checked in more
-   * than `MAX_STUDENTS_PER_DEVICE` students in the current window.
+   * supplied the check-in is also written to the append-only device log, which
+   * is what tells the lecturer that one phone checked in several students. The
+   * log never refuses a check-in — it only records it.
    */
   checkIn(
     sessionId: string,

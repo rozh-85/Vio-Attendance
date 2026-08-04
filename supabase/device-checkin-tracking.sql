@@ -11,11 +11,13 @@
 --     8 hours; every later check-in from that phone inside the window joins the
 --     same device session. When one device session covers more than one
 --     student, the lecturer sees all their names on the session screen.
---   • A phone may check in at most 3 different students per window. The 4th is
---     refused with DEVICE_LIMIT_REACHED and told to use their own phone.
 --
--- Keep the two constants below in sync with src/utils/device.ts
--- (DEVICE_SESSION_WINDOW_HOURS and MAX_STUDENTS_PER_DEVICE).
+-- Nothing is ever refused: a phone may check in as many students as it likes
+-- and every one of them is reported. Re-running this file also lifts the
+-- 3-student limit an earlier version of it installed.
+--
+-- Keep the window below in sync with DEVICE_SESSION_WINDOW_HOURS in
+-- src/utils/device.ts.
 --
 -- The device id is a random value the student's browser stores in its own
 -- localStorage. It is a deterrent that makes casual "check in for my friend"
@@ -72,11 +74,9 @@ declare
 
   v_device_id      text := nullif(btrim(coalesce(p_device_id, '')), '');
   v_device_session uuid;
-  v_other_students integer;
 
-  -- Keep in sync with src/utils/device.ts.
-  v_window       constant interval := interval '8 hours';
-  v_max_students constant integer  := 3;
+  -- Keep in sync with DEVICE_SESSION_WINDOW_HOURS in src/utils/device.ts.
+  v_window constant interval := interval '8 hours';
 begin
   select * into v_session from public.sessions where id = p_session_id;
   if not found then raise exception 'SESSION_NOT_FOUND'; end if;
@@ -89,7 +89,6 @@ begin
 
   -- Which device session does this check-in belong to? Re-use the one this
   -- phone opened if it is still inside the window, otherwise start a new one.
-  -- Resolved before anything is written, so a refused check-in leaves no trace.
   if v_device_id is not null then
     select device_session_id
       into v_device_session
@@ -101,16 +100,6 @@ begin
 
     if v_device_session is null then
       v_device_session := gen_random_uuid();
-    else
-      select count(distinct student_id)
-        into v_other_students
-        from public.check_in_events
-       where device_session_id = v_device_session
-         and student_id <> v_student.id;
-
-      if v_other_students >= v_max_students then
-        raise exception 'DEVICE_LIMIT_REACHED';
-      end if;
     end if;
   end if;
 
