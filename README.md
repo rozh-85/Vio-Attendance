@@ -40,7 +40,9 @@ student, it is reported in two places:
 - **On the session screen**, a **Shared phones** card naming everyone that phone
   checked in, with codes and times. The student who checked in first is marked:
   that's most likely the phone's owner, and the rest were checked in by them.
-  Those students also get a "Same phone as …" line in the students table.
+  Those students also get a "Same phone as …" line in the students table. Both
+  appear **only for whoever unlocked the owner report** — an ordinary lecturer
+  opening the same lecture is never even sent the data.
 - **On the `/rozhadmin` page**, the same report across every lecture. Filter by
   period, pick a single **lecture** (the list offers only lectures a shared
   phone actually touched), or search by student. Use it when the lecture is
@@ -56,9 +58,11 @@ student, it is reported in two places:
   SHA-256 digest in [`ownerGate.ts`](src/services/auth/ownerGate.ts).
 
   > That gate runs in the browser, so it hides the page rather than securing it —
-  > anyone with devtools can get past it. What actually protects the data is
-  > Postgres: `check_in_events` is readable only by an authenticated lecturer, so
-  > bypassing the gate without a Supabase session shows nothing.
+  > anyone with devtools can get past it, and by default any signed-in lecturer
+  > could query `check_in_events` directly. To make "only me" true in the
+  > database, run [`restrict-device-log.sql`](supabase/restrict-device-log.sql)
+  > with your Supabase login email in it: after that the log is readable by that
+  > one account and nobody else. Students keep checking in either way.
 
 The window follows the phone, not the lecture: a phone that checks in one
 student in the morning lecture and another before lunch is reported in both.
@@ -114,6 +118,7 @@ safe to re-run:
 | [`harden-session-policies.sql`](supabase/harden-session-policies.sql)           | Only lecturers may create / edit sessions          |
 | [`harden-student-data.sql`](supabase/harden-student-data.sql)                   | Student data unreadable with the public anon key   |
 | [`device-checkin-tracking.sql`](supabase/device-checkin-tracking.sql)           | The shared-phone log described above               |
+| [`restrict-device-log.sql`](supabase/restrict-device-log.sql)                   | Limits that log to one account (edit the email first) |
 
 Until `device-checkin-tracking.sql` is run, check-in keeps working — it just
 records no devices and the Shared phones card stays empty.

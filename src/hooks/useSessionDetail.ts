@@ -5,6 +5,7 @@ import {
   sharedDeviceNamesByStudent,
 } from '@/services/attendance/sharedDevices';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
+import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -24,7 +25,11 @@ function statusOf(record?: AttendanceRecord): AttendanceStatus {
  * before it started, so a phone that started its rounds in an earlier lecture
  * still shows up here.
  *
- * The log is a nice-to-have: a database that has not run
+ * Only for whoever unlocked the owner report: the log accuses named students of
+ * checking in for each other, so an ordinary lecturer's screen never receives
+ * it, not even to hide it in the markup.
+ *
+ * It is a nice-to-have besides: a database that has not run
  * `supabase/device-checkin-tracking.sql` yet has no `check_in_events` table, and
  * that must not take the whole session screen down.
  */
@@ -32,6 +37,8 @@ async function loadCheckInEvents(
   data: ReturnType<typeof useDataService>,
   session: Session,
 ): Promise<CheckInEvent[]> {
+  if (!isOwnerUnlocked()) return [];
+
   const since = new Date(
     new Date(session.startedAt).getTime() -
       DEVICE_SESSION_WINDOW_HOURS * 60 * 60 * 1000,

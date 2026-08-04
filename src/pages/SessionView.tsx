@@ -28,6 +28,7 @@ import {
 } from '@/components/icons';
 import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { useDataService } from '@/services/data/context';
+import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import { isDataError } from '@/services/data';
 import { exportLectureAttendanceToExcel } from '@/services/report/lectureTemplateExcel';
 import { formatDate, formatClock } from '@/utils/time';
@@ -51,6 +52,9 @@ interface DeleteStudentState {
 export function SessionView() {
   const { sessionId = '' } = useParams();
   const data = useDataService();
+  // The shared-phone findings belong to the owner report; a lecturer opening
+  // this lecture must not see them here either.
+  const ownerUnlocked = isOwnerUnlocked();
   const {
     session,
     attendees,
@@ -352,13 +356,16 @@ export function SessionView() {
         />
       </div>
 
-      {/* One phone, several students */}
-      <SharedDevicesCard
-        groups={sharedDevices}
-        sessionsById={sessionsById}
-        highlightSessionId={session.id}
-        highlightLabel="this lecture"
-      />
+      {/* One phone, several students — owner's eyes only, like the report it
+          belongs to. An ordinary lecturer sees no trace of it. */}
+      {ownerUnlocked && (
+        <SharedDevicesCard
+          groups={sharedDevices}
+          sessionsById={sessionsById}
+          highlightSessionId={session.id}
+          highlightLabel="this lecture"
+        />
+      )}
 
       {/* Students */}
       <div className="mt-8">
@@ -373,7 +380,7 @@ export function SessionView() {
         </div>
         <AttendeeTable
           attendees={filteredAttendees}
-          sharedDeviceNames={sharedDeviceNames}
+          sharedDeviceNames={ownerUnlocked ? sharedDeviceNames : undefined}
           onDeleteStudent={onDeleteStudentClick}
           onEditStudent={onEditStudentClick}
         />
