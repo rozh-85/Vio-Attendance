@@ -126,6 +126,32 @@ create index if not exists attendance_session_idx on public.attendance(session_i
 create index if not exists attendance_student_idx on public.attendance(student_id);
 create index if not exists sessions_started_at_idx on public.sessions(started_at desc);
 
+-- ── Check-in device log ───────────────────────────────────────────────────────
+-- Append-only record of which phone made each check-in, so the lecturer can see
+-- when one phone checked in several students ("check in for my friend").
+-- See supabase/device-checkin-tracking.sql for the full rationale.
+create table if not exists public.check_in_events (
+  id                uuid primary key default gen_random_uuid(),
+  session_id        uuid not null references public.sessions(id) on delete cascade,
+  student_id        uuid not null references public.students(id) on delete cascade,
+  -- Random id from the device's localStorage (see src/utils/device.ts).
+  device_id         text not null,
+  -- Groups every check-in one device made inside the rolling 8-hour window.
+  device_session_id uuid not null,
+  -- Human-readable hint for the lecturer, e.g. "iPhone · Safari".
+  device_label      text not null default '',
+  at                timestamptz not null default now()
+);
+
+create index if not exists check_in_events_device_idx
+  on public.check_in_events(device_id, at desc);
+create index if not exists check_in_events_device_session_idx
+  on public.check_in_events(device_session_id);
+create index if not exists check_in_events_session_idx
+  on public.check_in_events(session_id);
+create index if not exists check_in_events_at_idx
+  on public.check_in_events(at desc);
+
 -- ── Student self-service functions ───────────────────────────────────────────
 -- Anonymous students never touch the students/attendance tables directly. All
 -- their flows go through these security-definer functions, so the public anon
@@ -170,7 +196,17 @@ as $$
   select * from public.students where phone = p_phone limit 1;
 $$;
 
-create or replace function public.check_in(p_session_id uuid, p_code text)
+-- Records the device the check-in came from and refuses a phone that has
+-- already checked in `v_max_students` different students inside `v_window`.
+-- Both constants mirror src/utils/device.ts — change them together.
+drop function if exists public.check_in(uuid, text);
+
+create or replace function public.check_in(
+  p_session_id   uuid,
+  p_code         text,
+  p_device_id    text default null,
+  p_device_label text default ''
+)
 returns public.attendance
 language plpgsql
 security definer
@@ -181,6 +217,13 @@ declare
   v_student public.students;
   v_row     public.attendance;
   v_now     timestamptz := now();
+
+  v_device_id      text := nullif(btrim(coalesce(p_device_id, '')), '');
+  v_device_session uuid;
+  v_other_students integer;
+
+  v_window       constant interval := interval '8 hours';
+  v_max_students constant integer  := 3;
 begin
   select * into v_session from public.sessions where id = p_session_id;
   if not found then raise exception 'SESSION_NOT_FOUND'; end if;
@@ -190,6 +233,33 @@ begin
   if not found then raise exception 'STUDENT_NOT_FOUND'; end if;
 
   if not v_session.check_in_open then raise exception 'CHECK_IN_CLOSED'; end if;
+
+  -- Which device session does this check-in belong to? Re-use the one this
+  -- phone opened if it is still inside the window, otherwise start a new one.
+  -- Resolved before anything is written, so a refused check-in leaves no trace.
+  if v_device_id is not null then
+    select device_session_id
+      into v_device_session
+      from public.check_in_events
+     where device_id = v_device_id
+       and at > v_now - v_window
+     order by at desc
+     limit 1;
+
+    if v_device_session is null then
+      v_device_session := gen_random_uuid();
+    else
+      select count(distinct student_id)
+        into v_other_students
+        from public.check_in_events
+       where device_session_id = v_device_session
+         and student_id <> v_student.id;
+
+      if v_other_students >= v_max_students then
+        raise exception 'DEVICE_LIMIT_REACHED';
+      end if;
+    end if;
+  end if;
 
   select * into v_row from public.attendance
    where session_id = p_session_id and student_id = v_student.id;
@@ -202,12 +272,20 @@ begin
        set check_in_at = v_now, check_out_at = null
      where id = v_row.id
      returning * into v_row;
-    return v_row;
+  else
+    insert into public.attendance (session_id, student_id, check_in_at)
+    values (p_session_id, v_student.id, v_now)
+    returning * into v_row;
   end if;
 
-  insert into public.attendance (session_id, student_id, check_in_at)
-  values (p_session_id, v_student.id, v_now)
-  returning * into v_row;
+  if v_device_session is not null then
+    insert into public.check_in_events
+      (session_id, student_id, device_id, device_session_id, device_label, at)
+    values
+      (p_session_id, v_student.id, v_device_id, v_device_session,
+       btrim(coalesce(p_device_label, '')), v_now);
+  end if;
+
   return v_row;
 exception
   when unique_violation then
@@ -259,6 +337,7 @@ $$;
 alter table public.students enable row level security;
 alter table public.sessions enable row level security;
 alter table public.attendance enable row level security;
+alter table public.check_in_events enable row level security;
 
 grant usage on schema public to anon, authenticated;
 
@@ -271,12 +350,17 @@ grant insert, update on public.sessions to authenticated;
 grant select, insert, update, delete on public.students   to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;
 
+-- The device log holds device ids: written by check_in (security definer),
+-- readable only by signed-in lecturers.
+revoke all on public.check_in_events from anon;
+grant select, delete on public.check_in_events to authenticated;
+
 -- register_student is ADMIN-ONLY (no public self-registration). Postgres grants
 -- EXECUTE to PUBLIC by default, and anon inherits PUBLIC, so revoke both.
 revoke execute on function public.register_student(text, text, text, text) from public, anon;
 grant  execute on function public.register_student(text, text, text, text) to authenticated;
 grant execute on function public.recover_student_code(text)               to anon, authenticated;
-grant execute on function public.check_in(uuid, text)                     to anon, authenticated;
+grant execute on function public.check_in(uuid, text, text, text)         to anon, authenticated;
 grant execute on function public.check_out(uuid, text)                    to anon, authenticated;
 grant execute on function public.next_student_code() to authenticated;
 
@@ -293,6 +377,7 @@ drop policy if exists attendance_select_public on public.attendance;
 drop policy if exists attendance_insert_public on public.attendance;
 drop policy if exists attendance_update_public on public.attendance;
 drop policy if exists attendance_all_authenticated on public.attendance;
+drop policy if exists check_in_events_all_authenticated on public.check_in_events;
 
 -- Students: lecturer-only direct access. Anon uses the functions above.
 create policy students_all_authenticated
@@ -320,5 +405,11 @@ create policy sessions_update_lecturer
 -- Attendance: lecturer-only direct access. Anon uses check_in / check_out.
 create policy attendance_all_authenticated
   on public.attendance for all
+  to authenticated
+  using (true) with check (true);
+
+-- Device log: lecturer-only. Anon never touches it directly.
+create policy check_in_events_all_authenticated
+  on public.check_in_events for all
   to authenticated
   using (true) with check (true);

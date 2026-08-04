@@ -1,6 +1,8 @@
 import type {
   AttendanceEdit,
   AttendanceRecord,
+  CheckInEvent,
+  DeviceInfo,
   NewSessionInput,
   NewStudentInput,
   Session,
@@ -8,13 +10,18 @@ import type {
   StudentEdit,
 } from '@/types';
 import { formatCode, normalizePhone, uid } from '@/utils/id';
+import {
+  DEVICE_SESSION_WINDOW_HOURS,
+  MAX_STUDENTS_PER_DEVICE,
+} from '@/utils/device';
 import type { DataService } from './DataService';
-import { DataError } from './errors';
+import { DataError, DEVICE_LIMIT_MESSAGE } from './errors';
 
 const KEYS = {
   students: 'qra.students',
   sessions: 'qra.sessions',
   attendance: 'qra.attendance',
+  checkInEvents: 'qra.checkInEvents',
   counter: 'qra.codeCounter',
 } as const;
 
@@ -156,6 +163,13 @@ export class LocalStorageDataService implements DataService {
         KEYS.attendance,
         records.filter((r) => r.studentId !== studentId),
       );
+
+      // …and their entries in the device log.
+      const events = await this.listCheckInEvents();
+      this.write(
+        KEYS.checkInEvents,
+        events.filter((e) => e.studentId !== studentId),
+      );
     });
   }
 
@@ -261,7 +275,54 @@ export class LocalStorageDataService implements DataService {
     return records.find((r) => r.studentId === studentId);
   }
 
-  async checkIn(sessionId: string, code: string): Promise<AttendanceRecord> {
+  async listCheckInEvents(sinceIso?: string): Promise<CheckInEvent[]> {
+    const all = this.read<CheckInEvent[]>(KEYS.checkInEvents, []);
+    const events = sinceIso ? all.filter((e) => e.at >= sinceIso) : all;
+    return [...events].sort((a, b) => b.at.localeCompare(a.at));
+  }
+
+  /**
+   * Works out which device session a check-in belongs to: the one this phone
+   * already opened if it is still inside the window, otherwise a fresh one.
+   * Throws once too many different students have used the same phone.
+   * Returns `null` when the browser could not supply a device id.
+   */
+  private async resolveDeviceSession(
+    device: DeviceInfo | undefined,
+    studentId: string,
+  ): Promise<string | null> {
+    if (!device?.id) return null;
+
+    const windowStart = new Date(
+      Date.now() - DEVICE_SESSION_WINDOW_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+    const events = await this.listCheckInEvents();
+    // listCheckInEvents is newest-first, so the first hit is the latest one.
+    const latest = events.find(
+      (e) => e.deviceId === device.id && e.at >= windowStart,
+    );
+    if (!latest) return uid();
+
+    const others = new Set(
+      events
+        .filter(
+          (e) =>
+            e.deviceSessionId === latest.deviceSessionId &&
+            e.studentId !== studentId,
+        )
+        .map((e) => e.studentId),
+    );
+    if (others.size >= MAX_STUDENTS_PER_DEVICE) {
+      throw new DataError('DEVICE_LIMIT_REACHED', DEVICE_LIMIT_MESSAGE);
+    }
+    return latest.deviceSessionId;
+  }
+
+  async checkIn(
+    sessionId: string,
+    code: string,
+    device?: DeviceInfo,
+  ): Promise<AttendanceRecord> {
     return this.mutate(async () => {
       const session = await this.requireOpenSession(sessionId);
       if (!session.checkInOpen) {
@@ -274,6 +335,13 @@ export class LocalStorageDataService implements DataService {
       if (!student) {
         throw new DataError('STUDENT_NOT_FOUND', 'No student found for that code.');
       }
+
+      // Resolved before anything is written, so a rejected check-in leaves no
+      // trace on the attendance record.
+      const deviceSessionId = await this.resolveDeviceSession(
+        device,
+        student.id,
+      );
 
       const records = await this.listAttendance();
       const existing = records.find(
@@ -300,6 +368,21 @@ export class LocalStorageDataService implements DataService {
         record = { id: uid(), sessionId, studentId: student.id, checkInAt: now };
         this.write(KEYS.attendance, [...records, record]);
       }
+
+      if (device?.id && deviceSessionId) {
+        const events = await this.listCheckInEvents();
+        const event: CheckInEvent = {
+          id: uid(),
+          sessionId,
+          studentId: student.id,
+          deviceId: device.id,
+          deviceSessionId,
+          deviceLabel: device.label,
+          at: now,
+        };
+        this.write(KEYS.checkInEvents, [...events, event]);
+      }
+
       return record;
     });
   }

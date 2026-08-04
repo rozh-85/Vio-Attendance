@@ -14,10 +14,13 @@ function StatusBadge({ status }: { status: SessionAttendee['status'] }) {
 
 export function AttendeeTable({
   attendees,
+  sharedDeviceNames,
   onDeleteStudent,
   onEditStudent,
 }: {
   attendees: SessionAttendee[];
+  /** studentId → the other students who checked in from the same phone. */
+  sharedDeviceNames?: Map<string, string[]>;
   onDeleteStudent?: (studentId: string, studentCode: string, studentName: string) => void;
   onEditStudent?: (attendee: SessionAttendee) => void;
 }) {
@@ -50,6 +53,7 @@ export function AttendeeTable({
           <tbody>
             {attendees.map((attendee) => {
               const { student, record, status } = attendee;
+              const sharedWith = sharedDeviceNames?.get(student.id) ?? [];
               return (
               <tr
                 key={student.id}
@@ -60,6 +64,11 @@ export function AttendeeTable({
                     {student.fullName}
                   </div>
                   <div className="text-xs text-ink-400">{student.phone}</div>
+                  {sharedWith.length > 0 && (
+                    <div className="mt-1 text-xs font-semibold text-amber-700">
+                      Same phone as {sharedWith.join(', ')}
+                    </div>
+                  )}
                 </td>
                 <td className="px-5 py-3.5">
                   <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-ink-700">

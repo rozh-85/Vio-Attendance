@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AttendanceEdit,
   AttendanceRecord,
+  CheckInEvent,
+  DeviceInfo,
   NewSessionInput,
   NewStudentInput,
   Session,
@@ -10,7 +12,7 @@ import type {
 } from '@/types';
 import { normalizePhone } from '@/utils/id';
 import type { DataService } from './DataService';
-import { DataError, type DataErrorCode } from './errors';
+import { DataError, DEVICE_LIMIT_MESSAGE, type DataErrorCode } from './errors';
 
 /**
  * Supabase-backed implementation of {@link DataService}.
@@ -63,6 +65,18 @@ export class SupabaseDataService implements DataService {
     };
   }
 
+  private toCheckInEvent(row: CheckInEventRow): CheckInEvent {
+    return {
+      id: row.id,
+      sessionId: row.session_id,
+      studentId: row.student_id,
+      deviceId: row.device_id,
+      deviceSessionId: row.device_session_id,
+      deviceLabel: row.device_label ?? '',
+      at: row.at,
+    };
+  }
+
   private async getAttendanceRow(
     sessionId: string,
     studentId: string,
@@ -100,7 +114,7 @@ export class SupabaseDataService implements DataService {
     table: string,
     orderColumn: string,
     ascending: boolean,
-    filter?: { column: string; value: string },
+    filter?: { column: string; value: string; op?: 'eq' | 'gte' },
   ): Promise<T[]> {
     const pageSize = 1000;
     const rows: T[] = [];
@@ -110,7 +124,12 @@ export class SupabaseDataService implements DataService {
         .select('*')
         .order(orderColumn, { ascending })
         .range(from, from + pageSize - 1);
-      if (filter) query = query.eq(filter.column, filter.value);
+      if (filter) {
+        query =
+          filter.op === 'gte'
+            ? query.gte(filter.column, filter.value)
+            : query.eq(filter.column, filter.value);
+      }
       const { data, error } = await query;
       if (error) throw error;
       const batch = (data ?? []) as T[];
@@ -302,16 +321,55 @@ export class SupabaseDataService implements DataService {
     return rows.map((r) => this.toRecord(r));
   }
 
-  async checkIn(sessionId: string, code: string): Promise<AttendanceRecord> {
+  async checkIn(
+    sessionId: string,
+    code: string,
+    device?: DeviceInfo,
+  ): Promise<AttendanceRecord> {
     // All validation + write happens in the `check_in` security-definer
     // function so the anon key needs no direct rights on the attendance or
-    // students tables. See supabase/harden-student-data.sql.
+    // students tables. See supabase/harden-student-data.sql. The function also
+    // records the device and enforces the per-device student limit — see
+    // supabase/device-checkin-tracking.sql.
+    const { data, error } = await this.client.rpc('check_in', {
+      p_session_id: sessionId,
+      p_code: code.trim(),
+      p_device_id: device?.id ?? null,
+      p_device_label: device?.label ?? '',
+    });
+
+    if (error) {
+      // A database that has not run the device-tracking migration yet only has
+      // the two-argument check_in. Fall back so check-in keeps working until
+      // the SQL is applied.
+      if (isMissingFunction(error)) {
+        return this.checkInWithoutDevice(sessionId, code);
+      }
+      this.throwRpcError(error);
+    }
+    return this.toRecord(data as AttendanceRow);
+  }
+
+  private async checkInWithoutDevice(
+    sessionId: string,
+    code: string,
+  ): Promise<AttendanceRecord> {
     const { data, error } = await this.client.rpc('check_in', {
       p_session_id: sessionId,
       p_code: code.trim(),
     });
     if (error) this.throwRpcError(error);
     return this.toRecord(data as AttendanceRow);
+  }
+
+  async listCheckInEvents(sinceIso?: string): Promise<CheckInEvent[]> {
+    const rows = await this.fetchAllRows<CheckInEventRow>(
+      'check_in_events',
+      'at',
+      false,
+      sinceIso ? { column: 'at', value: sinceIso, op: 'gte' } : undefined,
+    );
+    return rows.map((r) => this.toCheckInEvent(r));
   }
 
   async checkOut(sessionId: string, code: string): Promise<AttendanceRecord> {
@@ -397,6 +455,16 @@ interface AttendanceRow {
   check_out_at: string | null;
 }
 
+interface CheckInEventRow {
+  id: string;
+  session_id: string;
+  student_id: string;
+  device_id: string;
+  device_session_id: string;
+  device_label: string | null;
+  at: string;
+}
+
 // Friendly messages for the business errors raised by the student-facing RPCs,
 // mirroring the messages the local backend throws. Keyed by the code the
 // Postgres function raises (see supabase/harden-student-data.sql).
@@ -410,6 +478,7 @@ const RPC_ERROR_MESSAGES: Partial<Record<DataErrorCode, string>> = {
   NOT_CHECKED_IN: 'You have not checked in.',
   ALREADY_CHECKED_IN: 'You are already checked in.',
   ALREADY_CHECKED_OUT: 'You have already checked out.',
+  DEVICE_LIMIT_REACHED: DEVICE_LIMIT_MESSAGE,
 };
 
 function hasPostgresErrorCode(err: unknown, code: string): boolean {
@@ -418,5 +487,16 @@ function hasPostgresErrorCode(err: unknown, code: string): boolean {
     err !== null &&
     'code' in err &&
     (err as { code?: unknown }).code === code
+  );
+}
+
+/**
+ * True when PostgREST could not find an RPC with the arguments we sent — i.e.
+ * the database is still on an older schema version.
+ */
+function isMissingFunction(err: { code?: string; message?: string }): boolean {
+  return (
+    err.code === 'PGRST202' ||
+    (err.message ?? '').includes('Could not find the function')
   );
 }

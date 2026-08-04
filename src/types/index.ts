@@ -58,6 +58,36 @@ export interface AttendanceEdit {
 
 export type AttendanceStatus = 'absent' | 'checked-in' | 'checked-out';
 
+/** Identifies the phone / browser a check-in was made from. */
+export interface DeviceInfo {
+  /** Random id kept in that device's localStorage. See utils/device.ts. */
+  id: string;
+  /** Human-readable hint for the lecturer, e.g. "iPhone · Safari". */
+  label: string;
+}
+
+/**
+ * One check-in, recorded together with the device it came from.
+ *
+ * Append-only: unlike `AttendanceRecord` (one row per student per session,
+ * overwritten on re-entry) nothing here is ever rewritten, so the lecturer can
+ * still see that one phone checked in three students even after each of them
+ * later checked in again from their own phone.
+ */
+export interface CheckInEvent {
+  id: string;
+  sessionId: string;
+  studentId: string;
+  deviceId: string;
+  /**
+   * Groups every check-in made from one device inside the rolling window (see
+   * `DEVICE_SESSION_WINDOW_HOURS`). Opened by the device's first check-in.
+   */
+  deviceSessionId: string;
+  deviceLabel: string;
+  at: string; // ISO timestamp
+}
+
 /** A student joined with their attendance for a specific session (view model). */
 export interface SessionAttendee {
   student: Student;
