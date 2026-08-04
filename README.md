@@ -30,7 +30,7 @@ workbook.
 
 The first time a phone checks a student in, it stores a random **device id** in
 its own browser storage. That id rides along with every later check-in, and the
-first one opens an **8-hour window** that every later check-in from that phone
+first one opens a **12-hour window** that every later check-in from that phone
 joins.
 
 **Nothing is ever blocked.** A phone may check in as many students as it likes —

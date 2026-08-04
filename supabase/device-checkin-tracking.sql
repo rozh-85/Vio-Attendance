@@ -8,7 +8,7 @@
 --   • Adds `check_in_events` — an append-only log of every check-in together
 --     with the device (phone/browser) that made it.
 --   • The first check-in from a phone opens a "device session" that lasts
---     8 hours; every later check-in from that phone inside the window joins the
+--     12 hours; every later check-in from that phone inside the window joins the
 --     same device session. When one device session covers more than one
 --     student, the lecturer sees all their names on the session screen.
 --
@@ -76,7 +76,7 @@ declare
   v_device_session uuid;
 
   -- Keep in sync with DEVICE_SESSION_WINDOW_HOURS in src/utils/device.ts.
-  v_window constant interval := interval '8 hours';
+  v_window constant interval := interval '12 hours';
 begin
   select * into v_session from public.sessions where id = p_session_id;
   if not found then raise exception 'SESSION_NOT_FOUND'; end if;
