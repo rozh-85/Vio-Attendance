@@ -1,16 +1,21 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, QrIcon, Search } from './icons';
+import { Home, Phone, QrIcon, Search } from './icons';
 import { paths } from '@/routes';
+import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import { cn } from '@/utils/cn';
 
-// The shared-phone report is deliberately absent: it lives at an unlisted URL
-// behind its own password, so it is reached by typing the address, not by
-// anyone who happens to be looking at the lecturer's screen.
-const links = [
+const baseLinks = [
   { to: paths.dashboard, label: 'Dashboard', icon: Home, end: true },
   { to: paths.students, label: 'Student report', icon: Search, end: false },
 ];
+
+const sharedPhonesLink = {
+  to: paths.devices,
+  label: 'Shared phones',
+  icon: Phone,
+  end: false,
+};
 
 /**
  * Shared admin chrome. On desktop a full-height sidebar hugs the left edge; on
@@ -18,6 +23,14 @@ const links = [
  * every section stays reachable without overflowing the viewport.
  */
 export function AdminLayout({ children }: { children: ReactNode }) {
+  // The shared-phone report only joins the sidebar once its password has been
+  // entered this session, so it stays invisible to anyone reading the
+  // lecturer's screen — but is one click away for whoever unlocked it, instead
+  // of forcing them to retype the address every time they leave the page.
+  const links = isOwnerUnlocked()
+    ? [...baseLinks, sharedPhonesLink]
+    : baseLinks;
+
   return (
     <div className="min-h-screen w-full lg:flex">
       {/* Desktop sidebar — sticky, fills the viewport height. */}

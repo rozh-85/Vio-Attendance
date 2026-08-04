@@ -46,9 +46,11 @@ student, it is reported in two places:
   phone actually touched), or search by student. Use it when the lecture is
   already closed, or when you want the whole picture.
 
-  That page is deliberately **not in the sidebar** — it names students suspected
-  of checking in for each other, so it is reached by typing the address and asks
-  for the owner's email and password on top of the lecturer sign-in. Change who
+  That page names students suspected of checking in for each other, so it is
+  **unlisted**: reached by typing the address, and asking for the owner's email
+  and password on top of the lecturer sign-in. Once unlocked it joins the
+  sidebar for that browser tab, so you can move between it and the dashboard
+  freely; **Lock report** (or closing the browser) removes it again. Change who
   can open it with `VITE_OWNER_EMAIL` / `VITE_OWNER_PASSWORD` (see
   [`.env.example`](.env.example)); the built-in password is stored only as a
   SHA-256 digest in [`ownerGate.ts`](src/services/auth/ownerGate.ts).
