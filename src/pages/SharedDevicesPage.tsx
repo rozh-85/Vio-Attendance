@@ -23,6 +23,26 @@ const RANGES = [
 ] as const;
 
 /**
+ * Everything an error can tell us, as one string to match against.
+ *
+ * Supabase rejects a query with a plain `{ message, details, hint, code }`
+ * object rather than an `Error`, so reading `.message` off an `Error` alone —
+ * or stringifying it — throws the reason away and leaves every failure looking
+ * like the same one.
+ */
+function describeError(err: unknown): string {
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const e = err as Record<string, unknown>;
+    const parts = [e.message, e.details, e.hint, e.code].filter(
+      (v): v is string => typeof v === 'string',
+    );
+    if (parts.length) return parts.join(' ');
+  }
+  return String(err);
+}
+
+/**
  * Admin page: every phone that checked in more than one student, across all
  * lectures. The session screen shows the same report scoped to one lecture —
  * this is the place to look when you want the whole picture, or when the
@@ -65,7 +85,7 @@ export function SharedDevicesPage() {
           // never run) or it is locked and this build cannot open it — which
           // is what a site deployed before lock-device-log.sql looks like.
           const denied = /permission denied|NOT_AUTHORISED/i.test(
-            err instanceof Error ? err.message : String(err),
+            describeError(err),
           );
           setError(
             denied
