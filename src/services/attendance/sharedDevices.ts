@@ -10,12 +10,23 @@
 
 import type { CheckInEvent, Student } from '@/types';
 
+/** One check-in from the shared phone, and the lecture it landed in. */
+export interface SharedDeviceCheckIn {
+  sessionId: string;
+  at: string;
+}
+
 export interface SharedDeviceMember {
   student: Student;
   /** First and last time this student checked in from the shared phone. */
   firstAt: string;
   lastAt: string;
-  checkIns: number;
+  /**
+   * Every check-in this student made from the phone, oldest first. Carries the
+   * session id because one phone can serve two lectures running side by side —
+   * without it the lecturer cannot tell which lecture a name belongs to.
+   */
+  checkIns: SharedDeviceCheckIn[];
   /** True for the student who opened the device session — likely its owner. */
   isOwner: boolean;
 }
@@ -30,6 +41,8 @@ export interface SharedDeviceGroup {
   lastAt: string;
   /** Ordered by first check-in, so `members[0]` opened the session. */
   members: SharedDeviceMember[];
+  /** Every lecture this phone touched during the window, oldest first. */
+  sessionIds: string[];
 }
 
 /**
@@ -71,7 +84,7 @@ export function findSharedDeviceGroups(
 
       const existing = members.get(student.id);
       if (existing) {
-        existing.checkIns += 1;
+        existing.checkIns.push({ sessionId: event.sessionId, at: event.at });
         if (event.at < existing.firstAt) existing.firstAt = event.at;
         if (event.at > existing.lastAt) existing.lastAt = event.at;
       } else {
@@ -79,7 +92,7 @@ export function findSharedDeviceGroups(
           student,
           firstAt: event.at,
           lastAt: event.at,
-          checkIns: 1,
+          checkIns: [{ sessionId: event.sessionId, at: event.at }],
           isOwner: false,
         });
       }
@@ -92,17 +105,28 @@ export function findSharedDeviceGroups(
       a.firstAt.localeCompare(b.firstAt),
     );
     ordered[0].isOwner = true;
+    for (const member of ordered) {
+      member.checkIns.sort((a, b) => a.at.localeCompare(b.at));
+    }
 
     // The label is stored per event; the newest one wins if it ever changes.
     const newest = deviceEvents.reduce((a, b) => (a.at > b.at ? a : b));
+
+    const sessionIds: string[] = [];
+    for (const event of [...deviceEvents].sort((a, b) =>
+      a.at.localeCompare(b.at),
+    )) {
+      if (!sessionIds.includes(event.sessionId)) sessionIds.push(event.sessionId);
+    }
 
     groups.push({
       deviceSessionId,
       deviceId: newest.deviceId,
       deviceLabel: newest.deviceLabel,
       startedAt: ordered[0].firstAt,
-      lastAt: ordered[ordered.length - 1].lastAt,
+      lastAt: ordered.reduce((a, b) => (a.lastAt > b.lastAt ? a : b)).lastAt,
       members: ordered,
+      sessionIds,
     });
   }
 

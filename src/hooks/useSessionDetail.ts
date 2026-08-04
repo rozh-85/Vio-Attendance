@@ -54,19 +54,24 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
   const [students, setStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [events, setEvents] = useState<CheckInEvent[]>([]);
+  const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [s, st, rec] = await Promise.all([
+      // The full session list names the *other* lectures a shared phone
+      // touched — two sessions are often open at once.
+      const [s, st, rec, all] = await Promise.all([
         data.getSession(sessionId),
         data.listStudents(),
         data.listAttendance(sessionId),
+        data.listSessions(),
       ]);
       setSession(s);
       setStudents(st);
       setRecords(rec);
+      setAllSessions(all);
       setEvents(s ? await loadCheckInEvents(data, s) : []);
       setError(null);
     } catch (err) {
@@ -110,6 +115,12 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
     [sharedDevices],
   );
 
+  /** Lets the shared-phone panel name the lecture behind every check-in. */
+  const sessionsById = useMemo(
+    () => new Map(allSessions.map((s) => [s.id, s])),
+    [allSessions],
+  );
+
   const stats = useMemo(() => {
     const checkedIn = attendees.filter((a) => a.status === 'checked-in').length;
     const checkedOut = attendees.filter(
@@ -145,6 +156,7 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
     stats,
     sharedDevices,
     sharedDeviceNames,
+    sessionsById,
     loading,
     error,
     refresh,

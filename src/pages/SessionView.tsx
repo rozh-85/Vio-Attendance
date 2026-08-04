@@ -57,6 +57,7 @@ export function SessionView() {
     stats,
     sharedDevices,
     sharedDeviceNames,
+    sessionsById,
     loading,
     error,
     update,
@@ -352,7 +353,11 @@ export function SessionView() {
       </div>
 
       {/* One phone, several students */}
-      <SharedDevicesCard groups={sharedDevices} />
+      <SharedDevicesCard
+        groups={sharedDevices}
+        sessionsById={sessionsById}
+        currentSessionId={session.id}
+      />
 
       {/* Students */}
       <div className="mt-8">

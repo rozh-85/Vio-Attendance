@@ -35,13 +35,22 @@ joins.
 
 **Nothing is ever blocked.** A phone may check in as many students as it likes —
 the point is that the lecturer sees it. As soon as a phone checks in a *second*
-student, the session screen grows a **Shared phones** card naming everyone that
-phone checked in, with codes and times. The student who checked in first is
-marked: that's most likely the phone's owner, and the rest were checked in by
-them. Those students also get a "Same phone as …" line in the students table.
+student, it is reported in two places:
+
+- **On the session screen**, a **Shared phones** card naming everyone that phone
+  checked in, with codes and times. The student who checked in first is marked:
+  that's most likely the phone's owner, and the rest were checked in by them.
+  Those students also get a "Same phone as …" line in the students table.
+- **On the `/shared-phones` page** (sidebar → *Shared phones*), the same report
+  across every lecture, filterable by period and searchable by student. Use it
+  when the lecture is already closed, or when you want the whole picture.
 
 The window follows the phone, not the lecture: a phone that checks in one
 student in the morning lecture and another before lunch is reported in both.
+Because two lectures are often open at once, **every name carries the lecture
+its check-in actually landed in** — the one you're currently looking at is
+marked "this lecture", and a phone that worked more than one lecture says so at
+the top of its group.
 
 The window length lives in one place per side —
 `DEVICE_SESSION_WINDOW_HOURS` in [`src/utils/device.ts`](src/utils/device.ts)
@@ -116,6 +125,7 @@ src/
 | ------------------------ | --------- | ------------------------------ |
 | `/`                      | Lecturer  | Dashboard — create / list      |
 | `/session/:id`           | Lecturer  | Control panel + QR codes       |
+| `/shared-phones`         | Lecturer  | Phones used by several students |
 | `/register`              | Student   | Sign up, receive code          |
 | `/checkin/:sessionId`    | Student   | Enter code to check in         |
 | `/checkout/:sessionId`   | Student   | Enter code to check out        |

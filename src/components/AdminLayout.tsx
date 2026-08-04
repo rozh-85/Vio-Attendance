@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, QrIcon, Search } from './icons';
+import { Home, Phone, QrIcon, Search } from './icons';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
 
 const links = [
   { to: paths.dashboard, label: 'Dashboard', icon: Home, end: true },
   { to: paths.students, label: 'Student report', icon: Search, end: false },
+  { to: paths.devices, label: 'Shared phones', icon: Phone, end: false },
 ];
 
 /**
