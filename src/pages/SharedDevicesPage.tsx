@@ -58,13 +58,21 @@ export function SharedDevicesPage() {
         setSessions(se);
         setEvents(ev);
         setError(null);
-      } catch {
+      } catch (err) {
         if (active) {
-          // Almost always a database that has not run
-          // supabase/device-checkin-tracking.sql yet.
+          // Two very different causes, and naming the wrong one sends you to
+          // the wrong file: either the log is missing (the tracking SQL was
+          // never run) or it is locked and this build cannot open it — which
+          // is what a site deployed before lock-device-log.sql looks like.
+          const denied = /permission denied|NOT_AUTHORISED/i.test(
+            err instanceof Error ? err.message : String(err),
+          );
           setError(
-            'Could not load the device log. Run supabase/device-checkin-tracking.sql ' +
-              'in the Supabase SQL editor to switch device tracking on.',
+            denied
+              ? 'The device log is locked and this version of the site cannot open it. ' +
+                  'Deploy the build that goes with supabase/lock-device-log.sql.'
+              : 'Could not load the device log. Run supabase/device-checkin-tracking.sql ' +
+                  'in the Supabase SQL editor to switch device tracking on.',
           );
           setEvents([]);
         }
