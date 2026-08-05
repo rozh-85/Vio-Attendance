@@ -30,7 +30,7 @@ workbook.
 
 The first time a phone checks a student in, it stores a random **device id** in
 its own browser storage. That id rides along with every later check-in, and the
-first one opens a **12-hour window** that every later check-in from that phone
+first one opens an **8-hour window** that every later check-in from that phone
 joins.
 
 **Nothing is ever blocked.** A phone may check in as many students as it likes —
@@ -57,19 +57,12 @@ student, it is reported in two places:
   [`.env.example`](.env.example)); the built-in password is stored only as a
   SHA-256 digest in [`ownerGate.ts`](src/services/auth/ownerGate.ts).
 
-  > That gate runs in the browser, so on its own it would only hide the page.
-  > It is not on its own: once
-  > [`lock-device-log.sql`](supabase/lock-device-log.sql) has been run, Postgres
-  > lets *no one* read `check_in_events` directly — the only way in is a
-  > function that asks for the same password. Getting past the gate with
-  > devtools then buys nothing, because the data never leaves the database
-  > without it. That is what makes "only me" true here: every lecturer signs in
-  > with the same Supabase account, so the account cannot tell you apart from
-  > them, but the password can. Students keep checking in either way.
-  >
-  > Change the password in **both** places or the report will open and then come
-  > up empty: set `VITE_OWNER_PASSWORD`, and put that password's SHA-256 in the
-  > SQL file.
+  > That gate runs in the browser, so it hides the page rather than securing it —
+  > anyone with devtools can get past it, and by default any signed-in lecturer
+  > could query `check_in_events` directly. To make "only me" true in the
+  > database, run [`restrict-device-log.sql`](supabase/restrict-device-log.sql)
+  > with your Supabase login email in it: after that the log is readable by that
+  > one account and nobody else. Students keep checking in either way.
 
 The window follows the phone, not the lecture: a phone that checks in one
 student in the morning lecture and another before lunch is reported in both.
@@ -125,7 +118,7 @@ safe to re-run:
 | [`harden-session-policies.sql`](supabase/harden-session-policies.sql)           | Only lecturers may create / edit sessions          |
 | [`harden-student-data.sql`](supabase/harden-student-data.sql)                   | Student data unreadable with the public anon key   |
 | [`device-checkin-tracking.sql`](supabase/device-checkin-tracking.sql)           | The shared-phone log described above               |
-| [`lock-device-log.sql`](supabase/lock-device-log.sql)                           | Makes that log readable only with the owner password |
+| [`restrict-device-log.sql`](supabase/restrict-device-log.sql)                   | Limits that log to one account (edit the email first) |
 
 Until `device-checkin-tracking.sql` is run, check-in keeps working — it just
 records no devices and the Shared phones card stays empty.

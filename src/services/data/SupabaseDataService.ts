@@ -11,7 +11,6 @@ import type {
   StudentEdit,
 } from '@/types';
 import { normalizePhone } from '@/utils/id';
-import { ownerSecret } from '@/services/auth/ownerGate';
 import type { DataService } from './DataService';
 import { DataError, type DataErrorCode } from './errors';
 
@@ -363,51 +362,7 @@ export class SupabaseDataService implements DataService {
     return this.toRecord(data as AttendanceRow);
   }
 
-  /**
-   * The device log, which no role may read straight from the table — the only
-   * way in is `list_check_in_events`, and it hands back rows only for the owner
-   * password (see supabase/lock-device-log.sql). Every lecturer shares one
-   * Supabase login, so the password, not the account, is what separates them.
-   *
-   * Without the password there is nothing to ask for, so callers get an empty
-   * log rather than an error: the shared-phone panels simply stay hidden.
-   */
   async listCheckInEvents(sinceIso?: string): Promise<CheckInEvent[]> {
-    const secret = ownerSecret();
-    if (!secret) return [];
-
-    const pageSize = 1000;
-    const rows: CheckInEventRow[] = [];
-    for (let from = 0; ; from += pageSize) {
-      const { data, error } = await this.client
-        .rpc('list_check_in_events', {
-          p_password: secret,
-          p_since: sinceIso ?? null,
-        })
-        .range(from, from + pageSize - 1);
-
-      if (error) {
-        // Someone reached the report without the password — show nothing.
-        if ((error.message ?? '').includes('NOT_AUTHORISED')) return [];
-        // A database still on the older schema has no such function; read the
-        // table as before so the report keeps working until the SQL is run.
-        if (isMissingFunction(error)) {
-          return this.listCheckInEventsFromTable(sinceIso);
-        }
-        throw error;
-      }
-
-      const page = (data as CheckInEventRow[] | null) ?? [];
-      rows.push(...page);
-      if (page.length < pageSize) break;
-    }
-    return rows.map((r) => this.toCheckInEvent(r));
-  }
-
-  /** Pre-lockdown path: readable by any lecturer, so only used as a fallback. */
-  private async listCheckInEventsFromTable(
-    sinceIso?: string,
-  ): Promise<CheckInEvent[]> {
     const rows = await this.fetchAllRows<CheckInEventRow>(
       'check_in_events',
       'at',

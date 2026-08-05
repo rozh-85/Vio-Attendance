@@ -25,7 +25,7 @@ const DEVICE_ID_KEY = 'qra.deviceId';
  * shared device. Mirrored by `v_window` in the SQL `check_in` function —
  * change both together (see supabase/device-checkin-tracking.sql).
  */
-export const DEVICE_SESSION_WINDOW_HOURS = 12;
+export const DEVICE_SESSION_WINDOW_HOURS = 8;
 
 /** Fallback for browsers where storage is unavailable (private mode). */
 let memoryDeviceId = '';

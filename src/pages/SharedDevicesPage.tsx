@@ -23,26 +23,6 @@ const RANGES = [
 ] as const;
 
 /**
- * Everything an error can tell us, as one string to match against.
- *
- * Supabase rejects a query with a plain `{ message, details, hint, code }`
- * object rather than an `Error`, so reading `.message` off an `Error` alone —
- * or stringifying it — throws the reason away and leaves every failure looking
- * like the same one.
- */
-function describeError(err: unknown): string {
-  if (typeof err === 'string') return err;
-  if (err && typeof err === 'object') {
-    const e = err as Record<string, unknown>;
-    const parts = [e.message, e.details, e.hint, e.code].filter(
-      (v): v is string => typeof v === 'string',
-    );
-    if (parts.length) return parts.join(' ');
-  }
-  return String(err);
-}
-
-/**
  * Admin page: every phone that checked in more than one student, across all
  * lectures. The session screen shows the same report scoped to one lecture —
  * this is the place to look when you want the whole picture, or when the
@@ -78,21 +58,13 @@ export function SharedDevicesPage() {
         setSessions(se);
         setEvents(ev);
         setError(null);
-      } catch (err) {
+      } catch {
         if (active) {
-          // Two very different causes, and naming the wrong one sends you to
-          // the wrong file: either the log is missing (the tracking SQL was
-          // never run) or it is locked and this build cannot open it — which
-          // is what a site deployed before lock-device-log.sql looks like.
-          const denied = /permission denied|NOT_AUTHORISED/i.test(
-            describeError(err),
-          );
+          // Almost always a database that has not run
+          // supabase/device-checkin-tracking.sql yet.
           setError(
-            denied
-              ? 'The device log is locked and this version of the site cannot open it. ' +
-                  'Deploy the build that goes with supabase/lock-device-log.sql.'
-              : 'Could not load the device log. Run supabase/device-checkin-tracking.sql ' +
-                  'in the Supabase SQL editor to switch device tracking on.',
+            'Could not load the device log. Run supabase/device-checkin-tracking.sql ' +
+              'in the Supabase SQL editor to switch device tracking on.',
           );
           setEvents([]);
         }
