@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react';
 import { Modal } from './ui/Modal';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { Badge } from './ui/Badge';
-import type { AttendanceStatus, SessionAttendee } from '@/types';
+import {
+  AttendanceTimeFields,
+  attendanceTimesError,
+} from './AttendanceTimeFields';
+import type { SessionAttendee } from '@/types';
 import {
   fromDateTimeLocalValue,
   toDateTimeLocalValue,
@@ -16,20 +19,6 @@ export interface EditAttendeeValues {
   phone: string;
   checkInAt: string | null;
   checkOutAt: string | null;
-}
-
-function statusFrom(
-  checkIn: string,
-  checkOut: string,
-): AttendanceStatus {
-  if (!checkIn) return 'absent';
-  return checkOut ? 'checked-out' : 'checked-in';
-}
-
-function StatusBadge({ status }: { status: AttendanceStatus }) {
-  if (status === 'checked-in') return <Badge tone="success">✓ In</Badge>;
-  if (status === 'checked-out') return <Badge tone="info">✓ Out</Badge>;
-  return <Badge tone="neutral">Absent</Badge>;
 }
 
 export function EditAttendeeModal({
@@ -59,17 +48,9 @@ export function EditAttendeeModal({
     toDateTimeLocalValue(record?.checkOutAt),
   );
 
-  const status = statusFrom(checkIn, checkOut);
-
   const validationError = useMemo(() => {
     if (!fullName.trim()) return 'Name is required.';
-    if (checkOut && !checkIn) {
-      return 'Set a check-in time before a check-out time.';
-    }
-    if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) {
-      return 'Check-out cannot be before check-in.';
-    }
-    return null;
+    return attendanceTimesError(checkIn, checkOut);
   }, [fullName, checkIn, checkOut]);
 
   function handleSave() {
@@ -114,34 +95,12 @@ export function EditAttendeeModal({
           onChange={(e) => setPhone(e.target.value)}
         />
 
-        <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-          <span className="text-sm font-semibold text-ink-700">Status</span>
-          <StatusBadge status={status} />
-        </div>
-
-        <Input
-          label="Check-in"
-          type="datetime-local"
-          value={checkIn}
-          onChange={(e) => setCheckIn(e.target.value)}
+        <AttendanceTimeFields
+          checkIn={checkIn}
+          checkOut={checkOut}
+          onCheckInChange={setCheckIn}
+          onCheckOutChange={setCheckOut}
         />
-        <Input
-          label="Check-out"
-          type="datetime-local"
-          value={checkOut}
-          onChange={(e) => setCheckOut(e.target.value)}
-        />
-
-        <button
-          type="button"
-          className="text-sm font-semibold text-ink-500 hover:text-ink-700"
-          onClick={() => {
-            setCheckIn('');
-            setCheckOut('');
-          }}
-        >
-          Mark absent (clear times)
-        </button>
 
         {(validationError || error) && (
           <p className="text-sm text-rose-600">{validationError ?? error}</p>

@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
-import { Download, Search } from '@/components/icons';
+import { Download, Pencil, Search } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
 import { exportStudentPdf } from '@/services/report/studentPdf';
+import { EditAttendanceModal } from '@/components/EditAttendanceModal';
 import {
   formatClock,
   formatDateTime,
@@ -15,7 +16,12 @@ import {
   presentMinutes,
 } from '@/utils/time';
 import { cn } from '@/utils/cn';
-import type { AttendanceRecord, Session, Student } from '@/types';
+import type {
+  AttendanceEdit,
+  AttendanceRecord,
+  Session,
+  Student,
+} from '@/types';
 
 interface SessionRow {
   session: Session;
@@ -47,6 +53,10 @@ export function StudentReportPage() {
   // attended is ticked by default; the lecturer unticks the ones that don't
   // apply to them.
   const [included, setIncluded] = useState<Set<string>>(new Set());
+  // The lecture row currently being corrected by hand, if any.
+  const [editing, setEditing] = useState<SessionRow | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -113,15 +123,25 @@ export function StudentReportPage() {
       });
   }, [selected, sessions, records]);
 
-  // Reset the selection whenever the student (or their session list) changes:
-  // include everything except sessions that predate their registration.
-  useEffect(() => {
-    setIncluded(
+  // Everything the student could have attended, ticked by default.
+  const defaultIncluded = useMemo(
+    () =>
       new Set(
         rows.filter((r) => !r.beforeRegistration).map((r) => r.session.id),
       ),
-    );
-  }, [rows]);
+    [rows],
+  );
+
+  // Apply those defaults when a student is picked (or the sessions finish
+  // loading) — but not when a manual attendance edit rebuilds `rows`, which
+  // would otherwise silently undo the lecturer's ticks.
+  const defaultsKey = selected ? `${selected.id}:${sessions.length}` : '';
+  const appliedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (appliedKey.current === defaultsKey) return;
+    appliedKey.current = defaultsKey;
+    setIncluded(defaultIncluded);
+  }, [defaultsKey, defaultIncluded]);
 
   // Totals reflect only the ticked sessions, so the numbers (and the PDF) match
   // exactly what the lecturer chose to include.
@@ -157,6 +177,42 @@ export function StudentReportPage() {
 
   function clearAll() {
     setIncluded(new Set());
+  }
+
+  /**
+   * Writes a hand-entered check-in / check-out straight from the report, so a
+   * missed scan can be fixed without opening that session on the dashboard.
+   */
+  async function onSaveAttendance(edit: AttendanceEdit) {
+    if (!selected || !editing) return;
+    const sessionId = editing.session.id;
+
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const saved = await data.setAttendance(sessionId, selected.id, edit);
+      setRecords((prev) => {
+        const i = prev.findIndex(
+          (r) => r.sessionId === sessionId && r.studentId === selected.id,
+        );
+        if (i === -1) return [...prev, saved];
+        const next = prev.slice();
+        next[i] = saved;
+        return next;
+      });
+      // Marking them present for a lecture that predates their registration
+      // means it should count too.
+      if (edit.checkInAt) {
+        setIncluded((prev) => new Set(prev).add(sessionId));
+      }
+      setEditing(null);
+    } catch (err) {
+      setEditError(
+        err instanceof Error ? err.message : 'Failed to save attendance.',
+      );
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   function onExportPdf() {
@@ -299,7 +355,8 @@ export function StudentReportPage() {
             Untick any that aren't part of their programme — company-wide
             sessions or lectures they attend at another university. Only ticked
             lectures count toward the totals above and appear in the exported
-            PDF.
+            PDF. Use the pencil on any row to add or fix a check-in / check-out
+            time by hand.
           </div>
 
           {rows.length > 0 && (
@@ -348,10 +405,12 @@ export function StudentReportPage() {
                     <th className="px-5 py-3 font-semibold">Check-out</th>
                     <th className="px-5 py-3 font-semibold">Status</th>
                     <th className="px-5 py-3 font-semibold">Hours</th>
+                    <th className="px-5 py-3 text-right font-semibold">Edit</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ session, record, minutes, beforeRegistration }) => {
+                  {rows.map((row) => {
+                    const { session, record, minutes, beforeRegistration } = row;
                     const isIn = included.has(session.id);
                     return (
                       <tr
@@ -423,13 +482,27 @@ export function StudentReportPage() {
                         >
                           {record?.checkInAt ? formatMinutes(minutes) : '—'}
                         </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            type="button"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+                            title={`Edit check-in / check-out for ${session.title || session.lecturerName}`}
+                            aria-label={`Edit check-in / check-out for ${session.title || session.lecturerName}`}
+                            onClick={() => {
+                              setEditError(null);
+                              setEditing(row);
+                            }}
+                          >
+                            <Pencil width={17} height={17} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                   {rows.length === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="px-5 py-8 text-center text-ink-500"
                       >
                         No sessions yet.
@@ -440,6 +513,18 @@ export function StudentReportPage() {
               </table>
             </div>
           </Card>
+
+          {editing && (
+            <EditAttendanceModal
+              student={selected}
+              session={editing.session}
+              record={editing.record}
+              saving={savingEdit}
+              error={editError}
+              onClose={() => setEditing(null)}
+              onSave={onSaveAttendance}
+            />
+          )}
         </>
       )}
     </AdminLayout>
