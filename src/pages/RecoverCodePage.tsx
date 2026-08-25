@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Screen } from '@/components/Screen';
+import { Logo } from '@/components/Logo';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +26,7 @@ export function RecoverCodePage() {
 
   return (
     <Screen width="sm">
+      <Logo size={44} className="mb-5" />
       <h1 className="text-3xl font-bold">Recover your code</h1>
       <p className="mt-1 text-ink-500">
         Enter the phone number you registered with and we'll show your code.

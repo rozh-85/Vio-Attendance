@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Book, Check, Login, Logout } from '@/components/icons';
+import { Logo } from '@/components/Logo';
 import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
 import type { Session } from '@/types';
@@ -128,6 +129,7 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
 
   return (
     <Screen width="sm">
+      <Logo size={44} className="mb-5" />
       <h1 className="text-3xl font-bold">{c.title}</h1>
       <p className="mt-1 text-ink-500">{c.subtitle}</p>
 

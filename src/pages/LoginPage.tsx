@@ -4,7 +4,7 @@ import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Login as LoginIcon } from '@/components/icons';
+import { Logo } from '@/components/Logo';
 import { useAuth } from '@/services/auth/context';
 import { paths } from '@/routes';
 
@@ -41,9 +41,7 @@ export function LoginPage() {
   return (
     <Screen width="sm">
       <div className="mb-6 flex items-center gap-3">
-        <div className="grid size-11 place-items-center rounded-2xl bg-brand-600 text-white">
-          <LoginIcon />
-        </div>
+        <Logo size={44} className="rounded-2xl" />
         <div>
           <h1 className="text-2xl font-bold leading-tight">Lecturer sign in</h1>
           <p className="text-sm text-ink-500">

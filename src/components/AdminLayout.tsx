@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Phone, QrIcon, Search } from './icons';
+import { Home, Phone, Search } from './icons';
+import { Logo } from './Logo';
 import { paths } from '@/routes';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import { cn } from '@/utils/cn';
@@ -36,9 +37,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       {/* Desktop sidebar — sticky, fills the viewport height. */}
       <aside className="sticky top-0 z-20 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-card px-4 py-6 lg:flex">
         <div className="mb-8 flex items-center gap-2.5 px-2">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-white">
-            <QrIcon width={18} height={18} />
-          </span>
+          <Logo size={36} />
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-bold text-ink-900">
               QR Attendance
@@ -71,7 +70,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       {/* Main column. */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         {/* Mobile / tablet top nav — scrolls sideways if it runs out of room. */}
-        <div className="sticky top-0 z-20 border-b border-slate-200 bg-card/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-card/95 px-4 py-3 backdrop-blur lg:hidden">
+          <Logo size={30} className="rounded-lg" />
           <nav className="flex gap-2 overflow-x-auto">
             {links.map(({ to, label, icon: Icon, end }) => (
               <NavLink
