@@ -3,8 +3,8 @@ import { DataServiceProvider } from '@/services/data/context';
 import { AuthProvider } from '@/services/auth/context';
 import { RequireAuth } from '@/components/RequireAuth';
 import { routePatterns } from '@/routes';
-import { LecturerDashboard } from '@/pages/LecturerDashboard';
-import { StudentReportPage } from '@/pages/StudentReportPage';
+import { SupervisorDashboard } from '@/pages/SupervisorDashboard';
+import { EmployeeReportPage } from '@/pages/EmployeeReportPage';
 import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
 import { OwnerGate } from '@/components/OwnerGate';
 import { SessionView } from '@/pages/SessionView';
@@ -20,24 +20,24 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* Lecturer-only — gated behind sign in. */}
+            {/* Supervisor-only — gated behind sign in. */}
             <Route
               path={routePatterns.dashboard}
               element={
                 <RequireAuth>
-                  <LecturerDashboard />
+                  <SupervisorDashboard />
                 </RequireAuth>
               }
             />
             <Route
-              path={routePatterns.students}
+              path={routePatterns.employees}
               element={
                 <RequireAuth>
-                  <StudentReportPage />
+                  <EmployeeReportPage />
                 </RequireAuth>
               }
             />
-            {/* Unlisted owner report: lecturer sign-in, then its own password. */}
+            {/* Unlisted owner report: supervisor sign-in, then its own password. */}
             <Route
               path={routePatterns.devices}
               element={
@@ -60,13 +60,13 @@ export default function App() {
             {/* Admin sign-in lives at the non-obvious /admin path. */}
             <Route path={routePatterns.admin} element={<LoginPage />} />
 
-            {/* Public — student-facing only. */}
+            {/* Public — employee-facing only. */}
             <Route path={routePatterns.recover} element={<RecoverCodePage />} />
             <Route path={routePatterns.checkIn} element={<CheckInPage />} />
             <Route path={routePatterns.checkOut} element={<CheckOutPage />} />
 
             {/* Everything else — /login, /register, and any unknown URL — shows
-                the neutral student page. It never reveals the admin login. */}
+                the neutral employee page. It never reveals the admin login. */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>

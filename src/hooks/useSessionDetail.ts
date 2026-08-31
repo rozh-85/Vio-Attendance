@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDataService } from '@/services/data/context';
 import {
   findSharedDeviceGroups,
-  sharedDeviceNamesByStudent,
+  sharedDeviceNamesByEmployee,
 } from '@/services/attendance/sharedDevices';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
@@ -12,7 +12,7 @@ import type {
   CheckInEvent,
   Session,
   SessionAttendee,
-  Student,
+  Employee,
 } from '@/types';
 
 function statusOf(record?: AttendanceRecord): AttendanceStatus {
@@ -21,12 +21,12 @@ function statusOf(record?: AttendanceRecord): AttendanceStatus {
 }
 
 /**
- * Loads the device log around this lecture — from one device-session window
- * before it started, so a phone that started its rounds in an earlier lecture
+ * Loads the device log around this session — from one device-session window
+ * before it started, so a phone that started its rounds in an earlier session
  * still shows up here.
  *
- * Only for whoever unlocked the owner report: the log accuses named students of
- * checking in for each other, so an ordinary lecturer's screen never receives
+ * Only for whoever unlocked the owner report: the log accuses named employees of
+ * checking in for each other, so an ordinary supervisor's screen never receives
  * it, not even to hide it in the markup.
  *
  * It is a nice-to-have besides: a database that has not run
@@ -51,14 +51,14 @@ async function loadCheckInEvents(
 }
 
 /**
- * Loads a single session together with every registered student joined to their
- * attendance for that session. Polls periodically so the lecturer's screen
+ * Loads a single session together with every registered employee joined to their
+ * attendance for that session. Polls periodically so the supervisor's screen
  * reflects check-ins as they happen.
  */
 export function useSessionDetail(sessionId: string, pollMs = 3000) {
   const data = useDataService();
   const [session, setSession] = useState<Session | null>(null);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [events, setEvents] = useState<CheckInEvent[]>([]);
   const [allSessions, setAllSessions] = useState<Session[]>([]);
@@ -67,16 +67,16 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
 
   const refresh = useCallback(async () => {
     try {
-      // The full session list names the *other* lectures a shared phone
+      // The full session list names the *other* sessions a shared phone
       // touched — two sessions are often open at once.
       const [s, st, rec, all] = await Promise.all([
         data.getSession(sessionId),
-        data.listStudents(),
+        data.listEmployees(),
         data.listAttendance(sessionId),
         data.listSessions(),
       ]);
       setSession(s);
-      setStudents(st);
+      setEmployees(st);
       setRecords(rec);
       setAllSessions(all);
       setEvents(s ? await loadCheckInEvents(data, s) : []);
@@ -101,28 +101,28 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
   }, [refresh, pollMs]);
 
   const attendees: SessionAttendee[] = useMemo(() => {
-    const byStudent = new Map(records.map((r) => [r.studentId, r]));
-    return students
-      .map((student) => {
-        const record = byStudent.get(student.id);
-        return { student, record, status: statusOf(record) };
+    const byEmployee = new Map(records.map((r) => [r.employeeId, r]));
+    return employees
+      .map((employee) => {
+        const record = byEmployee.get(employee.id);
+        return { employee, record, status: statusOf(record) };
       })
-      .sort((a, b) => a.student.code.localeCompare(b.student.code));
-  }, [students, records]);
+      .sort((a, b) => a.employee.code.localeCompare(b.employee.code));
+  }, [employees, records]);
 
-  /** Phones that checked in more than one student around this lecture. */
+  /** Phones that checked in more than one employee around this session. */
   const sharedDevices = useMemo(
-    () => findSharedDeviceGroups(events, students, { sessionId }),
-    [events, students, sessionId],
+    () => findSharedDeviceGroups(events, employees, { sessionId }),
+    [events, employees, sessionId],
   );
 
-  /** studentId → names of the others who used the same phone. */
+  /** employeeId → names of the others who used the same phone. */
   const sharedDeviceNames = useMemo(
-    () => sharedDeviceNamesByStudent(sharedDevices),
+    () => sharedDeviceNamesByEmployee(sharedDevices),
     [sharedDevices],
   );
 
-  /** Lets the shared-phone panel name the lecture behind every check-in. */
+  /** Lets the shared-phone panel name the session behind every check-in. */
   const sessionsById = useMemo(
     () => new Map(allSessions.map((s) => [s.id, s])),
     [allSessions],
@@ -134,12 +134,12 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
       (a) => a.status === 'checked-out',
     ).length;
     return {
-      registered: students.length,
+      registered: employees.length,
       present: checkedIn + checkedOut,
       checkedIn,
       checkedOut,
     };
-  }, [attendees, students.length]);
+  }, [attendees, employees.length]);
 
   const update = useCallback(
     async (patch: Partial<Session>) => {

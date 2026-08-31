@@ -70,7 +70,7 @@ export function RotatingQRPanel({
       <p className="mt-2 max-w-xs text-sm text-ink-500">
         {caption ??
           (rotating
-            ? 'This code changes every few seconds — students must scan the live code on screen.'
+            ? 'This code changes every few seconds — employees must scan the live code on screen.'
             : 'This code stays the same for the whole session.')}
       </p>
     </div>

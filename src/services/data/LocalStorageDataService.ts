@@ -4,10 +4,10 @@ import type {
   CheckInEvent,
   DeviceInfo,
   NewSessionInput,
-  NewStudentInput,
+  NewEmployeeInput,
   Session,
-  Student,
-  StudentEdit,
+  Employee,
+  EmployeeEdit,
 } from '@/types';
 import { formatCode, normalizePhone, uid } from '@/utils/id';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
@@ -15,11 +15,11 @@ import type { DataService } from './DataService';
 import { DataError } from './errors';
 
 const KEYS = {
-  students: 'qra.students',
-  sessions: 'qra.sessions',
-  attendance: 'qra.attendance',
-  checkInEvents: 'qra.checkInEvents',
-  counter: 'qra.codeCounter',
+  employees: 'vio.employees',
+  sessions: 'vio.sessions',
+  attendance: 'vio.attendance',
+  checkInEvents: 'vio.checkInEvents',
+  counter: 'vio.codeCounter',
 } as const;
 
 /**
@@ -59,26 +59,26 @@ export class LocalStorageDataService implements DataService {
     return formatCode(next);
   }
 
-  // ── Students ──────────────────────────────────────────────────────────────
-  async listStudents(): Promise<Student[]> {
-    return this.read<Student[]>(KEYS.students, []);
+  // ── Employees ──────────────────────────────────────────────────────────────
+  async listEmployees(): Promise<Employee[]> {
+    return this.read<Employee[]>(KEYS.employees, []);
   }
 
-  async getStudentByPhone(phone: string): Promise<Student | null> {
+  async getEmployeeByPhone(phone: string): Promise<Employee | null> {
     const target = normalizePhone(phone);
-    const students = await this.listStudents();
-    return students.find((s) => normalizePhone(s.phone) === target) ?? null;
+    const employees = await this.listEmployees();
+    return employees.find((s) => normalizePhone(s.phone) === target) ?? null;
   }
 
-  async getStudentByCode(code: string): Promise<Student | null> {
+  async getEmployeeByCode(code: string): Promise<Employee | null> {
     const target = code.trim();
-    const students = await this.listStudents();
-    return students.find((s) => s.code === target) ?? null;
+    const employees = await this.listEmployees();
+    return employees.find((s) => s.code === target) ?? null;
   }
 
-  async registerStudent(input: NewStudentInput): Promise<Student> {
+  async registerEmployee(input: NewEmployeeInput): Promise<Employee> {
     return this.mutate(async () => {
-      const existing = await this.getStudentByPhone(input.phone);
+      const existing = await this.getEmployeeByPhone(input.phone);
       if (existing) {
         throw new DataError(
           'PHONE_TAKEN',
@@ -86,33 +86,32 @@ export class LocalStorageDataService implements DataService {
         );
       }
 
-      const student: Student = {
+      const employee: Employee = {
         id: uid(),
         code: this.nextCode(),
         fullName: input.fullName.trim(),
         phone: input.phone.trim(),
-        college: input.college.trim(),
-        department: input.department.trim(),
+        position: input.position.trim(),
         createdAt: new Date().toISOString(),
       };
 
-      const students = await this.listStudents();
-      this.write(KEYS.students, [...students, student]);
-      return student;
+      const employees = await this.listEmployees();
+      this.write(KEYS.employees, [...employees, employee]);
+      return employee;
     });
   }
 
-  async updateStudent(id: string, patch: StudentEdit): Promise<Student> {
+  async updateEmployee(id: string, patch: EmployeeEdit): Promise<Employee> {
     return this.mutate(async () => {
-      const students = await this.listStudents();
-      const idx = students.findIndex((s) => s.id === id);
+      const employees = await this.listEmployees();
+      const idx = employees.findIndex((s) => s.id === id);
       if (idx === -1) {
-        throw new DataError('STUDENT_NOT_FOUND', 'Student not found.');
+        throw new DataError('EMPLOYEE_NOT_FOUND', 'Employee not found.');
       }
 
       if (patch.phone !== undefined) {
         const target = normalizePhone(patch.phone);
-        const clash = students.find(
+        const clash = employees.find(
           (s) => s.id !== id && normalizePhone(s.phone) === target,
         );
         if (clash) {
@@ -123,49 +122,46 @@ export class LocalStorageDataService implements DataService {
         }
       }
 
-      const current = students[idx];
-      const updated: Student = {
+      const current = employees[idx];
+      const updated: Employee = {
         ...current,
         ...(patch.fullName !== undefined && { fullName: patch.fullName.trim() }),
         ...(patch.phone !== undefined && { phone: patch.phone.trim() }),
-        ...(patch.college !== undefined && { college: patch.college.trim() }),
-        ...(patch.department !== undefined && {
-          department: patch.department.trim(),
-        }),
+        ...(patch.position !== undefined && { position: patch.position.trim() }),
         id,
       };
-      students[idx] = updated;
-      this.write(KEYS.students, students);
+      employees[idx] = updated;
+      this.write(KEYS.employees, employees);
       return updated;
     });
   }
 
-  async deleteStudent(studentId: string): Promise<void> {
+  async deleteEmployee(employeeId: string): Promise<void> {
     return this.mutate(async () => {
-      const student = await this.getStudentByCode(studentId);
-      if (!student) {
-        throw new DataError('STUDENT_NOT_FOUND', 'Student not found.');
+      const employees = await this.listEmployees();
+      const employee = employees.find((e) => e.id === employeeId);
+      if (!employee) {
+        throw new DataError('EMPLOYEE_NOT_FOUND', 'Employee not found.');
       }
 
-      // Delete the student
-      const students = await this.listStudents();
+      // Delete the employee
       this.write(
-        KEYS.students,
-        students.filter((s) => s.id !== studentId),
+        KEYS.employees,
+        employees.filter((s) => s.id !== employeeId),
       );
 
-      // Delete all attendance records for this student
+      // Delete all attendance records for this employee
       const records = await this.listAttendance();
       this.write(
         KEYS.attendance,
-        records.filter((r) => r.studentId !== studentId),
+        records.filter((r) => r.employeeId !== employeeId),
       );
 
       // …and their entries in the device log.
       const events = await this.listCheckInEvents();
       this.write(
         KEYS.checkInEvents,
-        events.filter((e) => e.studentId !== studentId),
+        events.filter((e) => e.employeeId !== employeeId),
       );
     });
   }
@@ -184,7 +180,7 @@ export class LocalStorageDataService implements DataService {
     return this.mutate(async () => {
       const session: Session = {
         id: uid(),
-        lecturerName: input.lecturerName.trim(),
+        supervisorName: input.supervisorName.trim(),
         title: input.title.trim(),
         location: input.location.trim(),
         status: 'active',
@@ -266,10 +262,10 @@ export class LocalStorageDataService implements DataService {
 
   private async findRecord(
     sessionId: string,
-    studentId: string,
+    employeeId: string,
   ): Promise<AttendanceRecord | undefined> {
     const records = await this.listAttendance(sessionId);
-    return records.find((r) => r.studentId === studentId);
+    return records.find((r) => r.employeeId === employeeId);
   }
 
   async listCheckInEvents(sinceIso?: string): Promise<CheckInEvent[]> {
@@ -312,16 +308,16 @@ export class LocalStorageDataService implements DataService {
           'Check-in is not open for this session.',
         );
       }
-      const student = await this.getStudentByCode(code);
-      if (!student) {
-        throw new DataError('STUDENT_NOT_FOUND', 'No student found for that code.');
+      const employee = await this.getEmployeeByCode(code);
+      if (!employee) {
+        throw new DataError('EMPLOYEE_NOT_FOUND', 'No employee found for that code.');
       }
 
       const deviceSessionId = await this.resolveDeviceSession(device);
 
       const records = await this.listAttendance();
       const existing = records.find(
-        (r) => r.sessionId === sessionId && r.studentId === student.id,
+        (r) => r.sessionId === sessionId && r.employeeId === employee.id,
       );
 
       if (existing?.checkInAt && !existing.checkOutAt) {
@@ -341,7 +337,7 @@ export class LocalStorageDataService implements DataService {
           records.map((r) => (r.id === existing.id ? record : r)),
         );
       } else {
-        record = { id: uid(), sessionId, studentId: student.id, checkInAt: now };
+        record = { id: uid(), sessionId, employeeId: employee.id, checkInAt: now };
         this.write(KEYS.attendance, [...records, record]);
       }
 
@@ -350,7 +346,7 @@ export class LocalStorageDataService implements DataService {
         const event: CheckInEvent = {
           id: uid(),
           sessionId,
-          studentId: student.id,
+          employeeId: employee.id,
           deviceId: device.id,
           deviceSessionId,
           deviceLabel: device.label,
@@ -372,12 +368,12 @@ export class LocalStorageDataService implements DataService {
           'Check-out is not open for this session.',
         );
       }
-      const student = await this.getStudentByCode(code);
-      if (!student) {
-        throw new DataError('STUDENT_NOT_FOUND', 'No student found for that code.');
+      const employee = await this.getEmployeeByCode(code);
+      if (!employee) {
+        throw new DataError('EMPLOYEE_NOT_FOUND', 'No employee found for that code.');
       }
 
-      const record = await this.findRecord(sessionId, student.id);
+      const record = await this.findRecord(sessionId, employee.id);
       if (!record?.checkInAt) {
         throw new DataError(
           'NOT_CHECKED_IN',
@@ -406,13 +402,13 @@ export class LocalStorageDataService implements DataService {
 
   async setAttendance(
     sessionId: string,
-    studentId: string,
+    employeeId: string,
     edit: AttendanceEdit,
   ): Promise<AttendanceRecord> {
     return this.mutate(async () => {
       const records = await this.listAttendance();
       const existing = records.find(
-        (r) => r.sessionId === sessionId && r.studentId === studentId,
+        (r) => r.sessionId === sessionId && r.employeeId === employeeId,
       );
       const checkInAt = edit.checkInAt ?? undefined;
       const checkOutAt = edit.checkOutAt ?? undefined;
@@ -425,7 +421,7 @@ export class LocalStorageDataService implements DataService {
           records.map((r) => (r.id === existing.id ? record : r)),
         );
       } else {
-        record = { id: uid(), sessionId, studentId, checkInAt, checkOutAt };
+        record = { id: uid(), sessionId, employeeId, checkInAt, checkOutAt };
         this.write(KEYS.attendance, [...records, record]);
       }
       return record;

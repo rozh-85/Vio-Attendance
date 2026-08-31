@@ -34,7 +34,7 @@ export function AttendanceStatusBadge({ status }: { status: AttendanceStatus }) 
 /**
  * The check-in / check-out half of an attendance edit: a live status badge, the
  * two time fields and a shortcut to clear them. Shared by the session-view and
- * student-report edit modals so a correction works the same way from either.
+ * employee-report edit modals so a correction works the same way from either.
  */
 export function AttendanceTimeFields({
   checkIn,

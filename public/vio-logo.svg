@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vio">
+  <!-- Vio mark. This one file is the whole brand: the favicon, the in-app logo
+       and the logo printed on the PDF report all read from it (see
+       src/brand.ts). Drop the official artwork in at this path to rebrand
+       everything at once. -->
+  <rect width="512" height="512" fill="#A5292B"/>
+  <text x="256" y="344" fill="#FFFFFF" text-anchor="middle"
+        font-family="'Arial Black','Arial Bold','Helvetica Neue',Arial,Helvetica,sans-serif"
+        font-size="252" font-weight="900" letter-spacing="-8">Vio</text>
+</svg>

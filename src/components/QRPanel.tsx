@@ -4,7 +4,7 @@ import { Button } from './ui/Button';
 
 /**
  * Displays a QR code for a URL, with the link shown below and copy / open
- * shortcuts. Students point their phone camera at this to open the flow.
+ * shortcuts. Employees point their phone camera at this to open the flow.
  */
 export function QRPanel({ url, caption }: { url: string; caption?: string }) {
   const [copied, setCopied] = useState(false);

@@ -4,10 +4,10 @@ import { useAuth } from '@/services/auth/context';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 /**
- * Route guard for lecturer-only screens. When signed out it shows the neutral
- * student page instead of redirecting to the login — this way a student who
+ * Route guard for supervisor-only screens. When signed out it shows the neutral
+ * employee page instead of redirecting to the login — this way an employee who
  * lands on an admin URL never learns the admin area or sign-in page exists.
- * The lecturer signs in by going directly to the /admin path. When no auth
+ * The supervisor signs in by going directly to the /admin path. When no auth
  * backend is configured the guard is a no-op (see AuthContext.authRequired).
  */
 export function RequireAuth({ children }: { children: ReactNode }) {

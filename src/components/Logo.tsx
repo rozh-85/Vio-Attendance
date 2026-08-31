@@ -1,9 +1,11 @@
 import { cn } from '@/utils/cn';
+import { BRAND_NAME, LOGO_SRC } from '@/brand';
 
 /**
- * The Asiacell mark. Served from `public/asiacell-logo.svg` — the same file the
- * PDF export reads, so dropping the official artwork in at that path rebrands
- * the site and the export together.
+ * The Vio mark. Served from `public/vio-logo.svg` — the same file the favicon
+ * points at, so dropping the official artwork in at that path rebrands the site
+ * and the browser tab together. The PDF export draws the mark inline from
+ * `src/brand.ts`.
  */
 export function Logo({
   size = 36,
@@ -14,8 +16,8 @@ export function Logo({
 }) {
   return (
     <img
-      src="/asiacell-logo.svg"
-      alt="Asiacell"
+      src={LOGO_SRC}
+      alt={BRAND_NAME}
       width={size}
       height={size}
       className={cn('shrink-0 rounded-xl object-cover', className)}

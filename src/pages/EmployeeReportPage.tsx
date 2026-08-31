@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
 import { Download, Pencil, Search } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
-import { exportStudentPdf } from '@/services/report/studentPdf';
+import { exportEmployeePdf } from '@/services/report/employeePdf';
 import { EditAttendanceModal } from '@/components/EditAttendanceModal';
 import {
   formatClock,
@@ -20,7 +20,7 @@ import type {
   AttendanceEdit,
   AttendanceRecord,
   Session,
-  Student,
+  Employee,
 } from '@/types';
 
 interface SessionRow {
@@ -28,32 +28,32 @@ interface SessionRow {
   record?: AttendanceRecord;
   minutes: number;
   /**
-   * Sessions that ended before the student registered are shown but excluded
-   * from the Absent count — the student could not have attended them.
+   * Sessions that ended before the employee registered are shown but excluded
+   * from the Absent count — the employee could not have attended them.
    */
   beforeRegistration: boolean;
 }
 
 /**
- * Admin page: type a student's name (or code) and see their attendance across
- * every session — check-in/out times, absences and total hours. The lecturer
- * picks which sessions actually belong to this student before exporting, so
- * company-wide sessions or lectures they sit elsewhere aren't counted as absent.
+ * Admin page: type an employee's name (or code) and see their attendance across
+ * every session — check-in/out times, absences and total hours. The supervisor
+ * picks which sessions actually belong to this employee before exporting, so
+ * company-wide sessions or sessions they sit elsewhere aren't counted as absent.
  */
-export function StudentReportPage() {
+export function EmployeeReportPage() {
   const data = useDataService();
-  const [students, setStudents] = useState<Student[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<Student | null>(null);
-  // Session ids included in this student's report. Everything they could have
-  // attended is ticked by default; the lecturer unticks the ones that don't
+  const [selected, setSelected] = useState<Employee | null>(null);
+  // Session ids included in this employee's report. Everything they could have
+  // attended is ticked by default; the supervisor unticks the ones that don't
   // apply to them.
   const [included, setIncluded] = useState<Set<string>>(new Set());
-  // The lecture row currently being corrected by hand, if any.
+  // The session row currently being corrected by hand, if any.
   const [editing, setEditing] = useState<SessionRow | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -63,12 +63,12 @@ export function StudentReportPage() {
     (async () => {
       try {
         const [st, se, at] = await Promise.all([
-          data.listStudents(),
+          data.listEmployees(),
           data.listSessions(),
           data.listAttendance(),
         ]);
         if (!active) return;
-        setStudents(st);
+        setEmployees(st);
         setSessions(se);
         setRecords(at);
       } catch (err) {
@@ -86,7 +86,7 @@ export function StudentReportPage() {
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return students
+    return employees
       .filter(
         (s) =>
           s.fullName.toLowerCase().includes(q) ||
@@ -94,13 +94,13 @@ export function StudentReportPage() {
           s.phone.includes(q),
       )
       .slice(0, 8);
-  }, [students, query]);
+  }, [employees, query]);
 
   const rows = useMemo<SessionRow[]>(() => {
     if (!selected) return [];
     const bySession = new Map(
       records
-        .filter((r) => r.studentId === selected.id)
+        .filter((r) => r.employeeId === selected.id)
         .map((r) => [r.sessionId, r]),
     );
     return sessions
@@ -108,7 +108,7 @@ export function StudentReportPage() {
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       .map((session) => {
         const record = bySession.get(session.id);
-        // A session counts toward this student only from the moment they
+        // A session counts toward this employee only from the moment they
         // registered (unless they somehow have a check-in for it anyway).
         const beforeRegistration =
           !record?.checkInAt &&
@@ -123,7 +123,7 @@ export function StudentReportPage() {
       });
   }, [selected, sessions, records]);
 
-  // Everything the student could have attended, ticked by default.
+  // Everything the employee could have attended, ticked by default.
   const defaultIncluded = useMemo(
     () =>
       new Set(
@@ -132,9 +132,9 @@ export function StudentReportPage() {
     [rows],
   );
 
-  // Apply those defaults when a student is picked (or the sessions finish
+  // Apply those defaults when an employee is picked (or the sessions finish
   // loading) — but not when a manual attendance edit rebuilds `rows`, which
-  // would otherwise silently undo the lecturer's ticks.
+  // would otherwise silently undo the supervisor's ticks.
   const defaultsKey = selected ? `${selected.id}:${sessions.length}` : '';
   const appliedKey = useRef<string | null>(null);
   useEffect(() => {
@@ -144,7 +144,7 @@ export function StudentReportPage() {
   }, [defaultsKey, defaultIncluded]);
 
   // Totals reflect only the ticked sessions, so the numbers (and the PDF) match
-  // exactly what the lecturer chose to include.
+  // exactly what the supervisor chose to include.
   const stats = useMemo(() => {
     const chosen = rows.filter((r) => included.has(r.session.id));
     const attended = chosen.filter((r) => r.record?.checkInAt).length;
@@ -157,9 +157,9 @@ export function StudentReportPage() {
     };
   }, [rows, included]);
 
-  function pick(student: Student) {
-    setSelected(student);
-    setQuery(student.fullName);
+  function pick(employee: Employee) {
+    setSelected(employee);
+    setQuery(employee.fullName);
   }
 
   function toggle(sessionId: string) {
@@ -193,14 +193,14 @@ export function StudentReportPage() {
       const saved = await data.setAttendance(sessionId, selected.id, edit);
       setRecords((prev) => {
         const i = prev.findIndex(
-          (r) => r.sessionId === sessionId && r.studentId === selected.id,
+          (r) => r.sessionId === sessionId && r.employeeId === selected.id,
         );
         if (i === -1) return [...prev, saved];
         const next = prev.slice();
         next[i] = saved;
         return next;
       });
-      // Marking them present for a lecture that predates their registration
+      // Marking them present for a session that predates their registration
       // means it should count too.
       if (edit.checkInAt) {
         setIncluded((prev) => new Set(prev).add(sessionId));
@@ -218,7 +218,7 @@ export function StudentReportPage() {
   function onExportPdf() {
     if (!selected) return;
     const chosen = rows.filter((r) => included.has(r.session.id));
-    exportStudentPdf(
+    exportEmployeePdf(
       selected,
       {
         totalSessions: stats.totalSessions,
@@ -227,7 +227,7 @@ export function StudentReportPage() {
         totalHours: formatMinutes(stats.totalMinutes),
       },
       chosen.map(({ session, record, minutes, beforeRegistration }) => ({
-        lecture: session.title || session.lecturerName,
+        session: session.title || session.supervisorName,
         date: formatDateTime(session.startedAt),
         checkIn: record?.checkInAt ? formatClock(record.checkInAt) : '—',
         checkOut: record?.checkOutAt
@@ -251,11 +251,11 @@ export function StudentReportPage() {
     <AdminLayout>
       <header className="mb-6">
         <div className="text-sm font-bold uppercase tracking-wide text-brand-600">
-          QR Attendance
+          Vio Attendance
         </div>
-        <h1 className="text-3xl font-bold">Student report</h1>
+        <h1 className="text-3xl font-bold">Employee report</h1>
         <p className="mt-1 text-ink-500">
-          Type a student's name or code to see all their sessions and
+          Type an employee's name or code to see all their sessions and
           attendance.
         </p>
       </header>
@@ -272,34 +272,32 @@ export function StudentReportPage() {
           }}
         />
         {loading && (
-          <div className="py-6 text-center text-ink-400">Loading students…</div>
+          <div className="py-6 text-center text-ink-400">Loading employees…</div>
         )}
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
         {!loading && !selected && query.trim() && (
           <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
             {matches.length === 0 ? (
               <div className="px-4 py-4 text-sm text-ink-500">
-                No student matches “{query.trim()}”.
+                No employee matches “{query.trim()}”.
               </div>
             ) : (
-              matches.map((student) => (
+              matches.map((employee) => (
                 <button
-                  key={student.id}
+                  key={employee.id}
                   type="button"
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-brand-50/60"
-                  onClick={() => pick(student)}
+                  onClick={() => pick(employee)}
                 >
                   <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-ink-700">
-                    {student.code}
+                    {employee.code}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-ink-900">
-                      {student.fullName}
+                      {employee.fullName}
                     </span>
                     <span className="block truncate text-xs text-ink-400">
-                      {[student.college, student.department]
-                        .filter(Boolean)
-                        .join(' · ') || student.phone}
+                      {employee.position || employee.phone}
                     </span>
                   </span>
                   <Search width={16} height={16} className="text-ink-300" />
@@ -322,7 +320,7 @@ export function StudentReportPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-ink-500">
-                  {[selected.college, selected.department, selected.phone]
+                  {[selected.position, selected.phone]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
@@ -338,7 +336,7 @@ export function StudentReportPage() {
           </Card>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard value={stats.totalSessions} label="Total lectures" />
+            <StatCard value={stats.totalSessions} label="Total sessions" />
             <StatCard value={stats.attended} label="Attended" tone="success" />
             <StatCard value={stats.absent} label="Absent" tone="warning" />
             <StatCard
@@ -350,13 +348,13 @@ export function StudentReportPage() {
 
           <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 text-sm text-ink-600">
             <span className="font-semibold text-ink-900">
-              Choose which lectures belong to this student.
+              Choose which sessions belong to this employee.
             </span>{' '}
-            Untick any that aren't part of their programme — company-wide
-            sessions or lectures they attend at another university. Only ticked
-            lectures count toward the totals above and appear in the exported
-            PDF. Use the pencil on any row to add or fix a check-in / check-out
-            time by hand.
+            Untick any that aren't part of their schedule — company-wide
+            sessions, or shifts covered by another team. Only ticked sessions
+            count toward the totals above and appear in the exported PDF. Use
+            the pencil on any row to add or fix a check-in / check-out time by
+            hand.
           </div>
 
           {rows.length > 0 && (
@@ -365,7 +363,7 @@ export function StudentReportPage() {
                 <span className="font-semibold text-ink-900">
                   {included.size}
                 </span>{' '}
-                of {rows.length} lectures included
+                of {rows.length} sessions included
               </p>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={selectAll}>
@@ -387,7 +385,7 @@ export function StudentReportPage() {
                       <input
                         type="checkbox"
                         className="size-4 cursor-pointer align-middle accent-brand-600"
-                        aria-label="Include all lectures"
+                        aria-label="Include all sessions"
                         checked={allIncluded}
                         ref={(el) => {
                           if (el)
@@ -399,7 +397,7 @@ export function StudentReportPage() {
                         }
                       />
                     </th>
-                    <th className="px-5 py-3 font-semibold">Lecture</th>
+                    <th className="px-5 py-3 font-semibold">Session</th>
                     <th className="px-5 py-3 font-semibold">Date</th>
                     <th className="px-5 py-3 font-semibold">Check-in</th>
                     <th className="px-5 py-3 font-semibold">Check-out</th>
@@ -424,7 +422,7 @@ export function StudentReportPage() {
                           <input
                             type="checkbox"
                             className="size-4 cursor-pointer align-middle accent-brand-600"
-                            aria-label={`Include ${session.title || session.lecturerName}`}
+                            aria-label={`Include ${session.title || session.supervisorName}`}
                             checked={isIn}
                             onChange={() => toggle(session.id)}
                           />
@@ -435,7 +433,7 @@ export function StudentReportPage() {
                             isIn ? 'text-ink-900' : 'text-ink-400',
                           )}
                         >
-                          {session.title || session.lecturerName}
+                          {session.title || session.supervisorName}
                         </td>
                         <td
                           className={cn(
@@ -486,8 +484,8 @@ export function StudentReportPage() {
                           <button
                             type="button"
                             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
-                            title={`Edit check-in / check-out for ${session.title || session.lecturerName}`}
-                            aria-label={`Edit check-in / check-out for ${session.title || session.lecturerName}`}
+                            title={`Edit check-in / check-out for ${session.title || session.supervisorName}`}
+                            aria-label={`Edit check-in / check-out for ${session.title || session.supervisorName}`}
                             onClick={() => {
                               setEditError(null);
                               setEditing(row);
@@ -516,7 +514,7 @@ export function StudentReportPage() {
 
           {editing && (
             <EditAttendanceModal
-              student={selected}
+              employee={selected}
               session={editing.session}
               record={editing.record}
               saving={savingEdit}

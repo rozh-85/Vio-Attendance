@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { AddStudentModal } from '@/components/AddStudentModal';
+import { AddEmployeeModal } from '@/components/AddEmployeeModal';
 import { ArrowRight, Download, Logout, Plus, UserPlus } from '@/components/icons';
 import { useSessions } from '@/hooks/useSessions';
 import { useDataService } from '@/services/data/context';
@@ -14,41 +14,41 @@ import { useAuth } from '@/services/auth/context';
 import { exportAttendanceToExcel } from '@/services/report/excel';
 import { formatDateTime } from '@/utils/time';
 import { paths } from '@/routes';
-import type { NewStudentInput, Student } from '@/types';
+import type { NewEmployeeInput, Employee } from '@/types';
 
-export function LecturerDashboard() {
+export function SupervisorDashboard() {
   const navigate = useNavigate();
   const data = useDataService();
   const { authRequired, signOut } = useAuth();
   const { sessions, loading, createSession } = useSessions();
 
-  const [form, setForm] = useState({ lecturerName: '', title: '', location: '' });
+  const [form, setForm] = useState({ supervisorName: '', title: '', location: '' });
   const [creating, setCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const [showAdd, setShowAdd] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [addedStudent, setAddedStudent] = useState<Student | null>(null);
+  const [addedEmployee, setAddedEmployee] = useState<Employee | null>(null);
 
   const set = (key: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [key]: v }));
 
-  function openAddStudent() {
+  function openAddEmployee() {
     setAddError(null);
-    setAddedStudent(null);
+    setAddedEmployee(null);
     setShowAdd(true);
   }
 
-  async function onAddStudent(values: NewStudentInput) {
+  async function onAddEmployee(values: NewEmployeeInput) {
     setAddSaving(true);
     setAddError(null);
     try {
-      const created = await data.registerStudent(values);
-      setAddedStudent(created);
+      const created = await data.registerEmployee(values);
+      setAddedEmployee(created);
     } catch (err) {
       setAddError(
-        isDataError(err) ? err.message : 'Could not add student. Please try again.',
+        isDataError(err) ? err.message : 'Could not add employee. Please try again.',
       );
     } finally {
       setAddSaving(false);
@@ -74,12 +74,12 @@ export function LecturerDashboard() {
   async function onExportAll() {
     setExporting(true);
     try {
-      const [allSessions, students, attendance] = await Promise.all([
+      const [allSessions, employees, attendance] = await Promise.all([
         data.listSessions(),
-        data.listStudents(),
+        data.listEmployees(),
         data.listAttendance(),
       ]);
-      await exportAttendanceToExcel(allSessions, students, attendance);
+      await exportAttendanceToExcel(allSessions, employees, attendance);
     } finally {
       setExporting(false);
     }
@@ -90,11 +90,11 @@ export function LecturerDashboard() {
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-sm font-bold uppercase tracking-wide text-brand-600">
-            QR Attendance
+            Vio Attendance
           </div>
-          <h1 className="text-3xl font-bold">Lecturer dashboard</h1>
+          <h1 className="text-3xl font-bold">Supervisor dashboard</h1>
           <p className="mt-1 text-ink-500">
-            Add students, start a session, then show QR codes for check in and
+            Add employees, start a session, then show QR codes for check in and
             out.
           </p>
         </div>
@@ -102,9 +102,9 @@ export function LecturerDashboard() {
           <Button
             variant="outline"
             leftIcon={<UserPlus width={18} height={18} />}
-            onClick={openAddStudent}
+            onClick={openAddEmployee}
           >
-            Add student
+            Add employee
           </Button>
           {/* Hidden for now (set to true to bring it back). */}
           {false && (
@@ -137,23 +137,23 @@ export function LecturerDashboard() {
           className="mt-4 grid gap-4 sm:grid-cols-3"
         >
           <Input
-            label="Lecturer name"
+            label="Supervisor name"
             required
-            placeholder="Dr. Abena Twum"
-            value={form.lecturerName}
-            onChange={(e) => set('lecturerName')(e.target.value)}
+            placeholder="Sara Ahmed"
+            value={form.supervisorName}
+            onChange={(e) => set('supervisorName')(e.target.value)}
           />
           <Input
-            label="Lecture title"
+            label="Session title"
             required
-            placeholder="CSC 302 — Design Patterns"
+            placeholder="Morning shift — Warehouse"
             value={form.title}
             onChange={(e) => set('title')(e.target.value)}
           />
           <Input
             label="Location"
             required
-            placeholder="ICT Block, Lab 3"
+            placeholder="Erbil office, Floor 2"
             value={form.location}
             onChange={(e) => set('location')(e.target.value)}
           />
@@ -162,7 +162,7 @@ export function LecturerDashboard() {
               type="submit"
               leftIcon={<Plus width={18} height={18} />}
               loading={creating}
-              disabled={!form.lecturerName || !form.title || !form.location}
+              disabled={!form.supervisorName || !form.title || !form.location}
             >
               Start session
             </Button>
@@ -193,7 +193,7 @@ export function LecturerDashboard() {
                       </Badge>
                     </div>
                     <div className="mt-0.5 truncate text-sm text-ink-500">
-                      {session.lecturerName} · {session.location} ·{' '}
+                      {session.supervisorName} · {session.location} ·{' '}
                       {formatDateTime(session.startedAt)}
                     </div>
                   </div>
@@ -206,13 +206,13 @@ export function LecturerDashboard() {
       </section>
 
       {showAdd && (
-        <AddStudentModal
+        <AddEmployeeModal
           saving={addSaving}
           error={addError}
-          createdStudent={addedStudent}
-          onSave={onAddStudent}
+          createdEmployee={addedEmployee}
+          onSave={onAddEmployee}
           onAddAnother={() => {
-            setAddedStudent(null);
+            setAddedEmployee(null);
             setAddError(null);
           }}
           onClose={() => setShowAdd(false)}

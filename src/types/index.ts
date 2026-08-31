@@ -1,35 +1,37 @@
 /**
- * Core domain models for the QR attendance app.
+ * Core domain models for the Vio attendance app.
  *
- * A `Student` registers once (globally) and is identified by their unique phone
- * number. They receive a short numeric `code` used to check in / out of any
- * session. A `Session` is a single lecture. `AttendanceRecord` links a student
- * to a session with their check-in / check-out timestamps.
+ * An `Employee` is registered once (globally) and is identified by their unique
+ * phone number. They receive a short numeric `code` used to check in / out of
+ * any session. A `Session` is a single work session. `AttendanceRecord` links an
+ * employee to a session with their check-in / check-out timestamps.
  */
 
-export interface Student {
+export interface Employee {
   id: string;
-  /** Short, human-typeable numeric code, e.g. "001". Unique per student. */
+  /** Short, human-typeable numeric code, e.g. "001". Unique per employee. */
   code: string;
   fullName: string;
-  /** Unique identifier for a student. */
+  /** Unique identifier for an employee. */
   phone: string;
-  college: string;
-  department: string;
+  /** Job title, e.g. "Field Technician". */
+  position: string;
   createdAt: string; // ISO timestamp
 }
 
-export type NewStudentInput = Omit<Student, 'id' | 'code' | 'createdAt'>;
+export type NewEmployeeInput = Omit<Employee, 'id' | 'code' | 'createdAt'>;
 
-/** Editable student fields for manual correction. */
-export type StudentEdit = Partial<Pick<Student, 'fullName' | 'phone' | 'college' | 'department'>>;
+/** Editable employee fields for manual correction. */
+export type EmployeeEdit = Partial<
+  Pick<Employee, 'fullName' | 'phone' | 'position'>
+>;
 
 export type SessionStatus = 'active' | 'closed';
 
 export interface Session {
   id: string;
-  lecturerName: string;
-  /** Optional human label for the lecture, e.g. "CSC 302 — Design Patterns". */
+  supervisorName: string;
+  /** Optional human label for the session, e.g. "Morning shift — Warehouse". */
   title: string;
   location: string;
   status: SessionStatus;
@@ -40,12 +42,15 @@ export interface Session {
   closedAt?: string; // ISO timestamp — set when the session ends
 }
 
-export type NewSessionInput = Pick<Session, 'lecturerName' | 'title' | 'location'>;
+export type NewSessionInput = Pick<
+  Session,
+  'supervisorName' | 'title' | 'location'
+>;
 
 export interface AttendanceRecord {
   id: string;
   sessionId: string;
-  studentId: string;
+  employeeId: string;
   checkInAt?: string; // ISO timestamp
   checkOutAt?: string; // ISO timestamp
 }
@@ -62,22 +67,22 @@ export type AttendanceStatus = 'absent' | 'checked-in' | 'checked-out';
 export interface DeviceInfo {
   /** Random id kept in that device's localStorage. See utils/device.ts. */
   id: string;
-  /** Human-readable hint for the lecturer, e.g. "iPhone · Safari". */
+  /** Human-readable hint for the supervisor, e.g. "iPhone · Safari". */
   label: string;
 }
 
 /**
  * One check-in, recorded together with the device it came from.
  *
- * Append-only: unlike `AttendanceRecord` (one row per student per session,
- * overwritten on re-entry) nothing here is ever rewritten, so the lecturer can
- * still see that one phone checked in three students even after each of them
+ * Append-only: unlike `AttendanceRecord` (one row per employee per session,
+ * overwritten on re-entry) nothing here is ever rewritten, so the supervisor can
+ * still see that one phone checked in three employees even after each of them
  * later checked in again from their own phone.
  */
 export interface CheckInEvent {
   id: string;
   sessionId: string;
-  studentId: string;
+  employeeId: string;
   deviceId: string;
   /**
    * Groups every check-in made from one device inside the rolling window (see
@@ -88,9 +93,9 @@ export interface CheckInEvent {
   at: string; // ISO timestamp
 }
 
-/** A student joined with their attendance for a specific session (view model). */
+/** An employee joined with their attendance for a specific session (view model). */
 export interface SessionAttendee {
-  student: Student;
+  employee: Employee;
   record?: AttendanceRecord;
   status: AttendanceStatus;
 }

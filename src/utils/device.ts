@@ -1,15 +1,15 @@
 /**
  * Identifies the phone / browser a check-in was made from.
  *
- * The first time a phone checks a student in it stores one random id in its
- * localStorage. That id rides along with every later check-in, so the lecturer
- * can see when a single phone was used to check in more than one student — the
+ * The first time a phone checks an employee in it stores one random id in its
+ * localStorage. That id rides along with every later check-in, so the supervisor
+ * can see when a single phone was used to check in more than one employee — the
  * classic "check me in, I'm not there" case.
  *
- * Nothing is ever blocked: a phone may check in as many students as it likes,
+ * Nothing is ever blocked: a phone may check in as many employees as it likes,
  * and every one of them is reported.
  *
- * NOTE: this is a visibility tool, not a security boundary. A student who
+ * NOTE: this is a visibility tool, not a security boundary. An employee who
  * clears their site data or opens a private tab gets a fresh id. It makes
  * casual proxy check-ins obvious, it does not make them impossible.
  */
@@ -17,11 +17,11 @@
 import { uid } from './id';
 import type { DeviceInfo } from '@/types';
 
-const DEVICE_ID_KEY = 'qra.deviceId';
+const DEVICE_ID_KEY = 'vio.deviceId';
 
 /**
  * How long one device "session" lasts. Every check-in made from the same phone
- * inside this window is grouped together and reported to the lecturer as one
+ * inside this window is grouped together and reported to the supervisor as one
  * shared device. Mirrored by `v_window` in the SQL `check_in` function —
  * change both together (see supabase/device-checkin-tracking.sql).
  */
@@ -70,7 +70,7 @@ function firstMatch(pairs: [RegExp, string][], value: string): string {
 }
 
 /**
- * A short, human-readable hint like "iPhone · Safari", shown to the lecturer
+ * A short, human-readable hint like "iPhone · Safari", shown to the supervisor
  * next to the flagged names. Just enough to recognise the phone in the room.
  */
 export function describeDevice(userAgent?: string): string {

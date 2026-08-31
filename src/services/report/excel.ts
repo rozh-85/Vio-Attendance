@@ -1,12 +1,12 @@
 import { format } from 'date-fns';
-import type { AttendanceRecord, Session, Student } from '@/types';
+import type { AttendanceRecord, Session, Employee } from '@/types';
 import { formatClock, formatDateTime } from '@/utils/time';
 
 const MIME_XLSX =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-const SHEET_NAME = 'Student Attendance';
+const SHEET_NAME = 'Employee Attendance';
 const COLUMN_COUNT = 8;
-const FIRST_STUDENT_ROW = 5;
+const FIRST_EMPLOYEE_ROW = 5;
 
 interface ZipEntry {
   path: string;
@@ -14,9 +14,9 @@ interface ZipEntry {
 }
 
 interface AttendanceDetailRow {
-  studentCode: string;
-  studentName: string;
-  lectureName: string;
+  employeeCode: string;
+  employeeName: string;
+  sessionName: string;
   dateAndTime: string;
   checkInTime: string;
   checkOutTime: string;
@@ -24,19 +24,19 @@ interface AttendanceDetailRow {
   timePresent: string;
 }
 
-interface StudentReport {
-  student: Student;
-  lecturesAttended: number;
+interface EmployeeReport {
+  employee: Employee;
+  sessionsAttended: number;
   totalTimePresent: string;
   detailRows: AttendanceDetailRow[];
 }
 
 interface AttendanceReport {
   generatedAt: string;
-  totalLectures: number;
-  totalStudents: number;
-  totalLectureTime: string;
-  students: StudentReport[];
+  totalSessions: number;
+  totalEmployees: number;
+  totalSessionTime: string;
+  employees: EmployeeReport[];
 }
 
 interface SheetRow {
@@ -48,13 +48,13 @@ interface SheetRow {
 
 export async function exportAttendanceToExcel(
   sessions: Session[],
-  students: Student[],
+  employees: Employee[],
   attendance: AttendanceRecord[],
 ): Promise<void> {
-  const report = buildAttendanceReport(sessions, students, attendance);
+  const report = buildAttendanceReport(sessions, employees, attendance);
   const file = buildAttendanceReportXlsxBlob(report);
   const stamp = format(new Date(), 'yyyy-MM-dd_HHmm');
-  downloadBlob(file, `student_attendance_${stamp}.xlsx`);
+  downloadBlob(file, `employee_attendance_${stamp}.xlsx`);
 }
 
 export function buildAttendanceReportXlsxBlob(report: AttendanceReport): Blob {
@@ -78,44 +78,44 @@ export function buildAttendanceReportXlsxBlob(report: AttendanceReport): Blob {
 
 function buildAttendanceReport(
   sessions: Session[],
-  students: Student[],
+  employees: Employee[],
   attendance: AttendanceRecord[],
 ): AttendanceReport {
   const nowIso = new Date().toISOString();
   const sortedSessions = sessions
     .slice()
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-  const sortedStudents = students
+  const sortedEmployees = employees
     .slice()
     .sort((a, b) => a.code.localeCompare(b.code));
-  const recordsByStudentSession = new Map(
+  const recordsByEmployeeSession = new Map(
     attendance.map((record) => [
-      studentAttendanceKey(record.studentId, record.sessionId),
+      employeeAttendanceKey(record.employeeId, record.sessionId),
       record,
     ]),
   );
-  const totalLectureMinutes = sortedSessions.reduce(
+  const totalSessionMinutes = sortedSessions.reduce(
     (sum, session) =>
       sum +
       minutesBetween(session.startedAt, effectiveSessionEnd(session, nowIso)),
     0,
   );
 
-  const studentReports = sortedStudents.map((student) => {
-    let studentMinutes = 0;
-    let lecturesAttended = 0;
+  const employeeReports = sortedEmployees.map((employee) => {
+    let employeeMinutes = 0;
+    let sessionsAttended = 0;
     const detailRows = sortedSessions.map((session) => {
-      const record = recordsByStudentSession.get(
-        studentAttendanceKey(student.id, session.id),
+      const record = recordsByEmployeeSession.get(
+        employeeAttendanceKey(employee.id, session.id),
       );
       const presentMinutes = attendanceMinutes(record, session, nowIso);
-      studentMinutes += presentMinutes;
-      if (record?.checkInAt) lecturesAttended += 1;
+      employeeMinutes += presentMinutes;
+      if (record?.checkInAt) sessionsAttended += 1;
 
       return {
-        studentCode: student.code,
-        studentName: student.fullName,
-        lectureName: session.title || session.lecturerName,
+        employeeCode: employee.code,
+        employeeName: employee.fullName,
+        sessionName: session.title || session.supervisorName,
         dateAndTime: formatDateTime(session.startedAt),
         checkInTime: record?.checkInAt ? formatClock(record.checkInAt) : '—',
         checkOutTime: record?.checkOutAt
@@ -129,19 +129,19 @@ function buildAttendanceReport(
     });
 
     return {
-      student,
-      lecturesAttended,
-      totalTimePresent: formatMinutes(studentMinutes),
+      employee,
+      sessionsAttended,
+      totalTimePresent: formatMinutes(employeeMinutes),
       detailRows,
     };
   });
 
   return {
     generatedAt: formatDateTime(nowIso),
-    totalLectures: sortedSessions.length,
-    totalStudents: sortedStudents.length,
-    totalLectureTime: formatMinutes(totalLectureMinutes),
-    students: studentReports,
+    totalSessions: sortedSessions.length,
+    totalEmployees: sortedEmployees.length,
+    totalSessionTime: formatMinutes(totalSessionMinutes),
+    employees: employeeReports,
   };
 }
 
@@ -152,7 +152,7 @@ function worksheetXml(report: AttendanceReport, lastRow: number): string {
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
     '<sheetPr><outlinePr summaryBelow="1" summaryRight="1"/><pageSetUpPr/></sheetPr>',
     `<dimension ref="A1:H${lastRow}"/>`,
-    `<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="${FIRST_STUDENT_ROW - 1}" topLeftCell="A${FIRST_STUDENT_ROW}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${FIRST_STUDENT_ROW}" sqref="A${FIRST_STUDENT_ROW}"/></sheetView></sheetViews>`,
+    `<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="${FIRST_EMPLOYEE_ROW - 1}" topLeftCell="A${FIRST_EMPLOYEE_ROW}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${FIRST_EMPLOYEE_ROW}" sqref="A${FIRST_EMPLOYEE_ROW}"/></sheetView></sheetViews>`,
     '<sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>',
     '<cols>',
     '<col min="1" max="1" width="28" customWidth="1"/>',
@@ -187,18 +187,18 @@ function worksheetXml(report: AttendanceReport, lastRow: number): string {
   ]);
 }
 
-// One flat table: a single header row, then one row per student per lecture
-// (rows grouped by student), and a bold Total row closing each student group.
+// One flat table: a single header row, then one row per employee per session
+// (rows grouped by employee), and a bold Total row closing each employee group.
 function buildSheetRows(report: AttendanceReport): SheetRow[] {
   const rows: SheetRow[] = [
     {
-      values: fillColumns(['Student Attendance Report']),
+      values: fillColumns(['Employee Attendance Report']),
       style: 1,
       height: 34,
     },
     {
       values: fillColumns([
-        `Generated ${report.generatedAt}   ·   ${report.totalLectures} lectures   ·   ${report.totalStudents} students   ·   Total lecture time ${report.totalLectureTime}`,
+        `Generated ${report.generatedAt}   ·   ${report.totalSessions} sessions   ·   ${report.totalEmployees} employees   ·   Total session time ${report.totalSessionTime}`,
       ]),
       style: 2,
       height: 24,
@@ -206,9 +206,9 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
     { values: fillColumns([]), style: 0 },
     {
       values: fillColumns([
-        'Student Name',
+        'Employee Name',
         'Code',
-        'Lecture',
+        'Session',
         'Date and Time',
         'Check-In',
         'Check-Out',
@@ -220,13 +220,13 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
     },
   ];
 
-  for (const studentReport of report.students) {
-    studentReport.detailRows.forEach((detailRow, index) => {
+  for (const employeeReport of report.employees) {
+    employeeReport.detailRows.forEach((detailRow, index) => {
       rows.push({
         values: [
-          detailRow.studentName,
-          detailRow.studentCode,
-          detailRow.lectureName,
+          detailRow.employeeName,
+          detailRow.employeeCode,
+          detailRow.sessionName,
           detailRow.dateAndTime,
           detailRow.checkInTime,
           detailRow.checkOutTime,
@@ -239,14 +239,14 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
     });
     rows.push({
       values: fillColumns([
-        `${studentReport.student.fullName} — Total`,
-        studentReport.student.code,
-        `Attended ${studentReport.lecturesAttended} / ${report.totalLectures} lectures`,
+        `${employeeReport.employee.fullName} — Total`,
+        employeeReport.employee.code,
+        `Attended ${employeeReport.sessionsAttended} / ${report.totalSessions} sessions`,
         '',
         '',
         '',
         '',
-        studentReport.totalTimePresent,
+        employeeReport.totalTimePresent,
       ]),
       style: 8,
       height: 26,
@@ -265,10 +265,10 @@ function mergeCellsXml(): string {
 
 function getLastRow(report: AttendanceReport): number {
   return (
-    FIRST_STUDENT_ROW -
+    FIRST_EMPLOYEE_ROW -
     1 +
-    report.students.reduce(
-      (total, student) => total + student.detailRows.length + 1,
+    report.employees.reduce(
+      (total, employee) => total + employee.detailRows.length + 1,
       0,
     )
   );
@@ -312,8 +312,8 @@ function attendanceMinutes(
   return Math.max(0, Math.round((presentEnd - presentStart) / (1000 * 60)));
 }
 
-function studentAttendanceKey(studentId: string, sessionId: string): string {
-  return `${studentId}:${sessionId}`;
+function employeeAttendanceKey(employeeId: string, sessionId: string): string {
+  return `${employeeId}:${sessionId}`;
 }
 
 function columnName(index: number): string {
@@ -355,7 +355,7 @@ function stylesXml(): string {
     '<fonts count="6">',
     '<font><sz val="12"/><color rgb="FF1F2937"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="18"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
-    '<font><b/><sz val="12"/><color rgb="FF9E2A2B"/><name val="Calibri"/><family val="2"/></font>',
+    '<font><b/><sz val="12"/><color rgb="FF841F21"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="13"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="12"/><color rgb="FF1F2937"/><name val="Calibri"/><family val="2"/></font>',
@@ -363,15 +363,15 @@ function stylesXml(): string {
     '<fills count="7">',
     '<fill><patternFill patternType="none"/></fill>',
     '<fill><patternFill patternType="gray125"/></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFB01E2A"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFFCEBEE"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFC02128"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFFCE4E6"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFA5292B"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFBF3F3"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFA5292B"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFF6E3E3"/><bgColor indexed="64"/></patternFill></fill>',
     '<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>',
     '</fills>',
     '<borders count="2">',
     '<border><left/><right/><top/><bottom/><diagonal/></border>',
-    '<border><left style="thin"><color rgb="FFE6A6AC"/></left><right style="thin"><color rgb="FFE6A6AC"/></right><top style="thin"><color rgb="FFE6A6AC"/></top><bottom style="thin"><color rgb="FFE6A6AC"/></bottom><diagonal/></border>',
+    '<border><left style="thin"><color rgb="FFEDC5C6"/></left><right style="thin"><color rgb="FFEDC5C6"/></right><top style="thin"><color rgb="FFEDC5C6"/></top><bottom style="thin"><color rgb="FFEDC5C6"/></bottom><diagonal/></border>',
     '</borders>',
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>',
     '<cellXfs count="10">',
@@ -482,7 +482,7 @@ function workbookRelsXml(): string {
 function appXml(): string {
   return xml([
     '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">',
-    '<Application>QR Attendance</Application>',
+    '<Application>Vio Attendance</Application>',
     '</Properties>',
   ]);
 }
@@ -491,8 +491,8 @@ function coreXml(): string {
   const created = new Date().toISOString();
   return xml([
     '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
-    '<dc:creator>QR Attendance</dc:creator>',
-    '<dc:title>Student Attendance Report</dc:title>',
+    '<dc:creator>Vio Attendance</dc:creator>',
+    '<dc:title>Employee Attendance Report</dc:title>',
     `<dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created>`,
     `<dcterms:modified xsi:type="dcterms:W3CDTF">${created}</dcterms:modified>`,
     '</cp:coreProperties>',

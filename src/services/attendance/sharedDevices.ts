@@ -1,33 +1,33 @@
 /**
- * Turns the raw check-in device log into "one phone, several students" groups —
- * the report the lecturer actually looks at.
+ * Turns the raw check-in device log into "one phone, several employees" groups —
+ * the report the supervisor actually looks at.
  *
  * Grouping key is `deviceSessionId`, which the backend assigns when a phone
  * makes its first check-in and re-uses for every check-in from that phone in
- * the next `DEVICE_SESSION_WINDOW_HOURS`. A group with two or more students in
+ * the next `DEVICE_SESSION_WINDOW_HOURS`. A group with two or more employees in
  * it means one phone checked in more than one person.
  */
 
-import type { CheckInEvent, Student } from '@/types';
+import type { CheckInEvent, Employee } from '@/types';
 
-/** One check-in from the shared phone, and the lecture it landed in. */
+/** One check-in from the shared phone, and the session it landed in. */
 export interface SharedDeviceCheckIn {
   sessionId: string;
   at: string;
 }
 
 export interface SharedDeviceMember {
-  student: Student;
-  /** First and last time this student checked in from the shared phone. */
+  employee: Employee;
+  /** First and last time this employee checked in from the shared phone. */
   firstAt: string;
   lastAt: string;
   /**
-   * Every check-in this student made from the phone, oldest first. Carries the
-   * session id because one phone can serve two lectures running side by side —
-   * without it the lecturer cannot tell which lecture a name belongs to.
+   * Every check-in this employee made from the phone, oldest first. Carries the
+   * session id because one phone can serve two sessions running side by side —
+   * without it the supervisor cannot tell which session a name belongs to.
    */
   checkIns: SharedDeviceCheckIn[];
-  /** True for the student who opened the device session — likely its owner. */
+  /** True for the employee who opened the device session — likely its owner. */
   isOwner: boolean;
 }
 
@@ -41,24 +41,24 @@ export interface SharedDeviceGroup {
   lastAt: string;
   /** Ordered by first check-in, so `members[0]` opened the session. */
   members: SharedDeviceMember[];
-  /** Every lecture this phone touched during the window, oldest first. */
+  /** Every session this phone touched during the window, oldest first. */
   sessionIds: string[];
 }
 
 /**
  * Groups the log into shared-phone reports, newest first.
  *
- * Pass `sessionId` to keep only the phones involved in that lecture. Members
- * checked in during *other* lectures in the same window are still listed —
+ * Pass `sessionId` to keep only the phones involved in that session. Members
+ * checked in during *other* sessions in the same window are still listed —
  * that's the point: one phone doing the rounds across the day is exactly what
- * the lecturer wants to see.
+ * the supervisor wants to see.
  */
 export function findSharedDeviceGroups(
   events: CheckInEvent[],
-  students: Student[],
+  employees: Employee[],
   options: { sessionId?: string } = {},
 ): SharedDeviceGroup[] {
-  const studentsById = new Map(students.map((s) => [s.id, s]));
+  const employeesById = new Map(employees.map((s) => [s.id, s]));
   const bySession = new Map<string, CheckInEvent[]>();
 
   for (const event of events) {
@@ -79,17 +79,17 @@ export function findSharedDeviceGroups(
 
     const members = new Map<string, SharedDeviceMember>();
     for (const event of deviceEvents) {
-      const student = studentsById.get(event.studentId);
-      if (!student) continue; // Student was deleted from the roster.
+      const employee = employeesById.get(event.employeeId);
+      if (!employee) continue; // Employee was deleted from the roster.
 
-      const existing = members.get(student.id);
+      const existing = members.get(employee.id);
       if (existing) {
         existing.checkIns.push({ sessionId: event.sessionId, at: event.at });
         if (event.at < existing.firstAt) existing.firstAt = event.at;
         if (event.at > existing.lastAt) existing.lastAt = event.at;
       } else {
-        members.set(student.id, {
-          student,
+        members.set(employee.id, {
+          employee,
           firstAt: event.at,
           lastAt: event.at,
           checkIns: [{ sessionId: event.sessionId, at: event.at }],
@@ -98,7 +98,7 @@ export function findSharedDeviceGroups(
       }
     }
 
-    // One student on their own phone is the normal case — nothing to report.
+    // One employee on their own phone is the normal case — nothing to report.
     if (members.size < 2) continue;
 
     const ordered = [...members.values()].sort((a, b) =>
@@ -134,27 +134,27 @@ export function findSharedDeviceGroups(
 }
 
 /**
- * Maps each flagged student to the other people who used the same phone, for
+ * Maps each flagged employee to the other people who used the same phone, for
  * the inline warning in the attendee table.
  */
-export function sharedDeviceNamesByStudent(
+export function sharedDeviceNamesByEmployee(
   groups: SharedDeviceGroup[],
 ): Map<string, string[]> {
-  const byStudent = new Map<string, string[]>();
+  const byEmployee = new Map<string, string[]>();
 
   for (const group of groups) {
     for (const member of group.members) {
       const others = group.members
-        .filter((m) => m.student.id !== member.student.id)
-        .map((m) => m.student.fullName);
-      const existing = byStudent.get(member.student.id) ?? [];
-      // A student can appear in more than one group across the day.
-      byStudent.set(member.student.id, [
+        .filter((m) => m.employee.id !== member.employee.id)
+        .map((m) => m.employee.fullName);
+      const existing = byEmployee.get(member.employee.id) ?? [];
+      // An employee can appear in more than one group across the day.
+      byEmployee.set(member.employee.id, [
         ...existing,
         ...others.filter((name) => !existing.includes(name)),
       ]);
     }
   }
 
-  return byStudent;
+  return byEmployee;
 }

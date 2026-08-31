@@ -2,13 +2,14 @@ import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, Phone, Search } from './icons';
 import { Logo } from './Logo';
+import { APP_NAME } from '@/brand';
 import { paths } from '@/routes';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import { cn } from '@/utils/cn';
 
 const baseLinks = [
   { to: paths.dashboard, label: 'Dashboard', icon: Home, end: true },
-  { to: paths.students, label: 'Student report', icon: Search, end: false },
+  { to: paths.employees, label: 'Employee report', icon: Search, end: false },
 ];
 
 const sharedPhonesLink = {
@@ -26,7 +27,7 @@ const sharedPhonesLink = {
 export function AdminLayout({ children }: { children: ReactNode }) {
   // The shared-phone report only joins the sidebar once its password has been
   // entered this session, so it stays invisible to anyone reading the
-  // lecturer's screen — but is one click away for whoever unlocked it, instead
+  // supervisor's screen — but is one click away for whoever unlocked it, instead
   // of forcing them to retype the address every time they leave the page.
   const links = isOwnerUnlocked()
     ? [...baseLinks, sharedPhonesLink]
@@ -40,9 +41,11 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           <Logo size={36} />
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-bold text-ink-900">
-              QR Attendance
+              {APP_NAME}
             </div>
-            <div className="truncate text-xs text-ink-400">Asiacell</div>
+            <div className="truncate text-xs text-ink-400">
+              Employee check-in
+            </div>
           </div>
         </div>
         <nav className="flex flex-col gap-1.5">

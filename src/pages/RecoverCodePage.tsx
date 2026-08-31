@@ -5,20 +5,20 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useDataService } from '@/services/data/context';
-import type { Student } from '@/types';
+import type { Employee } from '@/types';
 
 export function RecoverCodePage() {
   const data = useDataService();
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<Student | null | 'not-found'>(null);
+  const [result, setResult] = useState<Employee | null | 'not-found'>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const student = await data.getStudentByPhone(phone.trim());
-      setResult(student ?? 'not-found');
+      const employee = await data.getEmployeeByPhone(phone.trim());
+      setResult(employee ?? 'not-found');
     } finally {
       setSubmitting(false);
     }
@@ -39,7 +39,7 @@ export function RecoverCodePage() {
             required
             type="tel"
             autoFocus
-            placeholder="+233 24 000 0000"
+            placeholder="+964 750 000 0000"
             value={phone}
             onChange={(e) => {
               setPhone(e.target.value);
@@ -53,7 +53,7 @@ export function RecoverCodePage() {
 
         {result === 'not-found' && (
           <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            No registration found for that number. Please ask your lecturer to
+            No registration found for that number. Please ask your supervisor to
             register you.
           </div>
         )}

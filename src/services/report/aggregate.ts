@@ -1,4 +1,4 @@
-import type { AttendanceRecord, Session, Student } from '@/types';
+import type { AttendanceRecord, Session, Employee } from '@/types';
 import { hoursBetween, roundHours } from '@/utils/time';
 
 export interface SessionSummary {
@@ -10,15 +10,15 @@ export interface SessionSummary {
 
 export interface AttendanceLine {
   session: Session;
-  student: Student;
+  employee: Employee;
   checkInAt?: string;
   checkOutAt?: string;
-  /** Hours the student was actually present in this session. */
+  /** Hours the employee was actually present in this session. */
   attendedHours: number;
 }
 
-export interface StudentTotal {
-  student: Student;
+export interface EmployeeTotal {
+  employee: Employee;
   sessionsAttended: number;
   attendedHours: number;
   /** attendedHours / total session hours, clamped to [0, 1]. */
@@ -30,7 +30,7 @@ export interface AttendanceReport {
   totalSessionHours: number;
   sessionSummaries: SessionSummary[];
   attendanceLines: AttendanceLine[];
-  studentTotals: StudentTotal[];
+  employeeTotals: EmployeeTotal[];
 }
 
 /** Effective end of a session: its close time, or "now" if still running. */
@@ -40,15 +40,15 @@ function sessionEnd(session: Session): string {
 
 /**
  * Turns the raw records into an additive report: per-session summaries,
- * per-(student, session) attendance lines, and per-student totals with the
- * grand total of lecture hours delivered.
+ * per-(employee, session) attendance lines, and per-employee totals with the
+ * grand total of session hours delivered.
  */
 export function buildReport(
   sessions: Session[],
-  students: Student[],
+  employees: Employee[],
   attendance: AttendanceRecord[],
 ): AttendanceReport {
-  const studentById = new Map(students.map((s) => [s.id, s]));
+  const employeeById = new Map(employees.map((s) => [s.id, s]));
 
   const sessionSummaries: SessionSummary[] = sessions.map((session) => {
     const records = attendance.filter((r) => r.sessionId === session.id);
@@ -69,24 +69,24 @@ export function buildReport(
   const attendanceLines: AttendanceLine[] = [];
   for (const record of attendance) {
     const session = sessionById.get(record.sessionId);
-    const student = studentById.get(record.studentId);
-    if (!session || !student || !record.checkInAt) continue;
+    const employee = employeeById.get(record.employeeId);
+    if (!session || !employee || !record.checkInAt) continue;
 
     // Open records (still checked in) count up to the session end.
     const end = record.checkOutAt ?? sessionEnd(session);
     attendanceLines.push({
       session,
-      student,
+      employee,
       checkInAt: record.checkInAt,
       checkOutAt: record.checkOutAt,
       attendedHours: roundHours(hoursBetween(record.checkInAt, end)),
     });
   }
 
-  const totalsByStudent = new Map<string, StudentTotal>();
+  const totalsByEmployee = new Map<string, EmployeeTotal>();
   for (const line of attendanceLines) {
-    const current = totalsByStudent.get(line.student.id) ?? {
-      student: line.student,
+    const current = totalsByEmployee.get(line.employee.id) ?? {
+      employee: line.employee,
       sessionsAttended: 0,
       attendedHours: 0,
       attendanceRate: 0,
@@ -95,10 +95,10 @@ export function buildReport(
     current.attendedHours = roundHours(
       current.attendedHours + line.attendedHours,
     );
-    totalsByStudent.set(line.student.id, current);
+    totalsByEmployee.set(line.employee.id, current);
   }
 
-  const studentTotals = [...totalsByStudent.values()]
+  const employeeTotals = [...totalsByEmployee.values()]
     .map((t) => ({
       ...t,
       attendanceRate:
@@ -113,6 +113,6 @@ export function buildReport(
     totalSessionHours,
     sessionSummaries,
     attendanceLines,
-    studentTotals,
+    employeeTotals,
   };
 }

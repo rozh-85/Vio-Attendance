@@ -13,7 +13,7 @@ import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
 import { formatDate } from '@/utils/time';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
-import type { CheckInEvent, Session, Student } from '@/types';
+import type { CheckInEvent, Session, Employee } from '@/types';
 
 const RANGES = [
   { label: 'Today', hours: 24 },
@@ -23,22 +23,22 @@ const RANGES = [
 ] as const;
 
 /**
- * Admin page: every phone that checked in more than one student, across all
- * lectures. The session screen shows the same report scoped to one lecture —
+ * Admin page: every phone that checked in more than one employee, across all
+ * sessions. The session screen shows the same report scoped to one session —
  * this is the place to look when you want the whole picture, or when the
- * lecture it happened in is already closed.
+ * session it happened in is already closed.
  */
 export function SharedDevicesPage() {
   const data = useDataService();
-  const [students, setStudents] = useState<Student[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [events, setEvents] = useState<CheckInEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hours, setHours] = useState<number>(24 * 7);
   const [query, setQuery] = useState('');
-  /** '' = every lecture; otherwise only phones that touched this one. */
-  const [lectureId, setLectureId] = useState('');
+  /** '' = every session; otherwise only phones that touched this one. */
+  const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -49,12 +49,12 @@ export function SharedDevicesPage() {
           ? new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
           : undefined;
         const [st, se, ev] = await Promise.all([
-          data.listStudents(),
+          data.listEmployees(),
           data.listSessions(),
           data.listCheckInEvents(since),
         ]);
         if (!active) return;
-        setStudents(st);
+        setEmployees(st);
         setSessions(se);
         setEvents(ev);
         setError(null);
@@ -83,15 +83,15 @@ export function SharedDevicesPage() {
   );
 
   const groups = useMemo(
-    () => findSharedDeviceGroups(events, students),
-    [events, students],
+    () => findSharedDeviceGroups(events, employees),
+    [events, employees],
   );
 
   /**
-   * Only the lectures a shared phone actually touched — there is no point
-   * offering a lecture where every check-in came from its own phone.
+   * Only the sessions a shared phone actually touched — there is no point
+   * offering a session where every check-in came from its own phone.
    */
-  const lectureOptions = useMemo(() => {
+  const sessionOptions = useMemo(() => {
     const counts = new Map<string, number>();
     for (const group of groups) {
       for (const id of group.sessionIds) {
@@ -103,58 +103,58 @@ export function SharedDevicesPage() {
         id,
         phones,
         session: sessionsById.get(id),
-        label: sessionsById.get(id)?.title || 'Another lecture',
+        label: sessionsById.get(id)?.title || 'Another session',
       }))
       .sort((a, b) =>
         (b.session?.startedAt ?? '').localeCompare(a.session?.startedAt ?? ''),
       );
   }, [groups, sessionsById]);
 
-  // Changing the period can retire the lecture that was picked.
+  // Changing the period can retire the session that was picked.
   useEffect(() => {
-    if (lectureId && !lectureOptions.some((o) => o.id === lectureId)) {
-      setLectureId('');
+    if (sessionId && !sessionOptions.some((o) => o.id === sessionId)) {
+      setSessionId('');
     }
-  }, [lectureOptions, lectureId]);
+  }, [sessionOptions, sessionId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return groups.filter((group) => {
-      if (lectureId && !group.sessionIds.includes(lectureId)) return false;
+      if (sessionId && !group.sessionIds.includes(sessionId)) return false;
       if (!q) return true;
       return group.members.some(
         (m) =>
-          m.student.fullName.toLowerCase().includes(q) ||
-          m.student.code.toLowerCase() === q ||
-          m.student.department.toLowerCase().includes(q),
+          m.employee.fullName.toLowerCase().includes(q) ||
+          m.employee.code.toLowerCase() === q ||
+          m.employee.position.toLowerCase().includes(q),
       );
     });
-  }, [groups, query, lectureId]);
+  }, [groups, query, sessionId]);
 
   /**
    * Describes what is on screen, so the numbers follow the filters. With a
-   * lecture picked, the student count is the students checked in *to that
-   * lecture* — the groups still list everyone the phone touched, but counting
-   * those would overstate the lecture's own problem.
+   * session picked, the employee count is the employees checked in *to that
+   * session* — the groups still list everyone the phone touched, but counting
+   * those would overstate the session's own problem.
    */
   const stats = useMemo(() => {
-    const studentIds = new Set(
+    const employeeIds = new Set(
       filtered.flatMap((g) =>
         g.members
           .filter(
             (m) =>
-              !lectureId || m.checkIns.some((c) => c.sessionId === lectureId),
+              !sessionId || m.checkIns.some((c) => c.sessionId === sessionId),
           )
-          .map((m) => m.student.id),
+          .map((m) => m.employee.id),
       ),
     );
     const sessionIds = new Set(filtered.flatMap((g) => g.sessionIds));
     return {
       phones: filtered.length,
-      students: studentIds.size,
-      lectures: sessionIds.size,
+      employees: employeeIds.size,
+      sessions: sessionIds.size,
     };
-  }, [filtered, lectureId]);
+  }, [filtered, sessionId]);
 
   return (
     <AdminLayout>
@@ -171,10 +171,10 @@ export function SharedDevicesPage() {
         </Button>
       </div>
       <p className="mt-1 max-w-3xl text-ink-500">
-        Every phone that checked in more than one student. A phone's first
+        Every phone that checked in more than one employee. A phone's first
         check-in opens an {DEVICE_SESSION_WINDOW_HOURS}-hour window; anyone else
         checked in from that phone during the window is listed under it, with
-        the lecture their check-in landed in.
+        the session their check-in landed in.
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -198,26 +198,26 @@ export function SharedDevicesPage() {
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard value={stats.phones} label="Shared phones" tone="warning" />
         <StatCard
-          value={stats.students}
-          label={lectureId ? 'Students in this lecture' : 'Students involved'}
+          value={stats.employees}
+          label={sessionId ? 'Employees in this session' : 'Employees involved'}
         />
-        <StatCard value={stats.lectures} label="Lectures touched" tone="info" />
+        <StatCard value={stats.sessions} label="Sessions touched" tone="info" />
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-ink-900">
-            Lecture
+            Session
           </span>
           <select
             className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-ink-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            value={lectureId}
-            onChange={(e) => setLectureId(e.target.value)}
+            value={sessionId}
+            onChange={(e) => setSessionId(e.target.value)}
           >
             <option value="">
-              All lectures ({lectureOptions.length} with shared phones)
+              All sessions ({sessionOptions.length} with shared phones)
             </option>
-            {lectureOptions.map((option) => (
+            {sessionOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
                 {option.session && ` — ${formatDate(option.session.startedAt)}`}
@@ -230,7 +230,7 @@ export function SharedDevicesPage() {
         <Input
           label="Search"
           type="text"
-          placeholder="Student name, code or department…"
+          placeholder="Employee name, code or position…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -255,17 +255,17 @@ export function SharedDevicesPage() {
           <SharedDeviceGroupList
             groups={filtered}
             sessionsById={sessionsById}
-            highlightSessionId={lectureId || undefined}
+            highlightSessionId={sessionId || undefined}
           />
         )}
       </div>
 
       <p className="mt-8 max-w-3xl text-sm text-ink-400">
-        Nothing here is blocked — a phone may check in as many students as it
+        Nothing here is blocked — a phone may check in as many employees as it
         likes and all of them are recorded. Clearing site data or using a
         private tab gives a phone a fresh identity, so treat this as a prompt to
         look up rather than as proof. To correct someone's attendance, open the
-        lecture from the{' '}
+        session from the{' '}
         <Link to={paths.dashboard} className="font-semibold underline">
           dashboard
         </Link>

@@ -2,7 +2,7 @@
 
 export type DataErrorCode =
   | 'PHONE_TAKEN'
-  | 'STUDENT_NOT_FOUND'
+  | 'EMPLOYEE_NOT_FOUND'
   | 'SESSION_NOT_FOUND'
   | 'SESSION_CLOSED'
   | 'CHECK_IN_CLOSED'

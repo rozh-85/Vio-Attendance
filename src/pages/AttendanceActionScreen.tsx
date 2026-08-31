@@ -39,7 +39,7 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
   const data = useDataService();
   const c = copy[mode];
 
-  // Freeze the QR-token check at mount: it proves the student scanned a *live*
+  // Freeze the QR-token check at mount: it proves the employee scanned a *live*
   // code, not an old screenshot someone forwarded to them.
   const [qrOk] = useState(() =>
     isQrTokenValid(
@@ -72,8 +72,8 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
     setError(null);
     setSubmitting(true);
     try {
-      // Check-in carries the phone's identity so the lecturer can see when one
-      // phone checked in several students. Check-out doesn't need it.
+      // Check-in carries the phone's identity so the supervisor can see when one
+      // phone checked in several employees. Check-out doesn't need it.
       const record =
         mode === 'check-in'
           ? await data.checkIn(sessionId, code.trim(), currentDevice())
@@ -118,7 +118,7 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
           </div>
           <h1 className="mt-5 text-2xl font-bold">You're {c.doneVerb}!</h1>
           <p className="mt-1 text-ink-500">
-            {session.title || session.lecturerName} · {formatClock(doneAt)}
+            {session.title || session.supervisorName} · {formatClock(doneAt)}
           </p>
         </Card>
       </Screen>
@@ -137,13 +137,13 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
         <Book className="mt-0.5 shrink-0 text-brand-600" />
         <div className="text-sm">
           <div className="font-bold text-ink-900">
-            {session.title || 'Lecture'}
+            {session.title || 'Session'}
           </div>
           <div className="text-ink-500">
             {formatDate(session.startedAt)} · {formatClock(session.startedAt)}
           </div>
           <div className="text-ink-500">
-            {session.location} · {session.lecturerName}
+            {session.location} · {session.supervisorName}
           </div>
         </div>
       </div>
@@ -155,12 +155,12 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
       ) : !gateOpen ? (
         <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
           {mode === 'check-in' ? 'Check-in' : 'Check-out'} is not open yet. Please
-          wait for your lecturer to open it.
+          wait for your supervisor to open it.
         </div>
       ) : !qrOk ? (
         <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
           This QR code has expired or is invalid. Please scan the live code shown
-          on the lecturer's screen — screenshots and forwarded links won't work.
+          on the supervisor's screen — screenshots and forwarded links won't work.
         </div>
       ) : null}
 

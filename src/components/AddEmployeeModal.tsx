@@ -3,32 +3,33 @@ import { Modal } from './ui/Modal';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 import { Check } from './icons';
-import type { NewStudentInput, Student } from '@/types';
+import type { NewEmployeeInput, Employee } from '@/types';
 
 /**
- * Admin-only manual student registration. Replaces the old public /register
- * page — only a signed-in lecturer can add students now. After a successful
- * add it shows the assigned code so the lecturer can hand it to the student.
+ * Admin-only manual employee registration. Only a signed-in supervisor can add
+ * employees. After a successful add it shows the assigned code so the
+ * supervisor can hand it to the employee.
+ *
+ * Three fields only: full name, phone number and position.
  */
-export function AddStudentModal({
+export function AddEmployeeModal({
   saving,
   error,
-  createdStudent,
+  createdEmployee,
   onSave,
   onAddAnother,
   onClose,
 }: {
   saving: boolean;
   error?: string | null;
-  createdStudent?: Student | null;
-  onSave: (values: NewStudentInput) => void;
+  createdEmployee?: Employee | null;
+  onSave: (values: NewEmployeeInput) => void;
   onAddAnother: () => void;
   onClose: () => void;
 }) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [college, setCollege] = useState('');
-  const [department, setDepartment] = useState('');
+  const [position, setPosition] = useState('');
 
   const validationError = useMemo(() => {
     if (!fullName.trim()) return 'Name is required.';
@@ -41,34 +42,32 @@ export function AddStudentModal({
     onSave({
       fullName: fullName.trim(),
       phone: phone.trim(),
-      college: college.trim(),
-      department: department.trim(),
+      position: position.trim(),
     });
   }
 
   function handleAddAnother() {
     setFullName('');
     setPhone('');
-    setCollege('');
-    setDepartment('');
+    setPosition('');
     onAddAnother();
   }
 
   // ── Success view ──────────────────────────────────────────────────────────
-  if (createdStudent) {
+  if (createdEmployee) {
     return (
       <Modal
         open
         onClose={onClose}
-        title="Student added"
-        description="Give this code to the student — they type it to check in and out."
+        title="Employee added"
+        description="Give this code to the employee — they type it to check in and out."
       >
         <div className="my-2 rounded-2xl border border-dashed border-brand-200 bg-brand-50 py-6 text-center">
           <div className="text-sm font-medium text-brand-700">
-            {createdStudent.fullName}
+            {createdEmployee.fullName}
           </div>
           <div className="font-mono text-5xl font-bold tracking-widest text-brand-700">
-            {createdStudent.code}
+            {createdEmployee.code}
           </div>
         </div>
         <div className="flex gap-3 pt-1">
@@ -88,8 +87,8 @@ export function AddStudentModal({
     <Modal
       open
       onClose={onClose}
-      title="Add student"
-      description="Register a student manually. They'll get a code to check in and out."
+      title="Add employee"
+      description="Register an employee manually. They'll get a code to check in and out."
     >
       <div className="space-y-4">
         <Input
@@ -101,7 +100,7 @@ export function AddStudentModal({
           onChange={(e) => setFullName(e.target.value)}
         />
         <Input
-          label="Phone"
+          label="Phone number"
           required
           type="tel"
           placeholder="+964 750 000 0000"
@@ -109,16 +108,10 @@ export function AddStudentModal({
           onChange={(e) => setPhone(e.target.value)}
         />
         <Input
-          label="College"
-          placeholder="Engineering"
-          value={college}
-          onChange={(e) => setCollege(e.target.value)}
-        />
-        <Input
-          label="Department"
-          placeholder="Computer Science"
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
+          label="Position"
+          placeholder="Field Technician"
+          value={position}
+          onChange={(e) => setPosition(e.target.value)}
         />
 
         {(validationError || error) && (
@@ -135,7 +128,7 @@ export function AddStudentModal({
             disabled={!!validationError}
             onClick={handleSave}
           >
-            Add student
+            Add employee
           </Button>
         </div>
       </div>

@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/Button';
 import { paths } from '@/routes';
 
 /**
- * Neutral, student-safe fallback shown for unknown URLs (and for lecturer-only
+ * Neutral, employee-safe fallback shown for unknown URLs (and for supervisor-only
  * routes when signed out). It deliberately exposes NOTHING about the admin area
- * or the sign-in page — students should only reach check-in/out via the QR code
- * their lecturer shows them.
+ * or the sign-in page — employees should only reach check-in/out via the QR code
+ * their supervisor shows them.
  */
 export function NotFoundPage() {
   return (
@@ -17,7 +17,7 @@ export function NotFoundPage() {
         <div className="text-5xl">📱</div>
         <h1 className="mt-4 text-2xl font-bold">Attendance</h1>
         <p className="mt-2 text-ink-500">
-          To check in or out, scan the QR code your lecturer shows in class.
+          To check in or out, scan the QR code your supervisor shows you.
         </p>
         <div className="mt-6">
           <Link to={paths.recover}>

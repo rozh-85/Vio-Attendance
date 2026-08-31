@@ -5,7 +5,7 @@ import {
   AttendanceTimeFields,
   attendanceTimesError,
 } from './AttendanceTimeFields';
-import type { AttendanceEdit, AttendanceRecord, Session, Student } from '@/types';
+import type { AttendanceEdit, AttendanceRecord, Session, Employee } from '@/types';
 import {
   formatDateTime,
   fromDateTimeLocalValue,
@@ -13,12 +13,12 @@ import {
 } from '@/utils/time';
 
 /**
- * Corrects one student's attendance for one lecture, straight from the student
+ * Corrects one employee's attendance for one session, straight from the employee
  * report — so a missed scan can be fixed without opening that session on the
- * dashboard and hunting for the student.
+ * dashboard and hunting for the employee.
  */
 export function EditAttendanceModal({
-  student,
+  employee,
   session,
   record,
   saving,
@@ -26,7 +26,7 @@ export function EditAttendanceModal({
   onClose,
   onSave,
 }: {
-  student: Student;
+  employee: Employee;
   session: Session;
   record?: AttendanceRecord;
   saving: boolean;
@@ -44,8 +44,8 @@ export function EditAttendanceModal({
 
   const validationError = attendanceTimesError(checkIn, checkOut);
 
-  /** Fills both fields with the lecture's own window — the common case. */
-  function useLectureTimes() {
+  /** Fills both fields with the session's own window — the common case. */
+  function useSessionTimes() {
     setCheckIn(toDateTimeLocalValue(session.startedAt));
     setCheckOut(toDateTimeLocalValue(session.closedAt));
   }
@@ -55,11 +55,11 @@ export function EditAttendanceModal({
       open
       onClose={onClose}
       title="Edit attendance"
-      description={`${student.fullName} — ${session.title || session.lecturerName}`}
+      description={`${employee.fullName} — ${session.title || session.supervisorName}`}
     >
       <div className="space-y-4">
         <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-ink-500">
-          Lecture started{' '}
+          Session started{' '}
           <span className="font-semibold text-ink-700">
             {formatDateTime(session.startedAt)}
           </span>
@@ -84,9 +84,9 @@ export function EditAttendanceModal({
         <button
           type="button"
           className="block text-sm font-semibold text-brand-600 hover:text-brand-700"
-          onClick={useLectureTimes}
+          onClick={useSessionTimes}
         >
-          Use the lecture's times
+          Use the session's times
         </button>
 
         {(validationError || error) && (

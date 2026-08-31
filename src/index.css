@@ -6,15 +6,17 @@
     Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
 
-  /* Brand palette — Asiacell red. Every `brand-*` utility in the app reads
-     these, so the whole UI follows from the six values below. brand-600 is the
-     action colour (5.1:1 against white); brand-700 is its hover/darker step. */
-  --color-brand-50: #fef2f3;
-  --color-brand-100: #fde0e2;
-  --color-brand-200: #fbc4c8;
-  --color-brand-500: #e9232c;
-  --color-brand-600: #d91c25;
-  --color-brand-700: #a9151c;
+  /* Brand palette — Vio red. Every `brand-*` utility in the app reads these,
+     so the whole UI follows from the seven values below. brand-600 is the
+     action colour (6.5:1 against white); brand-700 is its hover/darker step.
+     Keep them in step with BRAND in src/brand.ts. */
+  --color-brand-50: #fbf3f3;
+  --color-brand-100: #f6e3e3;
+  --color-brand-200: #edc5c6;
+  --color-brand-300: #de9b9c;
+  --color-brand-500: #be3a3c;
+  --color-brand-600: #a5292b;
+  --color-brand-700: #841f21;
 
   --color-ink-900: #0f172a;
   --color-ink-700: #334155;

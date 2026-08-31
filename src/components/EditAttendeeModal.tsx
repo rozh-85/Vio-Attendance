@@ -14,9 +14,8 @@ import {
 
 export interface EditAttendeeValues {
   fullName: string;
-  college: string;
-  department: string;
   phone: string;
+  position: string;
   checkInAt: string | null;
   checkOutAt: string | null;
 }
@@ -34,12 +33,11 @@ export function EditAttendeeModal({
   onClose: () => void;
   onSave: (values: EditAttendeeValues) => void;
 }) {
-  const { student, record } = attendee;
+  const { employee, record } = attendee;
 
-  const [fullName, setFullName] = useState(student.fullName);
-  const [college, setCollege] = useState(student.college);
-  const [department, setDepartment] = useState(student.department);
-  const [phone, setPhone] = useState(student.phone);
+  const [fullName, setFullName] = useState(employee.fullName);
+  const [phone, setPhone] = useState(employee.phone);
+  const [position, setPosition] = useState(employee.position);
   // `datetime-local` string values ('' means unset).
   const [checkIn, setCheckIn] = useState(
     toDateTimeLocalValue(record?.checkInAt),
@@ -57,9 +55,8 @@ export function EditAttendeeModal({
     if (validationError) return;
     onSave({
       fullName: fullName.trim(),
-      college: college.trim(),
-      department: department.trim(),
       phone: phone.trim(),
+      position: position.trim(),
       checkInAt: fromDateTimeLocalValue(checkIn),
       checkOutAt: fromDateTimeLocalValue(checkOut),
     });
@@ -69,8 +66,8 @@ export function EditAttendeeModal({
     <Modal
       open
       onClose={onClose}
-      title="Edit student"
-      description="Fix the student's details or correct their attendance manually."
+      title="Edit employee"
+      description="Fix the employee's details or correct their attendance manually."
     >
       <div className="space-y-4">
         <Input
@@ -80,19 +77,14 @@ export function EditAttendeeModal({
           required
         />
         <Input
-          label="College"
-          value={college}
-          onChange={(e) => setCollege(e.target.value)}
-        />
-        <Input
-          label="Department"
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-        />
-        <Input
-          label="Phone"
+          label="Phone number"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+        />
+        <Input
+          label="Position"
+          value={position}
+          onChange={(e) => setPosition(e.target.value)}
         />
 
         <AttendanceTimeFields

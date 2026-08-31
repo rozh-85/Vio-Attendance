@@ -1,7 +1,7 @@
 /**
- * A second lock on the shared-phone report, on top of the lecturer sign-in.
+ * A second lock on the shared-phone report, on top of the supervisor sign-in.
  *
- * The report names students suspected of checking in for each other, so it
+ * The report names employees suspected of checking in for each other, so it
  * lives at its own unlisted URL and asks for the owner's own credentials
  * before it renders.
  *
@@ -9,14 +9,14 @@
  * This check runs in the browser, so it cannot keep out anyone with devtools —
  * they can flip the unlock flag by hand. It keeps the page out of casual sight;
  * the *data* is protected by Postgres, where `check_in_events` is readable only
- * by an authenticated lecturer (see supabase/device-checkin-tracking.sql).
+ * by an authenticated supervisor (see supabase/device-checkin-tracking.sql).
  * Bypassing this gate without a Supabase session shows an empty page.
  *
  * The password is stored as a SHA-256 digest, never in the clear, so the
  * bundle cannot be read for a password that may be used elsewhere too.
  */
 
-const UNLOCK_KEY = 'qra.ownerUnlocked';
+const UNLOCK_KEY = 'vio.ownerUnlocked';
 
 /** Override in `.env` to change who can open the report. */
 const OWNER_EMAIL =
@@ -61,7 +61,7 @@ export async function verifyOwner(
 
 /**
  * Unlocked state lives in sessionStorage, so closing the tab re-locks the page —
- * a lecturer's laptop is often left open in the room.
+ * a supervisor's laptop is often left open in the room.
  */
 export function isOwnerUnlocked(): boolean {
   try {

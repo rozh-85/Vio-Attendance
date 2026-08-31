@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { RotatingQRPanel } from '@/components/RotatingQRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
 import { SharedDevicesCard } from '@/components/SharedDevicesCard';
-import { AddStudentModal } from '@/components/AddStudentModal';
+import { AddEmployeeModal } from '@/components/AddEmployeeModal';
 import {
   EditAttendeeModal,
   type EditAttendeeValues,
@@ -30,30 +30,30 @@ import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { useDataService } from '@/services/data/context';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import { isDataError } from '@/services/data';
-import { exportLectureAttendanceToExcel } from '@/services/report/lectureTemplateExcel';
+import { exportSessionAttendanceToExcel } from '@/services/report/sessionTemplateExcel';
 import { formatDate, formatClock } from '@/utils/time';
 import { paths } from '@/routes';
 import type {
   AttendanceStatus,
-  NewStudentInput,
+  NewEmployeeInput,
   SessionAttendee,
-  Student,
+  Employee,
 } from '@/types';
 import type { ReactNode } from 'react';
 
 type ModalKind = 'check-in' | 'check-out' | null;
 
-interface DeleteStudentState {
-  studentId: string;
-  studentCode: string;
-  studentName: string;
+interface DeleteEmployeeState {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
 }
 
 export function SessionView() {
   const { sessionId = '' } = useParams();
   const data = useDataService();
-  // The shared-phone findings belong to the owner report; a lecturer opening
-  // this lecture must not see them here either.
+  // The shared-phone findings belong to the owner report; a supervisor opening
+  // this session must not see them here either.
   const ownerUnlocked = isOwnerUnlocked();
   const {
     session,
@@ -75,7 +75,7 @@ export function SessionView() {
   const [confirmClose, setConfirmClose] = useState(false);
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [deleteStudent, setDeleteStudent] = useState<DeleteStudentState | null>(null);
+  const [deleteEmployee, setDeleteEmployee] = useState<DeleteEmployeeState | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editAttendee, setEditAttendee] = useState<SessionAttendee | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -83,8 +83,8 @@ export function SessionView() {
   const [showAdd, setShowAdd] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [addedStudent, setAddedStudent] = useState<Student | null>(null);
-  // Lecturer can switch either QR from the rotating 5s code to one constant
+  const [addedEmployee, setAddedEmployee] = useState<Employee | null>(null);
+  // Supervisor can switch either QR from the rotating 5s code to one constant
   // code that stays valid for the whole session.
   const [checkInQrConstant, setCheckInQrConstant] = useState(false);
   const [checkOutQrConstant, setCheckOutQrConstant] = useState(false);
@@ -102,8 +102,8 @@ export function SessionView() {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter(
         (attendee) =>
-          attendee.student.fullName.toLowerCase().includes(query) ||
-          attendee.student.code.toLowerCase().includes(query),
+          attendee.employee.fullName.toLowerCase().includes(query) ||
+          attendee.employee.code.toLowerCase().includes(query),
       );
     }
 
@@ -159,58 +159,58 @@ export function SessionView() {
 
     setExporting(true);
     try {
-      const [students, attendance] = await Promise.all([
-        data.listStudents(),
+      const [employees, attendance] = await Promise.all([
+        data.listEmployees(),
         data.listAttendance(currentSession.id),
       ]);
-      exportLectureAttendanceToExcel(currentSession, students, attendance);
+      exportSessionAttendanceToExcel(currentSession, employees, attendance);
     } finally {
       setExporting(false);
     }
   }
 
-  async function onConfirmDeleteStudent() {
-    if (!deleteStudent) return;
+  async function onConfirmDeleteEmployee() {
+    if (!deleteEmployee) return;
 
     setDeleting(true);
     try {
-      await data.deleteStudent(deleteStudent.studentId);
+      await data.deleteEmployee(deleteEmployee.employeeId);
       await refresh();
-      setDeleteStudent(null);
+      setDeleteEmployee(null);
     } finally {
       setDeleting(false);
     }
   }
 
-  function onDeleteStudentClick(
-    studentId: string,
-    studentCode: string,
-    studentName: string,
+  function onDeleteEmployeeClick(
+    employeeId: string,
+    employeeCode: string,
+    employeeName: string,
   ) {
-    setDeleteStudent({ studentId, studentCode, studentName });
+    setDeleteEmployee({ employeeId, employeeCode, employeeName });
   }
 
-  function onEditStudentClick(attendee: SessionAttendee) {
+  function onEditEmployeeClick(attendee: SessionAttendee) {
     setEditError(null);
     setEditAttendee(attendee);
   }
 
-  function openAddStudent() {
+  function openAddEmployee() {
     setAddError(null);
-    setAddedStudent(null);
+    setAddedEmployee(null);
     setShowAdd(true);
   }
 
-  async function onAddStudent(values: NewStudentInput) {
+  async function onAddEmployee(values: NewEmployeeInput) {
     setAddSaving(true);
     setAddError(null);
     try {
-      const created = await data.registerStudent(values);
+      const created = await data.registerEmployee(values);
       await refresh();
-      setAddedStudent(created);
+      setAddedEmployee(created);
     } catch (err) {
       setAddError(
-        isDataError(err) ? err.message : 'Could not add student. Please try again.',
+        isDataError(err) ? err.message : 'Could not add employee. Please try again.',
       );
     } finally {
       setAddSaving(false);
@@ -223,13 +223,12 @@ export function SessionView() {
     setSavingEdit(true);
     setEditError(null);
     try {
-      await data.updateStudent(editAttendee.student.id, {
+      await data.updateEmployee(editAttendee.employee.id, {
         fullName: values.fullName,
-        college: values.college,
-        department: values.department,
+        position: values.position,
         phone: values.phone,
       });
-      await data.setAttendance(session.id, editAttendee.student.id, {
+      await data.setAttendance(session.id, editAttendee.employee.id, {
         checkInAt: values.checkInAt,
         checkOutAt: values.checkOutAt,
       });
@@ -267,7 +266,7 @@ export function SessionView() {
             {session.closedAt && ` – ${formatClock(session.closedAt)}`} ·{' '}
             {session.location}
           </p>
-          <p className="text-ink-500">{session.lecturerName}</p>
+          <p className="text-ink-500">{session.supervisorName}</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -334,9 +333,9 @@ export function SessionView() {
         <QrActionButton
           icon={<UserPlus />}
           circleIcon={<UserPlus />}
-          title="Add student"
-          subtitle="Register a student manually"
-          onClick={openAddStudent}
+          title="Add employee"
+          subtitle="Register an employee manually"
+          onClick={openAddEmployee}
         />
         <QrActionButton
           icon={<Login />}
@@ -356,24 +355,24 @@ export function SessionView() {
         />
       </div>
 
-      {/* One phone, several students — owner's eyes only, like the report it
-          belongs to. An ordinary lecturer sees no trace of it. */}
+      {/* One phone, several employees — owner's eyes only, like the report it
+          belongs to. An ordinary supervisor sees no trace of it. */}
       {ownerUnlocked && (
         <SharedDevicesCard
           groups={sharedDevices}
           sessionsById={sessionsById}
           highlightSessionId={session.id}
-          highlightLabel="this lecture"
+          highlightLabel="this session"
         />
       )}
 
-      {/* Students */}
+      {/* Employees */}
       <div className="mt-8">
-        <h2 className="mb-4 text-lg font-bold">Students</h2>
+        <h2 className="mb-4 text-lg font-bold">Employees</h2>
         <div className="mb-4">
           <Input
             type="text"
-            placeholder="Search by student name or code..."
+            placeholder="Search by employee name or code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -381,20 +380,20 @@ export function SessionView() {
         <AttendeeTable
           attendees={filteredAttendees}
           sharedDeviceNames={ownerUnlocked ? sharedDeviceNames : undefined}
-          onDeleteStudent={onDeleteStudentClick}
-          onEditStudent={onEditStudentClick}
+          onDeleteEmployee={onDeleteEmployeeClick}
+          onEditEmployee={onEditEmployeeClick}
         />
       </div>
 
-      {/* Add student (manual, admin-only) */}
+      {/* Add employee (manual, admin-only) */}
       {showAdd && (
-        <AddStudentModal
+        <AddEmployeeModal
           saving={addSaving}
           error={addError}
-          createdStudent={addedStudent}
-          onSave={onAddStudent}
+          createdEmployee={addedEmployee}
+          onSave={onAddEmployee}
           onAddAnother={() => {
-            setAddedStudent(null);
+            setAddedEmployee(null);
             setAddError(null);
           }}
           onClose={() => setShowAdd(false)}
@@ -406,7 +405,7 @@ export function SessionView() {
         open={modal === 'check-in'}
         onClose={() => setModal(null)}
         title="Check-In QR"
-        description="Students scan, then type their code to check in."
+        description="Employees scan, then type their code to check in."
       >
         <RotatingQRPanel
           sessionId={session.id}
@@ -438,7 +437,7 @@ export function SessionView() {
         open={modal === 'check-out'}
         onClose={() => setModal(null)}
         title="Check-Out QR"
-        description="Students scan, then type their code to check out."
+        description="Employees scan, then type their code to check out."
       >
         <RotatingQRPanel
           sessionId={session.id}
@@ -491,22 +490,22 @@ export function SessionView() {
         </div>
       </Modal>
 
-      {/* Confirm delete student */}
+      {/* Confirm delete employee */}
       <Modal
-        open={!!deleteStudent}
-        onClose={() => setDeleteStudent(null)}
-        title="Delete this student?"
-        description="Are you sure you want to delete this student? This will remove the student but will not renumber other codes."
+        open={!!deleteEmployee}
+        onClose={() => setDeleteEmployee(null)}
+        title="Delete this employee?"
+        description="Are you sure you want to delete this employee? This will remove the employee but will not renumber other codes."
       >
         <div className="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-ink-700">
-          <div className="font-semibold">{deleteStudent?.studentName}</div>
-          <div className="text-ink-500">Code: {deleteStudent?.studentCode}</div>
+          <div className="font-semibold">{deleteEmployee?.employeeName}</div>
+          <div className="text-ink-500">Code: {deleteEmployee?.employeeCode}</div>
         </div>
         <div className="flex gap-3">
           <Button
             variant="outline"
             fullWidth
-            onClick={() => setDeleteStudent(null)}
+            onClick={() => setDeleteEmployee(null)}
           >
             Cancel
           </Button>
@@ -514,14 +513,14 @@ export function SessionView() {
             variant="danger"
             fullWidth
             loading={deleting}
-            onClick={onConfirmDeleteStudent}
+            onClick={onConfirmDeleteEmployee}
           >
-            Delete student
+            Delete employee
           </Button>
         </div>
       </Modal>
 
-      {/* Edit student */}
+      {/* Edit employee */}
       {editAttendee && (
         <EditAttendeeModal
           attendee={editAttendee}

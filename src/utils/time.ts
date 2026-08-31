@@ -45,9 +45,9 @@ export function fromDateTimeLocalValue(value: string): string | null {
 }
 
 /**
- * Minutes a student was actually present in a session, capped to the session
+ * Minutes an employee was actually present in a session, capped to the session
  * window: an open check-out counts up to the session's close (or now, if the
- * session is still running). Shared by the student and lecture reports so both
+ * session is still running). Shared by the employee and session reports so both
  * add up hours the same way.
  */
 export function presentMinutes(

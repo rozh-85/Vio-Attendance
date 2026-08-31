@@ -11,11 +11,11 @@ import type { Session } from '@/types';
 
 interface GroupListProps {
   groups: SharedDeviceGroup[];
-  /** Used to name the lecture each check-in landed in. */
+  /** Used to name the session each check-in landed in. */
   sessionsById: Map<string, Session>;
-  /** When set, check-ins in this lecture are picked out from the others. */
+  /** When set, check-ins in this session are picked out from the others. */
   highlightSessionId?: string;
-  /** Suffix on a highlighted check-in, e.g. "this lecture". Colour-only when omitted. */
+  /** Suffix on a highlighted check-in, e.g. "this session". Colour-only when omitted. */
   highlightLabel?: string;
 }
 
@@ -24,8 +24,8 @@ function sessionName(
   sessionId: string,
 ): string {
   const session = sessionsById.get(sessionId);
-  if (!session) return 'Another lecture';
-  return session.title || session.lecturerName || 'Untitled lecture';
+  if (!session) return 'Another session';
+  return session.title || session.supervisorName || 'Untitled session';
 }
 
 function MemberRow({
@@ -48,19 +48,19 @@ function MemberRow({
           {member.isOwner ? 'First' : `#${position}`}
         </Badge>
         <span className="font-semibold text-ink-900">
-          {member.student.fullName}
+          {member.employee.fullName}
         </span>
         <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-ink-700">
-          {member.student.code}
+          {member.employee.code}
         </span>
-        {member.student.department && (
+        {member.employee.position && (
           <span className="text-xs text-ink-400">
-            {member.student.department}
+            {member.employee.position}
           </span>
         )}
       </div>
 
-      {/* Which lecture each check-in landed in — the phone may have been
+      {/* Which session each check-in landed in — the phone may have been
           working two sessions that were open at the same time. */}
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {member.checkIns.map((checkIn) => {
@@ -113,7 +113,7 @@ export function SharedDeviceGroupList({
           {group.sessionIds.length > 1 && (
             <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
               This phone checked in across {group.sessionIds.length} different
-              lectures: {group.sessionIds
+              sessions: {group.sessionIds
                 .map((id) => sessionName(sessionsById, id))
                 .join(' · ')}
             </div>
@@ -122,7 +122,7 @@ export function SharedDeviceGroupList({
           <ol className="mt-3 space-y-3">
             {group.members.map((member, index) => (
               <MemberRow
-                key={member.student.id}
+                key={member.employee.id}
                 member={member}
                 position={index + 1}
                 sessionsById={sessionsById}
@@ -138,9 +138,9 @@ export function SharedDeviceGroupList({
 }
 
 /**
- * Session-view panel: the phones that checked in more than one student, with
- * every name, so the lecturer can see at a glance who was checked in by
- * somebody else — and which lecture each of those check-ins landed in.
+ * Session-view panel: the phones that checked in more than one employee, with
+ * every name, so the supervisor can see at a glance who was checked in by
+ * somebody else — and which session each of those check-ins landed in.
  */
 export function SharedDevicesCard({
   groups,
@@ -151,7 +151,7 @@ export function SharedDevicesCard({
   if (groups.length === 0) return null;
 
   const flagged = new Set(
-    groups.flatMap((g) => g.members.map((m) => m.student.id)),
+    groups.flatMap((g) => g.members.map((m) => m.employee.id)),
   );
 
   return (
@@ -160,14 +160,14 @@ export function SharedDevicesCard({
         <h2 className="text-lg font-bold text-amber-900">Shared phones</h2>
         <Badge tone="warning">
           {groups.length} {groups.length === 1 ? 'phone' : 'phones'} ·{' '}
-          {flagged.size} students
+          {flagged.size} employees
         </Badge>
       </div>
       <p className="mt-1 text-sm text-ink-600">
-        These phones checked in more than one student within{' '}
+        These phones checked in more than one employee within{' '}
         {DEVICE_SESSION_WINDOW_HOURS} hours. The first name opened the phone's
         session — the rest were most likely checked in by them. Each name shows
-        the lecture its check-in landed in.
+        the session its check-in landed in.
       </p>
 
       <div className="mt-4">

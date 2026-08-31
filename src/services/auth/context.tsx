@@ -15,7 +15,7 @@ interface AuthContextValue {
    * app is still usable locally.
    */
   authRequired: boolean;
-  /** The signed-in lecturer, or null when signed out. */
+  /** The signed-in supervisor, or null when signed out. */
   user: User | null;
   /** True until the initial session lookup resolves. */
   loading: boolean;
@@ -26,8 +26,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
- * Tracks the Supabase auth session for the lecturer. Student-facing screens
- * never touch this; only the protected lecturer routes rely on it.
+ * Tracks the Supabase auth session for the supervisor. Employee-facing screens
+ * never touch this; only the protected supervisor routes rely on it.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = getSupabaseClient();

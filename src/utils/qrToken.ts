@@ -1,8 +1,8 @@
 /**
  * Rotating, time-based tokens for check-in / check-out QR codes.
  *
- * The lecturer's screen redraws the QR every {@link QR_ROTATION_MS} with a fresh
- * token derived from the current time window. When a student scans, the token
+ * The supervisor's screen redraws the QR every {@link QR_ROTATION_MS} with a fresh
+ * token derived from the current time window. When an employee scans, the token
  * travels in the URL (`?t=…`) and the check-in page verifies it is still fresh
  * (within {@link QR_ACCEPT_MS}). This blocks the "screenshot the QR and send it
  * to a friend to check in later" trick.
@@ -17,7 +17,7 @@ export const QR_ROTATION_MS = 5000;
 
 /**
  * How long after it was shown a scanned token stays valid. Kept generous so
- * small clock differences between the lecturer's screen and the student's phone
+ * small clock differences between the supervisor's screen and the employee's phone
  * don't reject legitimate scans. Lower it for tighter security.
  */
 export const QR_ACCEPT_MS = 60_000;
@@ -67,7 +67,7 @@ const STATIC_WINDOW = 'static';
 
 /**
  * A constant token for this session/mode that never expires. Used when the
- * lecturer switches the QR to "constant" mode (e.g. so students can check out
+ * supervisor switches the QR to "constant" mode (e.g. so employees can check out
  * from a printed or shared code). Still signed per session, so a token from
  * one session cannot be reused on another.
  */

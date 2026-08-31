@@ -43,9 +43,9 @@ export function LoginPage() {
       <div className="mb-6 flex items-center gap-3">
         <Logo size={44} className="rounded-2xl" />
         <div>
-          <h1 className="text-2xl font-bold leading-tight">Lecturer sign in</h1>
+          <h1 className="text-2xl font-bold leading-tight">Supervisor sign in</h1>
           <p className="text-sm text-ink-500">
-            Only lecturers can manage sessions.
+            Only supervisors can manage sessions.
           </p>
         </div>
       </div>
@@ -58,7 +58,7 @@ export function LoginPage() {
             required
             autoFocus
             autoComplete="email"
-            placeholder="you@university.edu"
+            placeholder="you@vio.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />

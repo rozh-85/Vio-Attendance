@@ -5,10 +5,10 @@ import type {
   CheckInEvent,
   DeviceInfo,
   NewSessionInput,
-  NewStudentInput,
+  NewEmployeeInput,
   Session,
-  Student,
-  StudentEdit,
+  Employee,
+  EmployeeEdit,
 } from '@/types';
 import { normalizePhone } from '@/utils/id';
 import type { DataService } from './DataService';
@@ -17,7 +17,7 @@ import { DataError, type DataErrorCode } from './errors';
 /**
  * Supabase-backed implementation of {@link DataService}.
  *
- * Expects three tables (see `supabase/schema.sql`): `students`, `sessions`,
+ * Expects three tables (see `supabase/schema.sql`): `employees`, `sessions`,
  * `attendance`. Rows use snake_case; the mappers below translate to/from the
  * camelCase domain models so the rest of the app never sees database shapes.
  */
@@ -29,14 +29,13 @@ export class SupabaseDataService implements DataService {
   }
 
   // ── Mappers ───────────────────────────────────────────────────────────────
-  private toStudent(row: StudentRow): Student {
+  private toEmployee(row: EmployeeRow): Employee {
     return {
       id: row.id,
       code: row.code,
       fullName: row.full_name,
       phone: row.phone,
-      college: row.college,
-      department: row.department,
+      position: row.position,
       createdAt: row.created_at,
     };
   }
@@ -44,7 +43,7 @@ export class SupabaseDataService implements DataService {
   private toSession(row: SessionRow): Session {
     return {
       id: row.id,
-      lecturerName: row.lecturer_name,
+      supervisorName: row.supervisor_name,
       title: row.title,
       location: row.location,
       status: row.status,
@@ -59,7 +58,7 @@ export class SupabaseDataService implements DataService {
     return {
       id: row.id,
       sessionId: row.session_id,
-      studentId: row.student_id,
+      employeeId: row.employee_id,
       checkInAt: row.check_in_at ?? undefined,
       checkOutAt: row.check_out_at ?? undefined,
     };
@@ -69,7 +68,7 @@ export class SupabaseDataService implements DataService {
     return {
       id: row.id,
       sessionId: row.session_id,
-      studentId: row.student_id,
+      employeeId: row.employee_id,
       deviceId: row.device_id,
       deviceSessionId: row.device_session_id,
       deviceLabel: row.device_label ?? '',
@@ -79,20 +78,20 @@ export class SupabaseDataService implements DataService {
 
   private async getAttendanceRow(
     sessionId: string,
-    studentId: string,
+    employeeId: string,
   ): Promise<AttendanceRow | null> {
     const { data, error } = await this.client
       .from('attendance')
       .select('*')
       .eq('session_id', sessionId)
-      .eq('student_id', studentId)
+      .eq('employee_id', employeeId)
       .maybeSingle();
     if (error) throw error;
     return (data as AttendanceRow | null) ?? null;
   }
 
   /**
-   * The student-facing RPCs (`register_student`, `check_in`, …) signal expected
+   * The employee-facing RPCs (`register_employee`, `check_in`, …) signal expected
    * business errors by raising an exception whose message is a {@link
    * DataErrorCode}. Translate those back into a typed {@link DataError} so the
    * UI shows the same friendly message as the local backend; re-throw anything
@@ -107,7 +106,7 @@ export class SupabaseDataService implements DataService {
 
   /**
    * Fetches every row of a table in pages. Supabase caps a single select at
-   * 1000 rows; without paging, large rosters silently lose rows and students
+   * 1000 rows; without paging, large rosters silently lose rows and employees
    * show up as falsely absent in reports.
    */
   private async fetchAllRows<T>(
@@ -138,56 +137,54 @@ export class SupabaseDataService implements DataService {
     }
   }
 
-  // ── Students ──────────────────────────────────────────────────────────────
-  async listStudents(): Promise<Student[]> {
-    const rows = await this.fetchAllRows<StudentRow>('students', 'code', true);
-    return rows.map((r) => this.toStudent(r));
+  // ── Employees ──────────────────────────────────────────────────────────────
+  async listEmployees(): Promise<Employee[]> {
+    const rows = await this.fetchAllRows<EmployeeRow>('employees', 'code', true);
+    return rows.map((r) => this.toEmployee(r));
   }
 
-  async getStudentByPhone(phone: string): Promise<Student | null> {
+  async getEmployeeByPhone(phone: string): Promise<Employee | null> {
     // Routed through a security-definer function so the public anon key can look
-    // up a single student by their own phone number without being able to read
-    // (enumerate) the whole roster. See supabase/harden-student-data.sql.
-    const { data, error } = await this.client.rpc('recover_student_code', {
+    // up a single employee by their own phone number without being able to read
+    // (enumerate) the whole roster. See supabase/harden-employee-data.sql.
+    const { data, error } = await this.client.rpc('recover_employee_code', {
       p_phone: normalizePhone(phone),
     });
     if (error) this.throwRpcError(error);
-    return data ? this.toStudent(data as StudentRow) : null;
+    return data ? this.toEmployee(data as EmployeeRow) : null;
   }
 
-  async getStudentByCode(code: string): Promise<Student | null> {
+  async getEmployeeByCode(code: string): Promise<Employee | null> {
     const { data, error } = await this.client
-      .from('students')
+      .from('employees')
       .select('*')
       .eq('code', code.trim())
       .maybeSingle();
     if (error) throw error;
-    return data ? this.toStudent(data as StudentRow) : null;
+    return data ? this.toEmployee(data as EmployeeRow) : null;
   }
 
-  async registerStudent(input: NewStudentInput): Promise<Student> {
+  async registerEmployee(input: NewEmployeeInput): Promise<Employee> {
     // The whole registration (duplicate-phone guard, code allocation, insert)
     // runs inside a security-definer function, so the anon key never needs
-    // read/write rights on the students table. See harden-student-data.sql.
-    const { data, error } = await this.client.rpc('register_student', {
+    // read/write rights on the employees table. See harden-employee-data.sql.
+    const { data, error } = await this.client.rpc('register_employee', {
       p_full_name: input.fullName.trim(),
       p_phone: normalizePhone(input.phone),
-      p_college: input.college.trim(),
-      p_department: input.department.trim(),
+      p_position: input.position.trim(),
     });
     if (error) this.throwRpcError(error);
-    return this.toStudent(data as StudentRow);
+    return this.toEmployee(data as EmployeeRow);
   }
 
-  async updateStudent(id: string, patch: StudentEdit): Promise<Student> {
-    const row: Partial<StudentRow> = {};
+  async updateEmployee(id: string, patch: EmployeeEdit): Promise<Employee> {
+    const row: Partial<EmployeeRow> = {};
     if (patch.fullName !== undefined) row.full_name = patch.fullName.trim();
     if (patch.phone !== undefined) row.phone = normalizePhone(patch.phone);
-    if (patch.college !== undefined) row.college = patch.college.trim();
-    if (patch.department !== undefined) row.department = patch.department.trim();
+    if (patch.position !== undefined) row.position = patch.position.trim();
 
     const { data, error } = await this.client
-      .from('students')
+      .from('employees')
       .update(row)
       .eq('id', id)
       .select('*')
@@ -201,36 +198,36 @@ export class SupabaseDataService implements DataService {
       }
       throw error;
     }
-    return this.toStudent(data as StudentRow);
+    return this.toEmployee(data as EmployeeRow);
   }
 
-  async deleteStudent(studentId: string): Promise<void> {
-    const { data: studentData, error: fetchError } = await this.client
-      .from('students')
+  async deleteEmployee(employeeId: string): Promise<void> {
+    const { data: employeeData, error: fetchError } = await this.client
+      .from('employees')
       .select('id')
-      .eq('id', studentId)
+      .eq('id', employeeId)
       .maybeSingle();
 
     if (fetchError) throw fetchError;
-    if (!studentData) {
-      throw new DataError('STUDENT_NOT_FOUND', 'Student not found.');
+    if (!employeeData) {
+      throw new DataError('EMPLOYEE_NOT_FOUND', 'Employee not found.');
     }
 
-    // Delete all attendance records for this student
+    // Delete all attendance records for this employee
     const { error: attendanceError } = await this.client
       .from('attendance')
       .delete()
-      .eq('student_id', studentId);
+      .eq('employee_id', employeeId);
 
     if (attendanceError) throw attendanceError;
 
-    // Delete the student
-    const { error: studentError } = await this.client
-      .from('students')
+    // Delete the employee
+    const { error: employeeError } = await this.client
+      .from('employees')
       .delete()
-      .eq('id', studentId);
+      .eq('id', employeeId);
 
-    if (studentError) throw studentError;
+    if (employeeError) throw employeeError;
   }
 
   // ── Sessions ──────────────────────────────────────────────────────────────
@@ -257,7 +254,7 @@ export class SupabaseDataService implements DataService {
     const { data, error } = await this.client
       .from('sessions')
       .insert({
-        lecturer_name: input.lecturerName.trim(),
+        supervisor_name: input.supervisorName.trim(),
         title: input.title.trim(),
         location: input.location.trim(),
         status: 'active',
@@ -272,7 +269,7 @@ export class SupabaseDataService implements DataService {
 
   async updateSession(id: string, patch: Partial<Session>): Promise<Session> {
     const row: Partial<SessionRow> = {};
-    if (patch.lecturerName !== undefined) row.lecturer_name = patch.lecturerName;
+    if (patch.supervisorName !== undefined) row.supervisor_name = patch.supervisorName;
     if (patch.title !== undefined) row.title = patch.title;
     if (patch.location !== undefined) row.location = patch.location;
     if (patch.status !== undefined) row.status = patch.status;
@@ -328,8 +325,8 @@ export class SupabaseDataService implements DataService {
   ): Promise<AttendanceRecord> {
     // All validation + write happens in the `check_in` security-definer
     // function so the anon key needs no direct rights on the attendance or
-    // students tables. See supabase/harden-student-data.sql. The function also
-    // records the device and enforces the per-device student limit — see
+    // employees tables. See supabase/harden-employee-data.sql. The function also
+    // records the device and enforces the per-device employee limit — see
     // supabase/device-checkin-tracking.sql.
     const { data, error } = await this.client.rpc('check_in', {
       p_session_id: sessionId,
@@ -383,10 +380,10 @@ export class SupabaseDataService implements DataService {
 
   async setAttendance(
     sessionId: string,
-    studentId: string,
+    employeeId: string,
     edit: AttendanceEdit,
   ): Promise<AttendanceRecord> {
-    const existing = await this.getAttendanceRow(sessionId, studentId);
+    const existing = await this.getAttendanceRow(sessionId, employeeId);
 
     if (existing) {
       const { data, error } = await this.client
@@ -406,7 +403,7 @@ export class SupabaseDataService implements DataService {
       .from('attendance')
       .insert({
         session_id: sessionId,
-        student_id: studentId,
+        employee_id: employeeId,
         check_in_at: edit.checkInAt,
         check_out_at: edit.checkOutAt,
       })
@@ -425,19 +422,18 @@ export class SupabaseDataService implements DataService {
 }
 
 // ── Row shapes (database, snake_case) ─────────────────────────────────────────
-interface StudentRow {
+interface EmployeeRow {
   id: string;
   code: string;
   full_name: string;
   phone: string;
-  college: string;
-  department: string;
+  position: string;
   created_at: string;
 }
 
 interface SessionRow {
   id: string;
-  lecturer_name: string;
+  supervisor_name: string;
   title: string;
   location: string;
   status: 'active' | 'closed';
@@ -450,7 +446,7 @@ interface SessionRow {
 interface AttendanceRow {
   id: string;
   session_id: string;
-  student_id: string;
+  employee_id: string;
   check_in_at: string | null;
   check_out_at: string | null;
 }
@@ -458,19 +454,19 @@ interface AttendanceRow {
 interface CheckInEventRow {
   id: string;
   session_id: string;
-  student_id: string;
+  employee_id: string;
   device_id: string;
   device_session_id: string;
   device_label: string | null;
   at: string;
 }
 
-// Friendly messages for the business errors raised by the student-facing RPCs,
+// Friendly messages for the business errors raised by the employee-facing RPCs,
 // mirroring the messages the local backend throws. Keyed by the code the
-// Postgres function raises (see supabase/harden-student-data.sql).
+// Postgres function raises (see supabase/harden-employee-data.sql).
 const RPC_ERROR_MESSAGES: Partial<Record<DataErrorCode, string>> = {
   PHONE_TAKEN: 'This phone number is already registered.',
-  STUDENT_NOT_FOUND: 'No student found for that code.',
+  EMPLOYEE_NOT_FOUND: 'No employee found for that code.',
   SESSION_NOT_FOUND: 'Session not found.',
   SESSION_CLOSED: 'This session has ended.',
   CHECK_IN_CLOSED: 'Check-in is not open.',

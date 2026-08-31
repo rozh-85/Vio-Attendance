@@ -4,10 +4,10 @@ import type {
   CheckInEvent,
   DeviceInfo,
   NewSessionInput,
-  NewStudentInput,
+  NewEmployeeInput,
   Session,
-  Student,
-  StudentEdit,
+  Employee,
+  EmployeeEdit,
 } from '@/types';
 
 /**
@@ -19,31 +19,31 @@ import type {
  * Implementations throw `DataError` (see ./errors) for expected domain failures.
  */
 export interface DataService {
-  // ── Students ──────────────────────────────────────────────────────────────
-  listStudents(): Promise<Student[]>;
-  getStudentByPhone(phone: string): Promise<Student | null>;
-  getStudentByCode(code: string): Promise<Student | null>;
-  /** Registers a new student and assigns the next sequential code. */
-  registerStudent(input: NewStudentInput): Promise<Student>;
-  /** Updates editable student fields (name, phone, college, department). */
-  updateStudent(id: string, patch: StudentEdit): Promise<Student>;
-  /** Deletes a student and their associated attendance records. Codes are not renumbered. */
-  deleteStudent(studentId: string): Promise<void>;
+  // ── Employees ──────────────────────────────────────────────────────────────
+  listEmployees(): Promise<Employee[]>;
+  getEmployeeByPhone(phone: string): Promise<Employee | null>;
+  getEmployeeByCode(code: string): Promise<Employee | null>;
+  /** Registers a new employee and assigns the next sequential code. */
+  registerEmployee(input: NewEmployeeInput): Promise<Employee>;
+  /** Updates editable employee fields (name, phone, position). */
+  updateEmployee(id: string, patch: EmployeeEdit): Promise<Employee>;
+  /** Deletes an employee and their associated attendance records. Codes are not renumbered. */
+  deleteEmployee(employeeId: string): Promise<void>;
 
   // ── Sessions ──────────────────────────────────────────────────────────────
   listSessions(): Promise<Session[]>;
   getSession(id: string): Promise<Session | null>;
   createSession(input: NewSessionInput): Promise<Session>;
   updateSession(id: string, patch: Partial<Session>): Promise<Session>;
-  /** Ends the session and checks out every still-present student. */
+  /** Ends the session and checks out every still-present employee. */
   closeSession(id: string): Promise<Session>;
 
   // ── Attendance ────────────────────────────────────────────────────────────
   listAttendance(sessionId?: string): Promise<AttendanceRecord[]>;
   /**
-   * Marks a student (by code) as checked in to a session. When `device` is
+   * Marks an employee (by code) as checked in to a session. When `device` is
    * supplied the check-in is also written to the append-only device log, which
-   * is what tells the lecturer that one phone checked in several students. The
+   * is what tells the supervisor that one phone checked in several employees. The
    * log never refuses a check-in — it only records it.
    */
   checkIn(
@@ -51,20 +51,20 @@ export interface DataService {
     code: string,
     device?: DeviceInfo,
   ): Promise<AttendanceRecord>;
-  /** Marks a student (by code) as checked out of a session. */
+  /** Marks an employee (by code) as checked out of a session. */
   checkOut(sessionId: string, code: string): Promise<AttendanceRecord>;
   /**
    * The device log, newest first. `sinceIso` bounds the window so the
-   * lecturer's screen never pulls the whole history. Lecturer-only.
+   * supervisor's screen never pulls the whole history. Supervisor-only.
    */
   listCheckInEvents(sinceIso?: string): Promise<CheckInEvent[]>;
   /**
-   * Manually sets a student's attendance times for a session (upsert). Used for
+   * Manually sets an employee's attendance times for a session (upsert). Used for
    * corrections — bypasses the check-in/check-out gates and session status.
    */
   setAttendance(
     sessionId: string,
-    studentId: string,
+    employeeId: string,
     edit: AttendanceEdit,
   ): Promise<AttendanceRecord>;
 

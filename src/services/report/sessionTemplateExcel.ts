@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import type { AttendanceRecord, Session, Student } from '@/types';
+import type { AttendanceRecord, Session, Employee } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
 
 const MIME_XLSX =
@@ -13,38 +13,37 @@ interface ZipEntry {
   content: string;
 }
 
-interface LectureRow {
-  studentCode: string;
-  studentName: string;
-  collegeName: string;
-  departmentName: string;
+interface SessionRow {
+  employeeCode: string;
+  employeeName: string;
+  position: string;
   checkInTime: string;
   checkOutTime: string;
   totalTimePresent: string;
 }
 
-export function exportLectureAttendanceToExcel(
+export function exportSessionAttendanceToExcel(
   session: Session,
-  students: Student[],
+  employees: Employee[],
   attendance: AttendanceRecord[],
 ): void {
-  const file = buildLectureAttendanceXlsxBlob(session, students, attendance);
+  const file = buildSessionAttendanceXlsxBlob(session, employees, attendance);
 
   downloadBlob(
     file,
-    `${slugify(session.title || session.lecturerName)}_attendance_${format(
+    `${slugify(session.title || session.supervisorName)}_attendance_${format(
       new Date(session.startedAt),
       'yyyy-MM-dd_HHmm',
     )}.xlsx`,
   );
 }
 
-export function buildLectureAttendanceXlsxBlob(
+export function buildSessionAttendanceXlsxBlob(
   session: Session,
-  students: Student[],
+  employees: Employee[],
   attendance: AttendanceRecord[],
 ): Blob {
-  const rows = buildLectureRows(session, students, attendance);
+  const rows = buildSessionRows(session, employees, attendance);
   const lastRow = getLastRow(rows);
   return createXlsx([
     { path: '[Content_Types].xml', content: contentTypesXml() },
@@ -62,22 +61,22 @@ export function buildLectureAttendanceXlsxBlob(
   ]);
 }
 
-function buildLectureRows(
+function buildSessionRows(
   session: Session,
-  students: Student[],
+  employees: Employee[],
   attendance: AttendanceRecord[],
-): LectureRow[] {
-  const recordsByStudent = new Map(
+): SessionRow[] {
+  const recordsByEmployee = new Map(
     attendance
       .filter((record) => record.sessionId === session.id)
-      .map((record) => [record.studentId, record]),
+      .map((record) => [record.employeeId, record]),
   );
 
-  return students
+  return employees
     .slice()
     .sort((a, b) => a.code.localeCompare(b.code))
-    .map((student) => {
-      const record = recordsByStudent.get(student.id);
+    .map((employee) => {
+      const record = recordsByEmployee.get(employee.id);
       const end = record?.checkOutAt ?? session.closedAt ?? new Date().toISOString();
       const total =
         record?.checkInAt
@@ -85,10 +84,9 @@ function buildLectureRows(
           : 'Absent';
 
       return {
-        studentCode: student.code,
-        studentName: student.fullName,
-        collegeName: student.college,
-        departmentName: student.department,
+        employeeCode: employee.code,
+        employeeName: employee.fullName,
+        position: employee.position,
         checkInTime: record?.checkInAt ? formatClock(record.checkInAt) : '',
         checkOutTime: record?.checkOutAt ? formatClock(record.checkOutAt) : '',
         totalTimePresent: total,
@@ -96,7 +94,7 @@ function buildLectureRows(
     });
 }
 
-function getLastRow(rows: LectureRow[]): number {
+function getLastRow(rows: SessionRow[]): number {
   return HEADER_ROW + Math.max(rows.length, RESERVED_DATA_ROWS);
 }
 
@@ -110,18 +108,18 @@ function formatDuration(startIso: string, endIso: string): string {
 
 function worksheetXml(
   session: Session,
-  rows: LectureRow[],
+  rows: SessionRow[],
   lastRow: number,
 ): string {
   const dataRowCount = Math.max(rows.length, RESERVED_DATA_ROWS);
   const sheetRows = [
-    rowXml(1, [textCell('A', 1, session.title || 'Lecture Attendance', 1)], 34),
+    rowXml(1, [textCell('A', 1, session.title || 'Session Attendance', 1)], 34),
     rowXml(2, []),
     rowXml(
       3,
       [
-        textCell('A', 3, 'Lecture Name', 2),
-        textCell('B', 3, session.title || session.lecturerName, 3),
+        textCell('A', 3, 'Session Name', 2),
+        textCell('B', 3, session.title || session.supervisorName, 3),
       ],
       24,
     ),
@@ -160,7 +158,7 @@ function worksheetXml(
     rowXml(
       8,
       [
-        textCell('A', 8, 'Total Lecture Time', 2),
+        textCell('A', 8, 'Total Session Time', 2),
         textCell(
           'B',
           8,
@@ -174,13 +172,12 @@ function worksheetXml(
     rowXml(
       HEADER_ROW,
       [
-        textCell('A', HEADER_ROW, 'Student Code', 4),
-        textCell('B', HEADER_ROW, 'Student Name', 4),
-        textCell('C', HEADER_ROW, 'College Name', 4),
-        textCell('D', HEADER_ROW, 'Department Name', 4),
-        textCell('E', HEADER_ROW, 'Check-in Time', 4),
-        textCell('F', HEADER_ROW, 'Check-out Time', 4),
-        textCell('G', HEADER_ROW, 'Total Time Present', 4),
+        textCell('A', HEADER_ROW, 'Employee Code', 4),
+        textCell('B', HEADER_ROW, 'Employee Name', 4),
+        textCell('C', HEADER_ROW, 'Position', 4),
+        textCell('D', HEADER_ROW, 'Check-in Time', 4),
+        textCell('E', HEADER_ROW, 'Check-out Time', 4),
+        textCell('F', HEADER_ROW, 'Total Time Present', 4),
       ],
       30,
     ),
@@ -194,13 +191,12 @@ function worksheetXml(
       rowXml(
         rowNumber,
         [
-          textCell('A', rowNumber, row?.studentCode ?? '', style),
-          textCell('B', rowNumber, row?.studentName ?? '', style),
-          textCell('C', rowNumber, row?.collegeName ?? '', style),
-          textCell('D', rowNumber, row?.departmentName ?? '', style),
-          textCell('E', rowNumber, row?.checkInTime ?? '', style),
-          textCell('F', rowNumber, row?.checkOutTime ?? '', style),
-          textCell('G', rowNumber, row?.totalTimePresent ?? '', style),
+          textCell('A', rowNumber, row?.employeeCode ?? '', style),
+          textCell('B', rowNumber, row?.employeeName ?? '', style),
+          textCell('C', rowNumber, row?.position ?? '', style),
+          textCell('D', rowNumber, row?.checkInTime ?? '', style),
+          textCell('E', rowNumber, row?.checkOutTime ?? '', style),
+          textCell('F', rowNumber, row?.totalTimePresent ?? '', style),
         ],
         24,
       ),
@@ -210,23 +206,22 @@ function worksheetXml(
   return xml([
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
     '<sheetPr><outlinePr summaryBelow="1" summaryRight="1"/><pageSetUpPr/></sheetPr>',
-    `<dimension ref="A1:G${lastRow}"/>`,
+    `<dimension ref="A1:F${lastRow}"/>`,
     `<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="${HEADER_ROW}" topLeftCell="A${FIRST_DATA_ROW}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${FIRST_DATA_ROW}" sqref="A${FIRST_DATA_ROW}"/></sheetView></sheetViews>`,
     '<sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>',
     '<cols>',
     '<col min="1" max="1" width="18" customWidth="1"/>',
     '<col min="2" max="2" width="28" customWidth="1"/>',
     '<col min="3" max="3" width="28" customWidth="1"/>',
-    '<col min="4" max="4" width="28" customWidth="1"/>',
-    '<col min="5" max="5" width="18" customWidth="1"/>',
-    '<col min="6" max="6" width="19" customWidth="1"/>',
-    '<col min="7" max="7" width="24" customWidth="1"/>',
+    '<col min="4" max="4" width="18" customWidth="1"/>',
+    '<col min="5" max="5" width="19" customWidth="1"/>',
+    '<col min="6" max="6" width="24" customWidth="1"/>',
     '</cols>',
     '<sheetData>',
     ...sheetRows,
     '</sheetData>',
-    `<autoFilter ref="A${HEADER_ROW}:G${lastRow}"/>`,
-    '<mergeCells count="7"><mergeCell ref="A1:G1"/><mergeCell ref="B3:G3"/><mergeCell ref="B4:G4"/><mergeCell ref="B5:G5"/><mergeCell ref="B6:G6"/><mergeCell ref="B7:G7"/><mergeCell ref="B8:G8"/></mergeCells>',
+    `<autoFilter ref="A${HEADER_ROW}:F${lastRow}"/>`,
+    '<mergeCells count="7"><mergeCell ref="A1:F1"/><mergeCell ref="B3:F3"/><mergeCell ref="B4:F4"/><mergeCell ref="B5:F5"/><mergeCell ref="B6:F6"/><mergeCell ref="B7:F7"/><mergeCell ref="B8:F8"/></mergeCells>',
     '<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/>',
     '</worksheet>',
   ]);
@@ -255,8 +250,8 @@ function workbookXml(lastRow: number): string {
     '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
     '<workbookPr/><workbookProtection/>',
     '<bookViews><workbookView visibility="visible" minimized="0" showHorizontalScroll="1" showVerticalScroll="1" showSheetTabs="1" tabRatio="600" firstSheet="0" activeTab="0" autoFilterDateGrouping="1"/></bookViews>',
-    '<sheets><sheet name="Lecture Attendance" sheetId="1" state="visible" r:id="rId1"/></sheets>',
-    `<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'Lecture Attendance'!$A$${HEADER_ROW}:$G$${lastRow}</definedName></definedNames>`,
+    '<sheets><sheet name="Session Attendance" sheetId="1" state="visible" r:id="rId1"/></sheets>',
+    `<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'Session Attendance'!$A$${HEADER_ROW}:$F$${lastRow}</definedName></definedNames>`,
     '<calcPr calcId="124519" fullCalcOnLoad="1"/>',
     '</workbook>',
   ]);
@@ -268,21 +263,21 @@ function stylesXml(): string {
     '<fonts count="4">',
     '<font><sz val="12"/><color rgb="FF1F2937"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="18"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
-    '<font><b/><sz val="12"/><color rgb="FFC02128"/><name val="Calibri"/><family val="2"/></font>',
+    '<font><b/><sz val="12"/><color rgb="FF841F21"/><name val="Calibri"/><family val="2"/></font>',
     '<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
     '</fonts>',
     '<fills count="7">',
     '<fill><patternFill patternType="none"/></fill>',
     '<fill><patternFill patternType="gray125"/></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FF9E2A2B"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFFCE4E6"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFB01E2A"/><bgColor indexed="64"/></patternFill></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFFCEBEE"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFA5292B"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFF6E3E3"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFA5292B"/><bgColor indexed="64"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFBF3F3"/><bgColor indexed="64"/></patternFill></fill>',
     '<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill>',
     '</fills>',
     '<borders count="2">',
     '<border><left/><right/><top/><bottom/><diagonal/></border>',
-    '<border><left style="thin"><color rgb="FFE6A6AC"/></left><right style="thin"><color rgb="FFE6A6AC"/></right><top style="thin"><color rgb="FFE6A6AC"/></top><bottom style="thin"><color rgb="FFE6A6AC"/></bottom><diagonal/></border>',
+    '<border><left style="thin"><color rgb="FFEDC5C6"/></left><right style="thin"><color rgb="FFEDC5C6"/></right><top style="thin"><color rgb="FFEDC5C6"/></top><bottom style="thin"><color rgb="FFEDC5C6"/></bottom><diagonal/></border>',
     '</borders>',
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>',
     '<cellXfs count="7">',
@@ -390,7 +385,7 @@ function workbookRelsXml(): string {
 function appXml(): string {
   return xml([
     '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">',
-    '<Application>QR Attendance</Application>',
+    '<Application>Vio Attendance</Application>',
     '</Properties>',
   ]);
 }
@@ -399,8 +394,8 @@ function coreXml(session: Session): string {
   const created = new Date().toISOString();
   return xml([
     '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
-    '<dc:creator>QR Attendance</dc:creator>',
-    `<dc:title>${escapeXml(session.title || 'Lecture Attendance')}</dc:title>`,
+    '<dc:creator>Vio Attendance</dc:creator>',
+    `<dc:title>${escapeXml(session.title || 'Session Attendance')}</dc:title>`,
     `<dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created>`,
     `<dcterms:modified xsi:type="dcterms:W3CDTF">${created}</dcterms:modified>`,
     '</cp:coreProperties>',
@@ -546,5 +541,5 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return slug || 'lecture';
+  return slug || 'session';
 }
