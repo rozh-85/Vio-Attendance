@@ -12,7 +12,7 @@ import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
 import { useAuth } from '@/services/auth/context';
 import { exportAttendanceToExcel } from '@/services/report/excel';
-import { formatDateTime } from '@/utils/time';
+import { formatDateTime, formatDateValue, todayValue } from '@/utils/time';
 import { paths } from '@/routes';
 import type { NewEmployeeInput, Employee } from '@/types';
 
@@ -22,7 +22,9 @@ export function SupervisorDashboard() {
   const { authRequired, signOut } = useAuth();
   const { sessions, loading, createSession } = useSessions();
 
-  const [form, setForm] = useState({ supervisorName: '', title: '', location: '' });
+  // A session is just a supervisor and the day it covers. The date doubles as
+  // the session's title, so there is nothing else to type.
+  const [form, setForm] = useState({ supervisorName: '', date: todayValue() });
   const [creating, setCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -59,7 +61,11 @@ export function SupervisorDashboard() {
     e.preventDefault();
     setCreating(true);
     try {
-      const session = await createSession(form);
+      const session = await createSession({
+        supervisorName: form.supervisorName.trim(),
+        title: formatDateValue(form.date),
+        location: '',
+      });
       navigate(paths.session(session.id));
     } finally {
       setCreating(false);
@@ -132,10 +138,7 @@ export function SupervisorDashboard() {
 
       <Card className="p-6">
         <h2 className="text-lg font-bold">New session</h2>
-        <form
-          onSubmit={onCreate}
-          className="mt-4 grid gap-4 sm:grid-cols-3"
-        >
+        <form onSubmit={onCreate} className="mt-4 grid gap-4 sm:grid-cols-2">
           <Input
             label="Supervisor name"
             required
@@ -143,26 +146,30 @@ export function SupervisorDashboard() {
             value={form.supervisorName}
             onChange={(e) => set('supervisorName')(e.target.value)}
           />
-          <Input
-            label="Session title"
-            required
-            placeholder="Morning shift — Warehouse"
-            value={form.title}
-            onChange={(e) => set('title')(e.target.value)}
-          />
-          <Input
-            label="Location"
-            required
-            placeholder="Erbil office, Floor 2"
-            value={form.location}
-            onChange={(e) => set('location')(e.target.value)}
-          />
-          <div className="sm:col-span-3">
+          <div>
+            <Input
+              label="Date"
+              type="date"
+              required
+              value={form.date}
+              onChange={(e) => set('date')(e.target.value)}
+            />
+            {form.date !== todayValue() && (
+              <button
+                type="button"
+                className="mt-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700"
+                onClick={() => set('date')(todayValue())}
+              >
+                Use today
+              </button>
+            )}
+          </div>
+          <div className="sm:col-span-2">
             <Button
               type="submit"
               leftIcon={<Plus width={18} height={18} />}
               loading={creating}
-              disabled={!form.supervisorName || !form.title || !form.location}
+              disabled={!form.supervisorName.trim() || !form.date}
             >
               Start session
             </Button>
@@ -193,8 +200,10 @@ export function SupervisorDashboard() {
                       </Badge>
                     </div>
                     <div className="mt-0.5 truncate text-sm text-ink-500">
-                      {session.supervisorName} · {session.location} ·{' '}
-                      {formatDateTime(session.startedAt)}
+                      {[session.supervisorName, session.location]
+                        .filter(Boolean)
+                        .join(' · ')}{' '}
+                      · {formatDateTime(session.startedAt)}
                     </div>
                   </div>
                   <ArrowRight className="shrink-0 text-ink-400" />

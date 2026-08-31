@@ -8,8 +8,9 @@ employee's history exports to a Vio-branded PDF.
 
 ## How it works
 
-- **Supervisor** signs in at `/VioAdmin`, adds employees, then starts a session
-  (supervisor name / session title / location).
+- **Supervisor** signs in at `/VioAdmin`, adds employees, then starts a session.
+  A session is two fields: the supervisor's name and the day it covers, which
+  defaults to today and becomes the session's name.
 - **Add employee** → three fields: **full name**, **phone number** and
   **position**. The employee is identified by their unique phone number and
   receives a short sequential **code** (`001`, `002`, …).

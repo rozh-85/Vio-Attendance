@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { AttendanceRecord, Session } from '@/types';
 
 /** Difference between two ISO timestamps, in hours (floating point). */
@@ -26,6 +26,22 @@ export function formatDate(iso?: string): string {
 export function formatDateTime(iso?: string): string {
   if (!iso) return '—';
   return format(new Date(iso), 'd MMM yyyy, hh:mm a');
+}
+
+/** Today, as the `yyyy-MM-dd` value an `<input type="date">` expects. */
+export function todayValue(): string {
+  return format(new Date(), 'yyyy-MM-dd');
+}
+
+/**
+ * Formats a `yyyy-MM-dd` value from an `<input type="date">` for display.
+ * Parsed with `parseISO` so a date-only string stays on the day the user
+ * picked instead of shifting with the UTC offset.
+ */
+export function formatDateValue(value: string): string {
+  if (!value) return '';
+  const d = parseISO(value);
+  return Number.isNaN(d.getTime()) ? value : format(d, 'd MMM yyyy');
 }
 
 /** Converts an ISO timestamp to a value for an `<input type="datetime-local">`. */

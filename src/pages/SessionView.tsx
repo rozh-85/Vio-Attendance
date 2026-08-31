@@ -263,8 +263,8 @@ export function SessionView() {
           </div>
           <p className="mt-1 text-ink-500">
             {formatDate(session.startedAt)} · {formatClock(session.startedAt)}
-            {session.closedAt && ` – ${formatClock(session.closedAt)}`} ·{' '}
-            {session.location}
+            {session.closedAt && ` – ${formatClock(session.closedAt)}`}
+            {session.location && ` · ${session.location}`}
           </p>
           <p className="text-ink-500">{session.supervisorName}</p>
         </div>

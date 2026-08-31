@@ -143,7 +143,9 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
             {formatDate(session.startedAt)} · {formatClock(session.startedAt)}
           </div>
           <div className="text-ink-500">
-            {session.location} · {session.supervisorName}
+            {[session.location, session.supervisorName]
+              .filter(Boolean)
+              .join(' · ')}
           </div>
         </div>
       </div>
