@@ -21,6 +21,15 @@ export const BRAND = {
 export const LOGO_SRC = '/vio-logo.svg';
 
 /**
+ * The letters on their own, with no tile behind them — for the oversized,
+ * low-opacity watermark on the sign-in panel. The full logo cannot be used
+ * there: its red tile renders as a visible block over the red panel even when
+ * the two colours match, because the browser colour-manages the image and the
+ * CSS background differently.
+ */
+export const WORDMARK_SRC = '/vio-wordmark.svg';
+
+/**
  * The same mark as inline SVG markup.
  *
  * The PDF report is printed from a document this app writes into a new window,

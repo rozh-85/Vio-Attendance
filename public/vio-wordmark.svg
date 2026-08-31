@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vio">
+  <!-- The Vio letters on their own, no red tile behind them. Used as the large
+       faded watermark on the sign-in panel, where the tile would show as a
+       visible block. Same geometry as vio-logo.svg, so the two line up. -->
+  <text x="256" y="344" fill="#FFFFFF" text-anchor="middle"
+        font-family="'Arial Black','Arial Bold','Helvetica Neue',Arial,Helvetica,sans-serif"
+        font-size="252" font-weight="900" letter-spacing="-8">Vio</text>
+</svg>
