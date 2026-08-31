@@ -16,6 +16,8 @@ export interface EmployeePdfStats {
   attended: number;
   absent: number;
   totalHours: string;
+  /** The slice of time the report covers, e.g. "August 2026". */
+  period: string;
 }
 
 /**
@@ -80,6 +82,7 @@ function buildHtml(
   .brand-sub { font-size: 9.5px; letter-spacing: 2.5px; text-transform: uppercase; opacity: .85; margin-top: 2px; }
   .divider { width: 1px; height: 44px; background: rgba(255,255,255,.35); }
   .band .title { font-size: 21px; font-weight: 700; letter-spacing: .2px; }
+  .band .period { margin-top: 3px; font-size: 11px; opacity: .9; }
   .band .when { margin-left: auto; text-align: right; font-size: 10.5px; opacity: .9; }
   .employee { display: flex; align-items: baseline; gap: 10px; margin: 18px 2px 4px; }
   .employee h2 { font-size: 18px; }
@@ -115,6 +118,7 @@ function buildHtml(
     <div class="divider"></div>
     <div>
       <div class="title">Employee Attendance Report</div>
+      <div class="period">${esc(stats.period)}</div>
     </div>
     <div class="when">Generated<br/><b>${esc(formatDateTime(new Date().toISOString()))}</b></div>
   </div>

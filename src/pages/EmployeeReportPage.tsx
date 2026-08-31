@@ -12,8 +12,10 @@ import { EditAttendanceModal } from '@/components/EditAttendanceModal';
 import {
   formatClock,
   formatDateTime,
+  formatDateValue,
   formatMinutes,
   presentMinutes,
+  todayValue,
 } from '@/utils/time';
 import { cn } from '@/utils/cn';
 import type {
@@ -22,6 +24,97 @@ import type {
   Session,
   Employee,
 } from '@/types';
+
+/**
+ * Which slice of time the report covers. `month` is a `yyyy-MM` value from an
+ * `<input type="month">`; `from`/`to` are `yyyy-MM-dd` values from date inputs.
+ */
+type Period =
+  | { kind: 'all' }
+  | { kind: 'month'; month: string }
+  | { kind: 'custom'; from: string; to: string };
+
+/** Current month as the `yyyy-MM` value an `<input type="month">` expects. */
+function currentMonth(): string {
+  return todayValue().slice(0, 7);
+}
+
+/** First and last instant the period covers, or null when it covers everything. */
+function periodRange(period: Period): { from: number; to: number } | null {
+  if (period.kind === 'all') return null;
+
+  if (period.kind === 'month') {
+    const [year, month] = period.month.split('-').map(Number);
+    if (!year || !month) return null;
+    // Day 0 of the next month is the last day of this one.
+    return {
+      from: new Date(year, month - 1, 1, 0, 0, 0, 0).getTime(),
+      to: new Date(year, month, 0, 23, 59, 59, 999).getTime(),
+    };
+  }
+
+  const from = period.from ? startOfDay(period.from) : -Infinity;
+  const to = period.to ? endOfDay(period.to) : Infinity;
+  return { from, to };
+}
+
+/** Local midnight at the start / end of a `yyyy-MM-dd` value. */
+function startOfDay(value: string): number {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+}
+function endOfDay(value: string): number {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+}
+
+/** The three ways to choose a period, in the order they appear. */
+const PERIOD_TABS: {
+  kind: Period['kind'];
+  label: string;
+  build: () => Period;
+}[] = [
+  { kind: 'all', label: 'All time', build: () => ({ kind: 'all' }) },
+  {
+    kind: 'month',
+    label: 'Month',
+    build: () => ({ kind: 'month', month: currentMonth() }),
+  },
+  {
+    kind: 'custom',
+    label: 'Custom range',
+    build: () => ({
+      kind: 'custom',
+      from: `${currentMonth()}-01`,
+      to: todayValue(),
+    }),
+  },
+];
+
+/** Stable identity for a period, so a change re-applies the default ticks. */
+function periodKey(period: Period): string {
+  if (period.kind === 'all') return 'all';
+  if (period.kind === 'month') return `m:${period.month}`;
+  return `c:${period.from}:${period.to}`;
+}
+
+/** How the period reads on screen and in the exported PDF. */
+function periodLabel(period: Period): string {
+  if (period.kind === 'all') return 'All time';
+
+  if (period.kind === 'month') {
+    const [year, month] = period.month.split('-').map(Number);
+    if (!year || !month) return 'All time';
+    return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  const from = period.from ? formatDateValue(period.from) : 'the beginning';
+  const to = period.to ? formatDateValue(period.to) : 'today';
+  return `${from} – ${to}`;
+}
 
 interface SessionRow {
   session: Session;
@@ -49,6 +142,9 @@ export function EmployeeReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Employee | null>(null);
+  // Which slice of time the report covers. Everything below — the rows, the
+  // totals and the exported PDF — follows it.
+  const [period, setPeriod] = useState<Period>({ kind: 'all' });
   // Session ids included in this employee's report. Everything they could have
   // attended is ticked by default; the supervisor unticks the ones that don't
   // apply to them.
@@ -96,6 +192,16 @@ export function EmployeeReportPage() {
       .slice(0, 8);
   }, [employees, query]);
 
+  /** The sessions inside the chosen period, newest first. */
+  const periodSessions = useMemo(() => {
+    const range = periodRange(period);
+    if (!range) return sessions;
+    return sessions.filter((session) => {
+      const at = new Date(session.startedAt).getTime();
+      return at >= range.from && at <= range.to;
+    });
+  }, [sessions, period]);
+
   const rows = useMemo<SessionRow[]>(() => {
     if (!selected) return [];
     const bySession = new Map(
@@ -103,7 +209,7 @@ export function EmployeeReportPage() {
         .filter((r) => r.employeeId === selected.id)
         .map((r) => [r.sessionId, r]),
     );
-    return sessions
+    return periodSessions
       .slice()
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       .map((session) => {
@@ -121,7 +227,7 @@ export function EmployeeReportPage() {
           beforeRegistration,
         };
       });
-  }, [selected, sessions, records]);
+  }, [selected, periodSessions, records]);
 
   // Everything the employee could have attended, ticked by default.
   const defaultIncluded = useMemo(
@@ -135,7 +241,9 @@ export function EmployeeReportPage() {
   // Apply those defaults when an employee is picked (or the sessions finish
   // loading) — but not when a manual attendance edit rebuilds `rows`, which
   // would otherwise silently undo the supervisor's ticks.
-  const defaultsKey = selected ? `${selected.id}:${sessions.length}` : '';
+  const defaultsKey = selected
+    ? `${selected.id}:${periodKey(period)}:${periodSessions.length}`
+    : '';
   const appliedKey = useRef<string | null>(null);
   useEffect(() => {
     if (appliedKey.current === defaultsKey) return;
@@ -225,6 +333,7 @@ export function EmployeeReportPage() {
         attended: stats.attended,
         absent: stats.absent,
         totalHours: formatMinutes(stats.totalMinutes),
+        period: periodLabel(period),
       },
       chosen.map(({ session, record, minutes, beforeRegistration }) => ({
         session: session.title || session.supervisorName,
@@ -333,6 +442,67 @@ export function EmployeeReportPage() {
                 Export PDF
               </Button>
             </div>
+          </Card>
+
+          {/* Period filter — everything below it follows the choice. */}
+          <Card className="mt-4 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              {PERIOD_TABS.map((tab) => (
+                <button
+                  key={tab.kind}
+                  type="button"
+                  className={cn(
+                    'rounded-full border px-4 py-2 text-sm font-semibold transition',
+                    period.kind === tab.kind
+                      ? 'border-brand-600 bg-brand-50 text-brand-700'
+                      : 'border-slate-200 bg-white text-ink-600 hover:border-slate-300 hover:bg-slate-50',
+                  )}
+                  onClick={() => setPeriod(tab.build())}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              <span className="ml-auto text-sm text-ink-500">
+                Showing{' '}
+                <span className="font-semibold text-ink-900">
+                  {periodLabel(period)}
+                </span>
+              </span>
+            </div>
+
+            {period.kind === 'month' && (
+              <div className="mt-4 max-w-xs">
+                <Input
+                  label="Month"
+                  type="month"
+                  value={period.month}
+                  onChange={(e) =>
+                    setPeriod({ kind: 'month', month: e.target.value })
+                  }
+                />
+              </div>
+            )}
+
+            {period.kind === 'custom' && (
+              <div className="mt-4 grid max-w-lg gap-4 sm:grid-cols-2">
+                <Input
+                  label="From"
+                  type="date"
+                  value={period.from}
+                  max={period.to || undefined}
+                  onChange={(e) =>
+                    setPeriod({ ...period, from: e.target.value })
+                  }
+                />
+                <Input
+                  label="To"
+                  type="date"
+                  value={period.to}
+                  min={period.from || undefined}
+                  onChange={(e) => setPeriod({ ...period, to: e.target.value })}
+                />
+              </div>
+            )}
           </Card>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -503,7 +673,9 @@ export function EmployeeReportPage() {
                         colSpan={8}
                         className="px-5 py-8 text-center text-ink-500"
                       >
-                        No sessions yet.
+                        {period.kind === 'all'
+                          ? 'No sessions yet.'
+                          : `No sessions in ${periodLabel(period)}.`}
                       </td>
                     </tr>
                   )}

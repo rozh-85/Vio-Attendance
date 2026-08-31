@@ -21,8 +21,10 @@ employee's history exports to a Vio-branded PDF.
 - **Close session** → ends it and checks out anyone still present.
 - **Export Excel** (per session) → one sheet: code, name, position, check-in,
   check-out, total time present.
-- **Employee report** → search an employee, tick the sessions that belong to
-  them, correct any missed scan by hand, and **Export PDF**.
+- **Employee report** → search an employee, narrow to a **month** or a **custom
+  date range**, tick the sessions that belong to them, correct any missed scan
+  by hand, and **Export PDF**. The chosen period is printed on the PDF, so an
+  exported report always says what it covers.
 
 > QR codes simply encode a URL (e.g. `…/checkin/<sessionId>?t=…`). Any phone
 > camera opens it — no in-app scanner or native app required.
