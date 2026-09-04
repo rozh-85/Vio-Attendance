@@ -9,6 +9,10 @@ import type {
   Session,
   Employee,
   EmployeeEdit,
+  LeaveAllowance,
+  LeaveEdit,
+  LeaveRecord,
+  NewLeaveInput,
 } from '@/types';
 import { normalizePhone } from '@/utils/id';
 import type { DataService } from './DataService';
@@ -221,6 +225,18 @@ export class SupabaseDataService implements DataService {
 
     if (attendanceError) throw attendanceError;
 
+    const { error: leaveError } = await this.client
+      .from('leave_records')
+      .delete()
+      .eq('employee_id', employeeId);
+    if (leaveError) throw leaveError;
+
+    const { error: allowanceError } = await this.client
+      .from('leave_allowances')
+      .delete()
+      .eq('employee_id', employeeId);
+    if (allowanceError) throw allowanceError;
+
     // Delete the employee
     const { error: employeeError } = await this.client
       .from('employees')
@@ -413,6 +429,76 @@ export class SupabaseDataService implements DataService {
     return this.toRecord(data as AttendanceRow);
   }
 
+  // ── Leave management ──────────────────────────────────────────────────────
+  async listLeaveAllowances(year?: number): Promise<LeaveAllowance[]> {
+    let query = this.client.from('leave_allowances').select('*').order('year', { ascending: false });
+    if (year !== undefined) query = query.eq('year', year);
+    const { data, error } = await query;
+    if (error) throw error;
+    return ((data ?? []) as LeaveAllowanceRow[]).map((row) => ({
+      employeeId: row.employee_id,
+      year: row.year,
+      totalDays: Number(row.total_days),
+    }));
+  }
+
+  async getLeaveAllowance(employeeId: string, year: number): Promise<LeaveAllowance> {
+    const { data, error } = await this.client
+      .from('leave_allowances').select('*').eq('employee_id', employeeId).eq('year', year).maybeSingle();
+    if (error) throw error;
+    if (!data) return { employeeId, year, totalDays: 12 };
+    const row = data as LeaveAllowanceRow;
+    return { employeeId: row.employee_id, year: row.year, totalDays: Number(row.total_days) };
+  }
+
+  async setLeaveAllowance(employeeId: string, year: number, totalDays: number): Promise<LeaveAllowance> {
+    const { data, error } = await this.client
+      .from('leave_allowances')
+      .upsert({ employee_id: employeeId, year, total_days: Math.max(0, Number(totalDays) || 0) }, { onConflict: 'employee_id,year' })
+      .select('*').single();
+    if (error) throw error;
+    const row = data as LeaveAllowanceRow;
+    return { employeeId: row.employee_id, year: row.year, totalDays: Number(row.total_days) };
+  }
+
+  async listLeaveRecords(employeeId?: string, year?: number): Promise<LeaveRecord[]> {
+    let query = this.client.from('leave_records').select('*').order('date', { ascending: false });
+    if (employeeId !== undefined) query = query.eq('employee_id', employeeId);
+    if (year !== undefined) query = query.eq('year', year);
+    const { data, error } = await query;
+    if (error) throw error;
+    return ((data ?? []) as LeaveRecordRow[]).map((row) => ({
+      id: row.id, employeeId: row.employee_id, year: row.year, date: row.date,
+      days: Number(row.days), note: row.note ?? '', createdAt: row.created_at,
+    }));
+  }
+
+  async addLeave(input: NewLeaveInput): Promise<LeaveRecord> {
+    const { data, error } = await this.client.from('leave_records').insert({
+      employee_id: input.employeeId, year: input.year, date: input.date,
+      days: Math.max(0, Number(input.days) || 0), note: input.note.trim(),
+    }).select('*').single();
+    if (error) throw error;
+    const row = data as LeaveRecordRow;
+    return { id: row.id, employeeId: row.employee_id, year: row.year, date: row.date, days: Number(row.days), note: row.note ?? '', createdAt: row.created_at };
+  }
+
+  async updateLeave(id: string, patch: LeaveEdit): Promise<LeaveRecord> {
+    const row: Partial<LeaveRecordRow> = {};
+    if (patch.date !== undefined) { row.date = patch.date; row.year = Number(patch.date.slice(0, 4)); }
+    if (patch.days !== undefined) row.days = Math.max(0, Number(patch.days) || 0);
+    if (patch.note !== undefined) row.note = patch.note.trim();
+    const { data, error } = await this.client.from('leave_records').update(row).eq('id', id).select('*').single();
+    if (error) throw error;
+    const result = data as LeaveRecordRow;
+    return { id: result.id, employeeId: result.employee_id, year: result.year, date: result.date, days: Number(result.days), note: result.note ?? '', createdAt: result.created_at };
+  }
+
+  async deleteLeave(id: string): Promise<void> {
+    const { error } = await this.client.from('leave_records').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   async reset(): Promise<void> {
     throw new DataError(
       'NOT_IMPLEMENTED',
@@ -459,6 +545,22 @@ interface CheckInEventRow {
   device_session_id: string;
   device_label: string | null;
   at: string;
+}
+
+interface LeaveAllowanceRow {
+  employee_id: string;
+  year: number;
+  total_days: number;
+}
+
+interface LeaveRecordRow {
+  id: string;
+  employee_id: string;
+  year: number;
+  date: string;
+  days: number;
+  note: string | null;
+  created_at: string;
 }
 
 // Friendly messages for the business errors raised by the employee-facing RPCs,

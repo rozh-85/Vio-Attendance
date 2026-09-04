@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Phone, Search } from './icons';
+import { CalendarDays, Home, Phone, Search } from './icons';
 import { Logo } from './Logo';
 import { APP_NAME } from '@/brand';
 import { paths } from '@/routes';
@@ -10,6 +10,7 @@ import { cn } from '@/utils/cn';
 const baseLinks = [
   { to: paths.dashboard, label: 'Dashboard', icon: Home, end: true },
   { to: paths.employees, label: 'Employee report', icon: Search, end: false },
+  { to: paths.leave, label: 'Leave management', icon: CalendarDays, end: false },
 ];
 
 const sharedPhonesLink = {

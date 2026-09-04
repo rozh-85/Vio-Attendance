@@ -1,11 +1,11 @@
 import { format } from 'date-fns';
-import type { AttendanceRecord, Session, Employee } from '@/types';
+import type { AttendanceRecord, LeaveRecord, Session, Employee } from '@/types';
 import { formatClock, formatDateTime } from '@/utils/time';
 
 const MIME_XLSX =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const SHEET_NAME = 'Employee Attendance';
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 9;
 const FIRST_EMPLOYEE_ROW = 5;
 
 interface ZipEntry {
@@ -29,6 +29,7 @@ interface EmployeeReport {
   sessionsAttended: number;
   totalTimePresent: string;
   detailRows: AttendanceDetailRow[];
+  offDaysThisMonth: number;
 }
 
 interface AttendanceReport {
@@ -50,8 +51,9 @@ export async function exportAttendanceToExcel(
   sessions: Session[],
   employees: Employee[],
   attendance: AttendanceRecord[],
+  leaveRecords: LeaveRecord[] = [],
 ): Promise<void> {
-  const report = buildAttendanceReport(sessions, employees, attendance);
+  const report = buildAttendanceReport(sessions, employees, attendance, leaveRecords);
   const file = buildAttendanceReportXlsxBlob(report);
   const stamp = format(new Date(), 'yyyy-MM-dd_HHmm');
   downloadBlob(file, `employee_attendance_${stamp}.xlsx`);
@@ -80,8 +82,10 @@ function buildAttendanceReport(
   sessions: Session[],
   employees: Employee[],
   attendance: AttendanceRecord[],
+  leaveRecords: LeaveRecord[] = [],
 ): AttendanceReport {
   const nowIso = new Date().toISOString();
+  const monthKey = nowIso.slice(0, 7);
   const sortedSessions = sessions
     .slice()
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
@@ -133,6 +137,9 @@ function buildAttendanceReport(
       sessionsAttended,
       totalTimePresent: formatMinutes(employeeMinutes),
       detailRows,
+      offDaysThisMonth: leaveRecords
+        .filter((record) => record.employeeId === employee.id && record.date.slice(0, 7) === monthKey)
+        .reduce((sum, record) => sum + record.days, 0),
     };
   });
 
@@ -151,7 +158,7 @@ function worksheetXml(report: AttendanceReport, lastRow: number): string {
   return xml([
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
     '<sheetPr><outlinePr summaryBelow="1" summaryRight="1"/><pageSetUpPr/></sheetPr>',
-    `<dimension ref="A1:H${lastRow}"/>`,
+    `<dimension ref="A1:I${lastRow}"/>`,
     `<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="${FIRST_EMPLOYEE_ROW - 1}" topLeftCell="A${FIRST_EMPLOYEE_ROW}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${FIRST_EMPLOYEE_ROW}" sqref="A${FIRST_EMPLOYEE_ROW}"/></sheetView></sheetViews>`,
     '<sheetFormatPr baseColWidth="8" defaultRowHeight="15"/>',
     '<cols>',
@@ -163,6 +170,7 @@ function worksheetXml(report: AttendanceReport, lastRow: number): string {
     '<col min="6" max="6" width="14" customWidth="1"/>',
     '<col min="7" max="7" width="12" customWidth="1"/>',
     '<col min="8" max="8" width="15" customWidth="1"/>',
+    '<col min="9" max="9" width="19" customWidth="1"/>',
     '</cols>',
     '<sheetData>',
     ...sheetRows.map((row, index) => {
@@ -214,6 +222,7 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
         'Check-Out',
         'Status',
         'Hours',
+        'Off days this month',
       ]),
       style: 4,
       height: 30,
@@ -232,6 +241,7 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
           detailRow.checkOutTime,
           detailRow.status,
           detailRow.timePresent,
+          '',
         ],
         style: index % 2 === 0 ? 6 : 5,
         height: 22,
@@ -247,6 +257,7 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
         '',
         '',
         employeeReport.totalTimePresent,
+        String(employeeReport.offDaysThisMonth),
       ]),
       style: 8,
       height: 26,
@@ -257,7 +268,7 @@ function buildSheetRows(report: AttendanceReport): SheetRow[] {
 }
 
 function mergeCellsXml(): string {
-  const refs = ['A1:H1', 'A2:H2'];
+  const refs = ['A1:I1', 'A2:I2'];
   return `<mergeCells count="${refs.length}">${refs
     .map((ref) => `<mergeCell ref="${ref}"/>`)
     .join('')}</mergeCells>`;

@@ -10,6 +10,7 @@ export type DataErrorCode =
   | 'NOT_CHECKED_IN'
   | 'ALREADY_CHECKED_IN'
   | 'ALREADY_CHECKED_OUT'
+  | 'LEAVE_NOT_FOUND'
   | 'NOT_IMPLEMENTED';
 
 export class DataError extends Error {

@@ -6,6 +6,7 @@ export const paths = {
   // falls through to the neutral NotFound page.
   admin: '/VioAdmin',
   employees: '/employees',
+  leave: '/leave',
   // Unlisted: the shared-phone report names suspected proxy check-ins, so it
   // is not in the sidebar and asks for the owner's password of its own.
   devices: '/rozhadmin',
@@ -19,6 +20,7 @@ export const routePatterns = {
   dashboard: '/',
   admin: '/VioAdmin',
   employees: '/employees',
+  leave: '/leave',
   devices: '/rozhadmin',
   session: '/session/:sessionId',
   recover: '/recover',

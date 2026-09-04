@@ -50,6 +50,13 @@ export const Home = (p: IconProps) => (
   </svg>
 );
 
+export const CalendarDays = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="4" width="18" height="17" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
+  </svg>
+);
+
 export const ArrowLeft = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M19 12H5M11 18l-6-6 6-6" />

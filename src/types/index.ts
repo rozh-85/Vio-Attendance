@@ -55,6 +55,27 @@ export interface AttendanceRecord {
   checkOutAt?: string; // ISO timestamp
 }
 
+/** Annual leave allowance for one employee. Missing records use the 12-day default. */
+export interface LeaveAllowance {
+  employeeId: string;
+  year: number;
+  totalDays: number;
+}
+
+/** One approved/recorded leave entry. Days may be fractional for half-days. */
+export interface LeaveRecord {
+  id: string;
+  employeeId: string;
+  year: number;
+  date: string; // yyyy-MM-dd
+  days: number;
+  note: string;
+  createdAt: string;
+}
+
+export type NewLeaveInput = Omit<LeaveRecord, 'id' | 'createdAt'>;
+export type LeaveEdit = Partial<Pick<LeaveRecord, 'date' | 'days' | 'note'>>;
+
 /** Manually set check-in / check-out timestamps. `null` clears the value. */
 export interface AttendanceEdit {
   checkInAt: string | null; // ISO timestamp or null

@@ -91,6 +91,29 @@ create index if not exists attendance_session_idx  on public.attendance(session_
 create index if not exists attendance_employee_idx on public.attendance(employee_id);
 create index if not exists sessions_started_at_idx on public.sessions(started_at desc);
 
+-- ── Leave management ────────────────────────────────────────────────────────
+-- Allowances are per employee and calendar year; the app falls back to 12 days
+-- when no row exists yet. Leave records are intentionally append/edit friendly
+-- so HR can keep a transparent history of each day (or half-day) taken.
+create table if not exists public.leave_allowances (
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  year        integer not null,
+  total_days  numeric(6,2) not null default 12 check (total_days >= 0),
+  primary key (employee_id, year)
+);
+
+create table if not exists public.leave_records (
+  id          uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  year        integer not null,
+  date        date not null,
+  days       numeric(5,2) not null check (days > 0),
+  note        text not null default '',
+  created_at  timestamptz not null default now()
+);
+create index if not exists leave_records_employee_year_idx
+  on public.leave_records(employee_id, year, date desc);
+
 -- ── Check-in device log ──────────────────────────────────────────────────────
 -- Append-only record of which phone made each check-in, so the supervisor can
 -- see when one phone checked in several employees ("check in for my friend").
@@ -293,6 +316,8 @@ $$;
 alter table public.employees       enable row level security;
 alter table public.sessions        enable row level security;
 alter table public.attendance      enable row level security;
+alter table public.leave_allowances enable row level security;
+alter table public.leave_records    enable row level security;
 alter table public.check_in_events enable row level security;
 
 grant usage on schema public to anon, authenticated;
@@ -305,6 +330,8 @@ grant insert, update on public.sessions to authenticated;
 -- Supervisors (authenticated) keep full access to the roster and attendance.
 grant select, insert, update, delete on public.employees  to authenticated;
 grant select, insert, update, delete on public.attendance to authenticated;
+grant select, insert, update, delete on public.leave_allowances to authenticated;
+grant select, insert, update, delete on public.leave_records to authenticated;
 
 -- The device log holds device ids: written by check_in (security definer),
 -- readable only by a signed-in supervisor.
@@ -355,6 +382,18 @@ create policy sessions_update_supervisor
 -- Attendance: supervisor-only direct access. Anon uses check_in / check_out.
 create policy attendance_all_authenticated
   on public.attendance for all
+  to authenticated
+  using (true) with check (true);
+
+drop policy if exists leave_allowances_all_authenticated on public.leave_allowances;
+create policy leave_allowances_all_authenticated
+  on public.leave_allowances for all
+  to authenticated
+  using (true) with check (true);
+
+drop policy if exists leave_records_all_authenticated on public.leave_records;
+create policy leave_records_all_authenticated
+  on public.leave_records for all
   to authenticated
   using (true) with check (true);
 

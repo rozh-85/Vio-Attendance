@@ -80,12 +80,13 @@ export function SupervisorDashboard() {
   async function onExportAll() {
     setExporting(true);
     try {
-      const [allSessions, employees, attendance] = await Promise.all([
+      const [allSessions, employees, attendance, leaveRecords] = await Promise.all([
         data.listSessions(),
         data.listEmployees(),
         data.listAttendance(),
+        data.listLeaveRecords(),
       ]);
-      await exportAttendanceToExcel(allSessions, employees, attendance);
+      await exportAttendanceToExcel(allSessions, employees, attendance, leaveRecords);
     } finally {
       setExporting(false);
     }
@@ -112,18 +113,15 @@ export function SupervisorDashboard() {
           >
             Add employee
           </Button>
-          {/* Hidden for now (set to true to bring it back). */}
-          {false && (
-            <Button
-              variant="secondary"
-              leftIcon={<Download width={18} height={18} />}
-              loading={exporting}
-              onClick={onExportAll}
-              disabled={sessions.length === 0}
-            >
-              Export Excel
-            </Button>
-          )}
+          <Button
+            variant="secondary"
+            leftIcon={<Download width={18} height={18} />}
+            loading={exporting}
+            onClick={onExportAll}
+            disabled={sessions.length === 0}
+          >
+            Export Excel
+          </Button>
           {authRequired && (
             <Button
               variant="ghost"

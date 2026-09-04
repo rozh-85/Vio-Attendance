@@ -13,6 +13,7 @@ import { CheckOutPage } from '@/pages/CheckOutPage';
 import { RecoverCodePage } from '@/pages/RecoverCodePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { LeaveManagementPage } from '@/pages/LeaveManagementPage';
 
 export default function App() {
   return (
@@ -34,6 +35,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <EmployeeReportPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.leave}
+              element={
+                <RequireAuth>
+                  <LeaveManagementPage />
                 </RequireAuth>
               }
             />

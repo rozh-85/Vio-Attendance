@@ -8,6 +8,10 @@ import type {
   Session,
   Employee,
   EmployeeEdit,
+  LeaveAllowance,
+  LeaveEdit,
+  LeaveRecord,
+  NewLeaveInput,
 } from '@/types';
 import { formatCode, normalizePhone, uid } from '@/utils/id';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
@@ -20,6 +24,8 @@ const KEYS = {
   attendance: 'vio.attendance',
   checkInEvents: 'vio.checkInEvents',
   counter: 'vio.codeCounter',
+  leaveAllowances: 'vio.leaveAllowances',
+  leaveRecords: 'vio.leaveRecords',
 } as const;
 
 /**
@@ -163,6 +169,13 @@ export class LocalStorageDataService implements DataService {
         KEYS.checkInEvents,
         events.filter((e) => e.employeeId !== employeeId),
       );
+
+      this.write(
+        KEYS.leaveRecords,
+        (await this.listLeaveRecords()).filter((r) => r.employeeId !== employeeId),
+      );
+      const allowances = await this.listLeaveAllowances();
+      this.write(KEYS.leaveAllowances, allowances.filter((a) => a.employeeId !== employeeId));
     });
   }
 
@@ -425,6 +438,73 @@ export class LocalStorageDataService implements DataService {
         this.write(KEYS.attendance, [...records, record]);
       }
       return record;
+    });
+  }
+
+  // ── Leave management ──────────────────────────────────────────────────────
+  async listLeaveAllowances(year?: number): Promise<LeaveAllowance[]> {
+    const all = this.read<LeaveAllowance[]>(KEYS.leaveAllowances, []);
+    return year === undefined ? all : all.filter((a) => a.year === year);
+  }
+
+  async getLeaveAllowance(employeeId: string, year: number): Promise<LeaveAllowance> {
+    const found = (await this.listLeaveAllowances(year)).find((a) => a.employeeId === employeeId);
+    return found ?? { employeeId, year, totalDays: 12 };
+  }
+
+  async setLeaveAllowance(employeeId: string, year: number, totalDays: number): Promise<LeaveAllowance> {
+    return this.mutate(async () => {
+      const value = Math.max(0, Number(totalDays) || 0);
+      const allowance: LeaveAllowance = { employeeId, year, totalDays: value };
+      const all = await this.listLeaveAllowances();
+      const index = all.findIndex((a) => a.employeeId === employeeId && a.year === year);
+      this.write(KEYS.leaveAllowances, index === -1 ? [...all, allowance] : all.map((a, i) => (i === index ? allowance : a)));
+      return allowance;
+    });
+  }
+
+  async listLeaveRecords(employeeId?: string, year?: number): Promise<LeaveRecord[]> {
+    const all = this.read<LeaveRecord[]>(KEYS.leaveRecords, []);
+    return all
+      .filter((r) => employeeId === undefined || r.employeeId === employeeId)
+      .filter((r) => year === undefined || r.year === year)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  async addLeave(input: NewLeaveInput): Promise<LeaveRecord> {
+    return this.mutate(async () => {
+      const record: LeaveRecord = {
+        id: uid(), employeeId: input.employeeId, year: input.year,
+        date: input.date, days: Math.max(0, Number(input.days) || 0),
+        note: input.note.trim(), createdAt: new Date().toISOString(),
+      };
+      const all = await this.listLeaveRecords();
+      this.write(KEYS.leaveRecords, [...all, record]);
+      return record;
+    });
+  }
+
+  async updateLeave(id: string, patch: LeaveEdit): Promise<LeaveRecord> {
+    return this.mutate(async () => {
+      const all = await this.listLeaveRecords();
+      const index = all.findIndex((r) => r.id === id);
+      if (index === -1) throw new DataError('LEAVE_NOT_FOUND', 'Leave entry not found.');
+      const current = all[index];
+      const updated = {
+        ...current,
+        ...(patch.date !== undefined && { date: patch.date, year: Number(patch.date.slice(0, 4)) }),
+        ...(patch.days !== undefined && { days: Math.max(0, Number(patch.days) || 0) }),
+        ...(patch.note !== undefined && { note: patch.note.trim() }),
+      };
+      this.write(KEYS.leaveRecords, all.map((r, i) => (i === index ? updated : r)));
+      return updated;
+    });
+  }
+
+  async deleteLeave(id: string): Promise<void> {
+    return this.mutate(async () => {
+      const all = await this.listLeaveRecords();
+      this.write(KEYS.leaveRecords, all.filter((r) => r.id !== id));
     });
   }
 

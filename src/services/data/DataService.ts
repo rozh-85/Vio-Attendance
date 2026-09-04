@@ -8,6 +8,10 @@ import type {
   Session,
   Employee,
   EmployeeEdit,
+  LeaveAllowance,
+  LeaveEdit,
+  LeaveRecord,
+  NewLeaveInput,
 } from '@/types';
 
 /**
@@ -67,6 +71,15 @@ export interface DataService {
     employeeId: string,
     edit: AttendanceEdit,
   ): Promise<AttendanceRecord>;
+
+  // ── Leave management ──────────────────────────────────────────────────────
+  listLeaveAllowances(year?: number): Promise<LeaveAllowance[]>;
+  getLeaveAllowance(employeeId: string, year: number): Promise<LeaveAllowance>;
+  setLeaveAllowance(employeeId: string, year: number, totalDays: number): Promise<LeaveAllowance>;
+  listLeaveRecords(employeeId?: string, year?: number): Promise<LeaveRecord[]>;
+  addLeave(input: NewLeaveInput): Promise<LeaveRecord>;
+  updateLeave(id: string, patch: LeaveEdit): Promise<LeaveRecord>;
+  deleteLeave(id: string): Promise<void>;
 
   /** Wipes all data. Handy for demos / resetting the local backend. */
   reset(): Promise<void>;
