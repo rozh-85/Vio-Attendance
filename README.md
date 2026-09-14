@@ -160,12 +160,16 @@ configured. PDF export opens a print-ready preview so managers can choose
 
 ## Product feedback
 
-The supervisor sidebar includes `/feedback` for product-specific customer
-feedback, screenshots, and secure public submission links. Run
+The supervisor sidebar includes `/feedback` for product-specific feedback image
+galleries. Administrators add screenshots manually, choose the matching
+product, and generate a secure read-only link that shows every image currently
+saved for that product. Customers cannot submit, edit, or browse feedback for
+other products. Future products can be added directly from the Feedback page
+and immediately appear in its filter and upload form. Run
 [`supabase/feedback.sql`](supabase/feedback.sql) after the catalog migration to
 create the protected tables, RPC functions, and private `feedback-images`
-Storage bucket. Public links use `/feedback/:token`; anonymous visitors can only
-resolve an active token and submit feedback to its associated product.
+Storage bucket. Public links use `/feedback/:token`; an active token resolves to
+one read-only product gallery.
 
 The Auth user `feedback@gmail.com` is treated as a feedback-only manager. It is
 sent directly to `/feedback`, sees only that sidebar entry, and cannot use the
@@ -196,8 +200,8 @@ src/
 | `/`                      | Supervisor | Dashboard — add employees, start sessions |
 | `/session/:id`           | Supervisor | Control panel + QR codes               |
 | `/employees`             | Supervisor | Employee report + PDF export           |
-| `/feedback`              | Supervisor | Product feedback and secure links      |
-| `/feedback/:token`       | Customer   | Public product-specific feedback form  |
+| `/feedback`              | Supervisor | Feedback images and gallery links      |
+| `/feedback/:token`       | Customer   | Read-only product feedback gallery     |
 | `/VioAdmin`             | Supervisor | Sign in (deliberately non-obvious)     |
 | `/rozhadmin`             | Owner      | Phones used by several employees (unlisted, own password) |
 | `/checkin/:sessionId`    | Employee   | Enter code to check in                 |

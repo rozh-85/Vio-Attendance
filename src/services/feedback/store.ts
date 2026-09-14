@@ -4,9 +4,9 @@ import type { CompressedFeedbackImage } from './image';
 import type {
   FeedbackLink,
   ManualFeedbackInput,
+  NewFeedbackProductInput,
   ProductFeedback,
-  PublicFeedbackInput,
-  PublicFeedbackProduct,
+  PublicFeedbackGallery,
 } from './types';
 
 const FEEDBACK_BUCKET = 'feedback-images';
@@ -78,7 +78,11 @@ async function uploadImage(path: string, image: CompressedFeedbackImage): Promis
   if (result.error) throw result.error;
 }
 
-export async function listFeedbackProducts(): Promise<CatalogProduct[]> {
+export interface FeedbackCatalogData {
+  products: CatalogProduct[];
+}
+
+export async function loadFeedbackCatalog(): Promise<FeedbackCatalogData> {
   const client = requireClient();
   const result = await client
     .from('vio_catalog_master')
@@ -86,7 +90,21 @@ export async function listFeedbackProducts(): Promise<CatalogProduct[]> {
     .eq('id', 'default')
     .maybeSingle();
   if (result.error) throw result.error;
-  return ((result.data?.products ?? []) as CatalogProduct[]).slice().sort((a, b) => a.sortOrder - b.sortOrder);
+  return {
+    products: ((result.data?.products ?? []) as CatalogProduct[]).slice().sort((a, b) => a.sortOrder - b.sortOrder),
+  };
+}
+
+export async function addFeedbackProduct(input: NewFeedbackProductInput): Promise<CatalogProduct> {
+  const client = requireClient();
+  const result = await client.rpc('add_feedback_product', {
+    p_name: input.name.trim(),
+    p_sku: input.sku.trim(),
+    p_main_image: input.mainImage.trim(),
+  });
+  if (result.error) throw result.error;
+  if (!result.data || typeof result.data !== 'object') throw new Error('The product could not be added.');
+  return result.data as CatalogProduct;
 }
 
 export async function listFeedback(): Promise<ProductFeedback[]> {
@@ -116,34 +134,30 @@ export async function listFeedback(): Promise<ProductFeedback[]> {
 
 export async function createManualFeedback(
   input: ManualFeedbackInput,
-  image: CompressedFeedbackImage | null,
+  image: CompressedFeedbackImage,
 ): Promise<ProductFeedback> {
   const client = requireClient();
   const id = crypto.randomUUID();
-  const imagePath = image ? `${input.productId}/${id}/image.webp` : null;
-  if (image && imagePath) await uploadImage(imagePath, image);
+  const imagePath = `${input.productId}/${id}/image.webp`;
+  await uploadImage(imagePath, image);
 
   const result = await client.from('product_feedback').insert({
     id,
     product_id: input.productId,
-    customer_name: input.customerName.trim() || null,
-    feedback_text: input.feedbackText.trim() || null,
+    customer_name: null,
+    feedback_text: null,
     image_path: imagePath,
     source: 'manual',
-    internal_note: input.internalNote.trim() || null,
-    feedback_date: input.feedbackDate,
+    internal_note: null,
   }).select('id,product_id,customer_name,feedback_text,image_path,source,internal_note,feedback_link_id,feedback_date,created_at').single();
 
   if (result.error) {
-    if (imagePath) await client.storage.from(FEEDBACK_BUCKET).remove([imagePath]);
+    await client.storage.from(FEEDBACK_BUCKET).remove([imagePath]);
     throw result.error;
   }
 
-  let imageUrl: string | null = null;
-  if (imagePath) {
-    const signed = await client.storage.from(FEEDBACK_BUCKET).createSignedUrl(imagePath, 60 * 60);
-    imageUrl = signed.data?.signedUrl ?? null;
-  }
+  const signed = await client.storage.from(FEEDBACK_BUCKET).createSignedUrl(imagePath, 60 * 60);
+  const imageUrl = signed.data?.signedUrl ?? null;
   return mapFeedback(result.data as FeedbackRow, imageUrl);
 }
 
@@ -184,36 +198,33 @@ export async function disableFeedbackLink(linkId: string): Promise<void> {
   if (result.error) throw result.error;
 }
 
-export async function getPublicFeedbackProduct(token: string): Promise<PublicFeedbackProduct | null> {
+export async function getPublicFeedbackGallery(token: string): Promise<PublicFeedbackGallery | null> {
   const client = requireClient();
-  const result = await client.rpc('get_feedback_product', { p_token: token });
+  const result = await client.rpc('get_feedback_gallery', { p_token: token });
   if (result.error) throw result.error;
-  const row = (Array.isArray(result.data) ? result.data[0] : result.data) as {
-    product_name?: string;
-    product_image?: string;
-  } | undefined;
-  if (!row?.product_name) return null;
-  return { productName: row.product_name, productImage: row.product_image ?? '' };
-}
-
-export async function uploadPublicFeedbackImage(
-  token: string,
-  feedbackId: string,
-  image: CompressedFeedbackImage,
-): Promise<string> {
-  const path = `submissions/${token}/${feedbackId}/image.webp`;
-  await uploadImage(path, image);
-  return path;
-}
-
-export async function submitPublicFeedback(input: PublicFeedbackInput): Promise<void> {
-  const client = requireClient();
-  const result = await client.rpc('submit_product_feedback', {
-    p_token: input.token,
-    p_feedback_id: input.feedbackId,
-    p_customer_name: input.customerName.trim() || null,
-    p_feedback_text: input.feedbackText.trim() || null,
-    p_image_path: input.imagePath,
-  });
-  if (result.error) throw result.error;
+  const rows = (Array.isArray(result.data) ? result.data : []) as Array<{
+    product_name: string;
+    product_image: string | null;
+    feedback_id: string | null;
+    image_path: string | null;
+    feedback_date: string | null;
+  }>;
+  const first = rows[0];
+  if (!first?.product_name) return null;
+  const imageRows = rows.filter((row) => row.feedback_id && row.image_path && row.feedback_date);
+  const paths = imageRows.map((row) => row.image_path as string);
+  const signed = paths.length
+    ? await client.storage.from(FEEDBACK_BUCKET).createSignedUrls(paths, 15 * 60)
+    : { data: [], error: null };
+  if (signed.error) throw signed.error;
+  return {
+    productName: first.product_name,
+    productImage: first.product_image ?? '',
+    images: imageRows.flatMap((row, index) => {
+      const imageUrl = signed.data?.[index]?.signedUrl;
+      return imageUrl && row.feedback_id && row.feedback_date
+        ? [{ id: row.feedback_id, imageUrl, feedbackDate: row.feedback_date }]
+        : [];
+    }),
+  };
 }

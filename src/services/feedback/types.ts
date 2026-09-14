@@ -26,21 +26,22 @@ export interface FeedbackLink {
 
 export interface ManualFeedbackInput {
   productId: string;
-  customerName: string;
-  feedbackText: string;
-  internalNote: string;
+}
+
+export interface NewFeedbackProductInput {
+  name: string;
+  sku: string;
+  mainImage: string;
+}
+
+export interface PublicFeedbackImage {
+  id: string;
+  imageUrl: string;
   feedbackDate: string;
 }
 
-export interface PublicFeedbackProduct {
+export interface PublicFeedbackGallery {
   productName: string;
   productImage: string;
-}
-
-export interface PublicFeedbackInput {
-  token: string;
-  feedbackId: string;
-  customerName: string;
-  feedbackText: string;
-  imagePath: string | null;
+  images: PublicFeedbackImage[];
 }
