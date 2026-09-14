@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/Logo';
 import { Check } from '@/components/icons';
-import { useAuth } from '@/services/auth/context';
+import { isFeedbackManagerEmail, useAuth } from '@/services/auth/context';
 import { APP_NAME, BRAND_NAME, WORDMARK_SRC } from '@/brand';
 import { paths } from '@/routes';
 
@@ -22,7 +22,7 @@ const HIGHLIGHTS = [
  * width rather than stacking underneath it.
  */
 export function LoginPage() {
-  const { user, signIn } = useAuth();
+  const { user, isFeedbackManager, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as {
     state?: { from?: { pathname?: string } };
@@ -35,7 +35,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Already signed in → skip the form.
-  if (user) return <Navigate to={from} replace />;
+  if (user) return <Navigate to={isFeedbackManager ? paths.feedback : from} replace />;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,7 +43,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await signIn(email.trim(), password);
-      navigate(from, { replace: true });
+      navigate(isFeedbackManagerEmail(email) ? paths.feedback : from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in.');
     } finally {

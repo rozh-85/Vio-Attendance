@@ -145,3 +145,113 @@ export const Trash = (p: IconProps) => (
     <line x1="14" y1="11" x2="14" y2="17"></line>
   </svg>
 );
+
+export const GripVertical = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="9" cy="5" r="1" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="5" r="1" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="19" r="1" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="19" r="1" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const Sliders = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h10M18 18h2" />
+    <circle cx="16" cy="6" r="2" />
+    <circle cx="8" cy="12" r="2" />
+    <circle cx="16" cy="18" r="2" />
+  </svg>
+);
+
+export const Copy = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+export const Eye = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="2.5" />
+  </svg>
+);
+
+export const EyeOff = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m3 3 18 18M10.6 6.2A10.5 10.5 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.2 3.8M6.3 6.4C3.6 8.1 2 12 2 12s3.5 6 10 6a9.6 9.6 0 0 0 3.3-.6" />
+  </svg>
+);
+
+export const Printer = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+    <path d="M6 14h12v7H6zM18 12h.01" />
+  </svg>
+);
+
+export const MoreHorizontal = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="5" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="19" cy="12" r="1" fill="currentColor" />
+  </svg>
+);
+
+export const ChevronDown = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+export const ChevronUp = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m18 15-6-6-6 6" />
+  </svg>
+);
+
+export const Layers = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+    <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
+  </svg>
+);
+
+export const ImageIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <circle cx="8.5" cy="9" r="1.5" />
+    <path d="m21 15-4.5-4.5L7 20" />
+  </svg>
+);
+
+export const Upload = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 16V3M7 8l5-5 5 5" />
+    <path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" />
+  </svg>
+);
+
+export const MessageSquare = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+    <path d="M8 9h8M8 13h5" />
+  </svg>
+);
+
+export const LinkIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
+    <path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1" />
+  </svg>
+);
+
+export const CheckCircle = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8 12 2.5 2.5L16 9" />
+  </svg>
+);

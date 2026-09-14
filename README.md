@@ -144,6 +144,34 @@ interface, so the UI never touches the backend directly.
 Switch with `VITE_DATA_BACKEND` in `.env`. If Supabase credentials are missing
 the app falls back to local storage rather than failing to boot.
 
+## Catalog Management
+
+The unlisted `/catalog` route contains a single Master Catalog and a
+snapshot-based catalog builder. The reference products and local image assets
+were imported from the supplied Vio catalogue PDF; because that source is a
+no-price catalogue, retail and wholesale prices start blank and can be entered
+in the Master Catalog.
+
+For shared catalog persistence, run [`supabase/catalog.sql`](supabase/catalog.sql)
+after [`supabase/schema.sql`](supabase/schema.sql). Without those optional
+tables, the catalog module uses browser local storage when Supabase is not
+configured. PDF export opens a print-ready preview so managers can choose
+"Save as PDF" in the browser print dialog.
+
+## Product feedback
+
+The supervisor sidebar includes `/feedback` for product-specific customer
+feedback, screenshots, and secure public submission links. Run
+[`supabase/feedback.sql`](supabase/feedback.sql) after the catalog migration to
+create the protected tables, RPC functions, and private `feedback-images`
+Storage bucket. Public links use `/feedback/:token`; anonymous visitors can only
+resolve an active token and submit feedback to its associated product.
+
+The Auth user `feedback@gmail.com` is treated as a feedback-only manager. It is
+sent directly to `/feedback`, sees only that sidebar entry, and cannot use the
+attendance or catalog-management routes. Create that user in Supabase Auth; the
+password is kept in Supabase and is not stored in this repository.
+
 ## Project structure
 
 ```
@@ -168,6 +196,8 @@ src/
 | `/`                      | Supervisor | Dashboard — add employees, start sessions |
 | `/session/:id`           | Supervisor | Control panel + QR codes               |
 | `/employees`             | Supervisor | Employee report + PDF export           |
+| `/feedback`              | Supervisor | Product feedback and secure links      |
+| `/feedback/:token`       | Customer   | Public product-specific feedback form  |
 | `/VioAdmin`             | Supervisor | Sign in (deliberately non-obvious)     |
 | `/rozhadmin`             | Owner      | Phones used by several employees (unlisted, own password) |
 | `/checkin/:sessionId`    | Employee   | Enter code to check in                 |

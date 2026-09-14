@@ -8,6 +8,12 @@ import {
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
 
+export const FEEDBACK_MANAGER_EMAIL = 'feedback@gmail.com';
+
+export function isFeedbackManagerEmail(email?: string | null): boolean {
+  return email?.trim().toLowerCase() === FEEDBACK_MANAGER_EMAIL;
+}
+
 interface AuthContextValue {
   /**
    * Whether an auth backend is configured. When false (e.g. the local-storage
@@ -17,6 +23,8 @@ interface AuthContextValue {
   authRequired: boolean;
   /** The signed-in supervisor, or null when signed out. */
   user: User | null;
+  /** True for the account that is limited to product feedback management. */
+  isFeedbackManager: boolean;
   /** True until the initial session lookup resolves. */
   loading: boolean;
   signIn(email: string, password: string): Promise<void>;
@@ -33,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = getSupabaseClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const isFeedbackManager = isFeedbackManagerEmail(user?.email);
 
   useEffect(() => {
     if (!supabase) {
@@ -67,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ authRequired: !!supabase, user, loading, signIn, signOut }}
+      value={{ authRequired: !!supabase, user, isFeedbackManager, loading, signIn, signOut }}
     >
       {children}
     </AuthContext.Provider>

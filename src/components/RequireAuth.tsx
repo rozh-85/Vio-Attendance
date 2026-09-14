@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/services/auth/context';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { paths } from '@/routes';
 
 /**
  * Route guard for supervisor-only screens. When signed out it shows the neutral
@@ -10,8 +12,8 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
  * The supervisor signs in by going directly to the /admin path. When no auth
  * backend is configured the guard is a no-op (see AuthContext.authRequired).
  */
-export function RequireAuth({ children }: { children: ReactNode }) {
-  const { authRequired, user, loading } = useAuth();
+export function RequireAuth({ children, allowFeedbackManager = false }: { children: ReactNode; allowFeedbackManager?: boolean }) {
+  const { authRequired, user, isFeedbackManager, loading } = useAuth();
 
   if (!authRequired) return <>{children}</>;
 
@@ -25,6 +27,10 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   if (!user) {
     return <NotFoundPage />;
+  }
+
+  if (isFeedbackManager && !allowFeedbackManager) {
+    return <Navigate to={paths.feedback} replace />;
   }
 
   return <>{children}</>;

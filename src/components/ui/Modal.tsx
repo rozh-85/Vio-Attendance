@@ -33,7 +33,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
     >
@@ -43,7 +43,8 @@ export function Modal({
       />
       <div
         className={cn(
-          'relative z-10 w-full max-w-md rounded-3xl bg-card p-6 shadow-xl',
+          'relative z-10 my-auto flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-3xl bg-card p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-6',
+          !className?.includes('max-w-') && 'max-w-md',
           'animate-[fadeIn_0.15s_ease-out]',
           className,
         )}
@@ -61,7 +62,9 @@ export function Modal({
         {description && (
           <p className="mt-1 text-sm text-ink-500">{description}</p>
         )}
-        <div className={cn(title && 'mt-5')}>{children}</div>
+        <div className={cn('min-h-0 overflow-y-auto overscroll-contain pr-1', title && 'mt-5')}>
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -7,6 +7,9 @@ export const paths = {
   admin: '/VioAdmin',
   employees: '/employees',
   leave: '/leave',
+  catalog: '/catalog',
+  feedback: '/feedback',
+  publicFeedback: (token: string) => `/feedback/${token}`,
   // Unlisted: the shared-phone report names suspected proxy check-ins, so it
   // is not in the sidebar and asks for the owner's password of its own.
   devices: '/rozhadmin',
@@ -21,6 +24,9 @@ export const routePatterns = {
   admin: '/VioAdmin',
   employees: '/employees',
   leave: '/leave',
+  catalog: '/catalog',
+  feedback: '/feedback',
+  publicFeedback: '/feedback/:token',
   devices: '/rozhadmin',
   session: '/session/:sessionId',
   recover: '/recover',

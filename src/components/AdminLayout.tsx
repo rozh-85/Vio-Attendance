@@ -1,16 +1,20 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { CalendarDays, Home, Menu, Phone, Search, X } from './icons';
+import { CalendarDays, Home, Menu, MessageSquare, Phone, Search, X } from './icons';
 import { Logo } from './Logo';
 import { APP_NAME } from '@/brand';
 import { paths } from '@/routes';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
+import { useAuth } from '@/services/auth/context';
 import { cn } from '@/utils/cn';
 
-const baseLinks = [
+const feedbackLink = { to: paths.feedback, label: 'Feedback', icon: MessageSquare, end: false };
+
+const adminLinks = [
   { to: paths.dashboard, label: 'Dashboard', icon: Home, end: true },
   { to: paths.employees, label: 'Employee report', icon: Search, end: false },
   { to: paths.leave, label: 'Leave management', icon: CalendarDays, end: false },
+  feedbackLink,
 ];
 
 const sharedPhonesLink = {
@@ -27,13 +31,16 @@ const sharedPhonesLink = {
  */
 export function AdminLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { isFeedbackManager } = useAuth();
   // The shared-phone report only joins the sidebar once its password has been
   // entered this session, so it stays invisible to anyone reading the
   // supervisor's screen — but is one click away for whoever unlocked it, instead
   // of forcing them to retype the address every time they leave the page.
-  const links = isOwnerUnlocked()
-    ? [...baseLinks, sharedPhonesLink]
-    : baseLinks;
+  const links = isFeedbackManager
+    ? [feedbackLink]
+    : isOwnerUnlocked()
+      ? [...adminLinks, sharedPhonesLink]
+      : adminLinks;
 
   return (
     <div className="min-h-screen w-full lg:flex">
@@ -46,7 +53,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               {APP_NAME}
             </div>
             <div className="truncate text-xs text-ink-400">
-              Employee check-in
+              {isFeedbackManager ? 'Feedback management' : 'Employee check-in'}
             </div>
           </div>
         </div>

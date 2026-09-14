@@ -14,6 +14,9 @@ import { RecoverCodePage } from '@/pages/RecoverCodePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { LeaveManagementPage } from '@/pages/LeaveManagementPage';
+import { CatalogManagementPage } from '@/pages/CatalogManagementPage';
+import { FeedbackPage } from '@/pages/FeedbackPage';
+import { PublicFeedbackPage } from '@/pages/PublicFeedbackPage';
 
 export default function App() {
   return (
@@ -46,6 +49,22 @@ export default function App() {
                 </RequireAuth>
               }
             />
+            <Route
+              path={routePatterns.catalog}
+              element={
+                <RequireAuth>
+                  <CatalogManagementPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.feedback}
+              element={
+                <RequireAuth allowFeedbackManager>
+                  <FeedbackPage />
+                </RequireAuth>
+              }
+            />
             {/* Unlisted owner report: supervisor sign-in, then its own password. */}
             <Route
               path={routePatterns.devices}
@@ -73,6 +92,7 @@ export default function App() {
             <Route path={routePatterns.recover} element={<RecoverCodePage />} />
             <Route path={routePatterns.checkIn} element={<CheckInPage />} />
             <Route path={routePatterns.checkOut} element={<CheckOutPage />} />
+            <Route path={routePatterns.publicFeedback} element={<PublicFeedbackPage />} />
 
             {/* Everything else — /login, /register, and any unknown URL — shows
                 the neutral employee page. It never reveals the admin login. */}
