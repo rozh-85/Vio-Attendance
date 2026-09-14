@@ -24,7 +24,7 @@ import type { CatalogProduct } from '@/services/catalog/types';
 import type { CompressedFeedbackImage } from '@/services/feedback/image';
 import {
   addFeedbackProduct,
-  createManualFeedback,
+  createManualFeedbackBatch,
   deleteFeedback,
   disableFeedbackLink,
   generateFeedbackLink,
@@ -157,14 +157,14 @@ export function FeedbackPage() {
     }
   }
 
-  async function addManual(input: ManualFeedbackInput, image: CompressedFeedbackImage) {
+  async function addManual(input: ManualFeedbackInput, images: CompressedFeedbackImage[]) {
     setBusy(true);
     try {
-      const created = await createManualFeedback(input, image);
-      setFeedback((items) => [created, ...items]);
+      const created = await createManualFeedbackBatch(input, images);
+      setFeedback((items) => [...created, ...items]);
       setProductFilter(input.productId);
       setAddOpen(false);
-      showNotice('Feedback image added to the selected product gallery.');
+      showNotice(`${created.length} feedback image${created.length === 1 ? '' : 's'} added to the selected product gallery.`);
     } finally {
       setBusy(false);
     }
@@ -418,33 +418,33 @@ function AddFeedbackModal({
   initialProductId: string;
   busy: boolean;
   onClose: () => void;
-  onSave: (input: ManualFeedbackInput, image: CompressedFeedbackImage) => Promise<void>;
+  onSave: (input: ManualFeedbackInput, images: CompressedFeedbackImage[]) => Promise<void>;
 }) {
   const [productId, setProductId] = useState('');
-  const [image, setImage] = useState<CompressedFeedbackImage | null>(null);
+  const [images, setImages] = useState<CompressedFeedbackImage[]>([]);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setProductId(initialProductId || products[0]?.id || '');
-    setImage(null);
+    setImages([]);
     setFormError('');
   }, [initialProductId, open, products]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!productId) return setFormError('Select a product.');
-    if (!image) return setFormError('Choose a feedback screenshot or image.');
+    if (images.length === 0) return setFormError('Choose at least one feedback screenshot or image.');
     setFormError('');
     try {
-      await onSave({ productId }, image);
+      await onSave({ productId }, images);
     } catch (problem) {
       setFormError(problem instanceof Error ? problem.message : 'Feedback could not be saved.');
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Feedback" description="Select the product and upload one feedback screenshot. The date is saved automatically." className="max-w-2xl">
+    <Modal open={open} onClose={onClose} title="Add Feedback" description="Select the product once, then upload one or several feedback screenshots together. The date is saved automatically." className="max-w-3xl">
       <form onSubmit={submit} className="space-y-5">
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-ink-900">Product<span className="ml-0.5 text-rose-500">*</span></span>
@@ -453,11 +453,13 @@ function AddFeedbackModal({
             {products.map((product) => <option key={product.id} value={product.id}>{product.name} · {product.sku}</option>)}
           </select>
         </label>
-        <FeedbackImagePicker value={image} onChange={setImage} disabled={busy} />
+        <FeedbackImagePicker value={images} onChange={setImages} disabled={busy} />
         {formError && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{formError}</div>}
         <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" loading={busy} leftIcon={<ImageIcon width={17} height={17} />}>Upload feedback</Button>
+          <Button type="submit" loading={busy} leftIcon={<ImageIcon width={17} height={17} />}>
+            {images.length > 0 ? `Upload ${images.length} feedback image${images.length === 1 ? '' : 's'}` : 'Upload feedback images'}
+          </Button>
         </div>
       </form>
     </Modal>

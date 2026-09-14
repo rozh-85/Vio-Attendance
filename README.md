@@ -161,9 +161,9 @@ configured. PDF export opens a print-ready preview so managers can choose
 ## Product feedback
 
 The supervisor sidebar includes `/feedback` for product-specific feedback image
-galleries. Administrators add screenshots manually, choose the matching
-product, and generate a secure read-only link that shows every image currently
-saved for that product. Customers cannot submit, edit, or browse feedback for
+galleries. Administrators choose the matching product once and can add one or
+several screenshots in the same upload, then generate a secure read-only link
+that shows every image currently saved for that product. Customers cannot submit, edit, or browse feedback for
 other products. Future products can be added directly from the Feedback page
 and immediately appear in its filter and upload form. Run
 [`supabase/feedback.sql`](supabase/feedback.sql) after the catalog migration to

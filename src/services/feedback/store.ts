@@ -132,33 +132,54 @@ export async function listFeedback(): Promise<ProductFeedback[]> {
   return rows.map((row) => mapFeedback(row, row.image_path ? signedByPath.get(row.image_path) ?? null : null));
 }
 
-export async function createManualFeedback(
+export async function createManualFeedbackBatch(
   input: ManualFeedbackInput,
-  image: CompressedFeedbackImage,
-): Promise<ProductFeedback> {
+  images: CompressedFeedbackImage[],
+): Promise<ProductFeedback[]> {
+  if (images.length === 0) throw new Error('Choose at least one feedback image.');
   const client = requireClient();
-  const id = crypto.randomUUID();
-  const imagePath = `${input.productId}/${id}/image.webp`;
-  await uploadImage(imagePath, image);
+  const pending = images.map((image) => {
+    const id = crypto.randomUUID();
+    return { id, image, imagePath: `${input.productId}/${id}/image.webp` };
+  });
+  const uploadedPaths: string[] = [];
 
-  const result = await client.from('product_feedback').insert({
-    id,
+  try {
+    for (const item of pending) {
+      await uploadImage(item.imagePath, item.image);
+      uploadedPaths.push(item.imagePath);
+    }
+  } catch (problem) {
+    if (uploadedPaths.length > 0) await client.storage.from(FEEDBACK_BUCKET).remove(uploadedPaths);
+    throw problem;
+  }
+
+  const result = await client.from('product_feedback').insert(pending.map((item) => ({
+    id: item.id,
     product_id: input.productId,
     customer_name: null,
     feedback_text: null,
-    image_path: imagePath,
+    image_path: item.imagePath,
     source: 'manual',
     internal_note: null,
-  }).select('id,product_id,customer_name,feedback_text,image_path,source,internal_note,feedback_link_id,feedback_date,created_at').single();
+  }))).select('id,product_id,customer_name,feedback_text,image_path,source,internal_note,feedback_link_id,feedback_date,created_at');
 
   if (result.error) {
-    await client.storage.from(FEEDBACK_BUCKET).remove([imagePath]);
+    await client.storage.from(FEEDBACK_BUCKET).remove(uploadedPaths);
     throw result.error;
   }
 
-  const signed = await client.storage.from(FEEDBACK_BUCKET).createSignedUrl(imagePath, 60 * 60);
-  const imageUrl = signed.data?.signedUrl ?? null;
-  return mapFeedback(result.data as FeedbackRow, imageUrl);
+  const rows = (result.data ?? []) as FeedbackRow[];
+  const paths = rows.map((row) => row.image_path).filter((path): path is string => Boolean(path));
+  const signed = await client.storage.from(FEEDBACK_BUCKET).createSignedUrls(paths, 60 * 60);
+  const signedByPath = new Map<string, string>();
+  if (!signed.error) {
+    signed.data.forEach((item, index) => {
+      const path = paths[index];
+      if (path && item.signedUrl) signedByPath.set(path, item.signedUrl);
+    });
+  }
+  return rows.map((row) => mapFeedback(row, row.image_path ? signedByPath.get(row.image_path) ?? null : null));
 }
 
 export async function deleteFeedback(feedback: ProductFeedback): Promise<boolean> {
