@@ -127,6 +127,34 @@ interface SessionRow {
   beforeRegistration: boolean;
 }
 
+function reportRowsFor(
+  employee: Employee,
+  sourceSessions: Session[],
+  records: AttendanceRecord[],
+): SessionRow[] {
+  const bySession = new Map(
+    records
+      .filter((record) => record.employeeId === employee.id)
+      .map((record) => [record.sessionId, record]),
+  );
+  return sourceSessions
+    .slice()
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .map((session) => {
+      const record = bySession.get(session.id);
+      const beforeRegistration =
+        !record?.checkInAt &&
+        !!employee.createdAt &&
+        (session.closedAt ?? session.startedAt) < employee.createdAt;
+      return {
+        session,
+        record,
+        minutes: presentMinutes(session, record),
+        beforeRegistration,
+      };
+    });
+}
+
 /**
  * Admin page: type an employee's name (or code) and see their attendance across
  * every session — check-in/out times, absences and total hours. The supervisor
@@ -179,18 +207,36 @@ export function EmployeeReportPage() {
     };
   }, [data]);
 
-  const matches = useMemo(() => {
+  const filteredEmployees = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [];
     return employees
       .filter(
         (s) =>
+          !q ||
           s.fullName.toLowerCase().includes(q) ||
-          s.code.toLowerCase() === q ||
-          s.phone.includes(q),
+          s.code.toLowerCase().includes(q) ||
+          s.phone.toLowerCase().includes(q) ||
+          s.position.toLowerCase().includes(q),
       )
-      .slice(0, 8);
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
   }, [employees, query]);
+
+  const totalMinutesByEmployee = useMemo(() => {
+    const sessionById = new Map(
+      sessions.map((session) => [session.id, session]),
+    );
+    const totals = new Map<string, number>();
+    for (const record of records) {
+      if (!record.checkInAt) continue;
+      const session = sessionById.get(record.sessionId);
+      if (!session) continue;
+      totals.set(
+        record.employeeId,
+        (totals.get(record.employeeId) ?? 0) + presentMinutes(session, record),
+      );
+    }
+    return totals;
+  }, [sessions, records]);
 
   /** The sessions inside the chosen period, newest first. */
   const periodSessions = useMemo(() => {
@@ -204,29 +250,7 @@ export function EmployeeReportPage() {
 
   const rows = useMemo<SessionRow[]>(() => {
     if (!selected) return [];
-    const bySession = new Map(
-      records
-        .filter((r) => r.employeeId === selected.id)
-        .map((r) => [r.sessionId, r]),
-    );
-    return periodSessions
-      .slice()
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-      .map((session) => {
-        const record = bySession.get(session.id);
-        // A session counts toward this employee only from the moment they
-        // registered (unless they somehow have a check-in for it anyway).
-        const beforeRegistration =
-          !record?.checkInAt &&
-          !!selected.createdAt &&
-          (session.closedAt ?? session.startedAt) < selected.createdAt;
-        return {
-          session,
-          record,
-          minutes: presentMinutes(session, record),
-          beforeRegistration,
-        };
-      });
+    return reportRowsFor(selected, periodSessions, records);
   }, [selected, periodSessions, records]);
 
   // Everything the employee could have attended, ticked by default.
@@ -323,17 +347,17 @@ export function EmployeeReportPage() {
     }
   }
 
-  function onExportPdf() {
-    if (!selected) return;
-    const chosen = rows.filter((r) => included.has(r.session.id));
+  function exportPdf(employee: Employee, chosen: SessionRow[], label: string) {
+    const attended = chosen.filter((row) => row.record?.checkInAt).length;
+    const totalMinutes = chosen.reduce((sum, row) => sum + row.minutes, 0);
     exportEmployeePdf(
-      selected,
+      employee,
       {
-        totalSessions: stats.totalSessions,
-        attended: stats.attended,
-        absent: stats.absent,
-        totalHours: formatMinutes(stats.totalMinutes),
-        period: periodLabel(period),
+        totalSessions: chosen.length,
+        attended,
+        absent: chosen.length - attended,
+        totalHours: formatMinutes(totalMinutes),
+        period: label,
       },
       chosen.map(({ session, record, minutes, beforeRegistration }) => ({
         session: session.title || session.supervisorName,
@@ -352,6 +376,22 @@ export function EmployeeReportPage() {
         hours: record?.checkInAt ? formatMinutes(minutes) : '—',
       })),
     );
+  }
+
+  function onExportPdf() {
+    if (!selected) return;
+    exportPdf(
+      selected,
+      rows.filter((row) => included.has(row.session.id)),
+      periodLabel(period),
+    );
+  }
+
+  function exportEmployeeAllTime(employee: Employee) {
+    const employeeRows = reportRowsFor(employee, sessions, records).filter(
+      (row) => !row.beforeRegistration,
+    );
+    exportPdf(employee, employeeRows, 'All time');
   }
 
   const allIncluded = rows.length > 0 && included.size === rows.length;
@@ -381,38 +421,96 @@ export function EmployeeReportPage() {
           }}
         />
         {loading && (
-          <div className="py-6 text-center text-ink-400">Loading employees…</div>
+          <div className="py-6 text-center text-ink-400">
+            Loading employees…
+          </div>
         )}
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-        {!loading && !selected && query.trim() && (
-          <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
-            {matches.length === 0 ? (
-              <div className="px-4 py-4 text-sm text-ink-500">
-                No employee matches “{query.trim()}”.
-              </div>
-            ) : (
-              matches.map((employee) => (
-                <button
-                  key={employee.id}
-                  type="button"
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-brand-50/60"
-                  onClick={() => pick(employee)}
-                >
-                  <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-ink-700">
-                    {employee.code}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold text-ink-900">
-                      {employee.fullName}
-                    </span>
-                    <span className="block truncate text-xs text-ink-400">
-                      {employee.position || employee.phone}
-                    </span>
-                  </span>
-                  <Search width={16} height={16} className="text-ink-300" />
-                </button>
-              ))
-            )}
+        {!loading && (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-ink-400">
+                  <th className="px-4 py-3 font-semibold">Employee</th>
+                  <th className="px-4 py-3 font-semibold">Code</th>
+                  <th className="px-4 py-3 font-semibold">Position</th>
+                  <th className="px-4 py-3 font-semibold">Total hours</th>
+                  <th className="px-4 py-3 text-right font-semibold">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEmployees.map((employee) => (
+                  <tr
+                    key={employee.id}
+                    className={cn(
+                      'cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-brand-50/50',
+                      selected?.id === employee.id && 'bg-brand-50/70',
+                    )}
+                    onClick={() => pick(employee)}
+                  >
+                    <td className="px-4 py-3.5">
+                      <div className="font-semibold text-ink-900">
+                        {employee.fullName}
+                      </div>
+                      <div className="mt-0.5 text-xs text-ink-400">
+                        {employee.phone}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-ink-700">
+                        {employee.code}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-ink-500">
+                      {employee.position || '—'}
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold tabular-nums text-brand-700">
+                      {formatMinutes(
+                        totalMinutesByEmployee.get(employee.id) ?? 0,
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          leftIcon={<Search width={15} height={15} />}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            pick(employee);
+                          }}
+                        >
+                          View report
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          leftIcon={<Download width={15} height={15} />}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            exportEmployeeAllTime(employee);
+                          }}
+                        >
+                          PDF
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredEmployees.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-4 py-8 text-center text-ink-500"
+                    >
+                      No employee matches “{query.trim()}”.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
@@ -578,7 +676,8 @@ export function EmployeeReportPage() {
                 </thead>
                 <tbody>
                   {rows.map((row) => {
-                    const { session, record, minutes, beforeRegistration } = row;
+                    const { session, record, minutes, beforeRegistration } =
+                      row;
                     const isIn = included.has(session.id);
                     return (
                       <tr
@@ -619,7 +718,9 @@ export function EmployeeReportPage() {
                             isIn ? 'text-ink-700' : 'text-ink-300',
                           )}
                         >
-                          {record?.checkInAt ? formatClock(record.checkInAt) : '—'}
+                          {record?.checkInAt
+                            ? formatClock(record.checkInAt)
+                            : '—'}
                         </td>
                         <td
                           className={cn(
@@ -633,7 +734,9 @@ export function EmployeeReportPage() {
                               ? 'In progress'
                               : '—'}
                         </td>
-                        <td className={cn('px-5 py-3.5', !isIn && 'opacity-60')}>
+                        <td
+                          className={cn('px-5 py-3.5', !isIn && 'opacity-60')}
+                        >
                           {record?.checkInAt ? (
                             <Badge tone="success">Present</Badge>
                           ) : beforeRegistration ? (
