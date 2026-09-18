@@ -144,6 +144,21 @@ interface, so the UI never touches the backend directly.
 Switch with `VITE_DATA_BACKEND` in `.env`. If Supabase credentials are missing
 the app falls back to local storage rather than failing to boot.
 
+## HR workspace
+
+The authenticated `/hr` route contains the HR workspace described in the HR
+brief: employee profiles and document archive, departments and business
+sectors, day and overnight shifts, work cycles and assignments, holidays,
+attendance reports, typed leave requests with balances and approvals, payroll
+rules and calculations, bonuses and penalties, overtime, performance reviews,
+recruitment, work locations and geofences, ZK iFace 1000 CSV imports, backups,
+CSV reports and an audit log.
+
+For a shared deployment, run [`supabase/hr.sql`](supabase/hr.sql) after the
+main schema. It adds revision-safe HR JSON persistence and a private
+`hr-documents` storage bucket. Local development stores the same workspace in
+browser storage.
+
 ## Catalog Management
 
 The unlisted `/catalog` route contains a single Master Catalog and a

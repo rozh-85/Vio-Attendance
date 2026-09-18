@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { CalendarDays, Home, Menu, MessageSquare, Phone, Search, X } from './icons';
+import { Briefcase, CalendarDays, Home, Menu, MessageSquare, Phone, Search, X } from './icons';
 import { Logo } from './Logo';
 import { APP_NAME } from '@/brand';
 import { paths } from '@/routes';
@@ -9,11 +9,13 @@ import { useAuth } from '@/services/auth/context';
 import { cn } from '@/utils/cn';
 
 const feedbackLink = { to: paths.feedback, label: 'Feedback', icon: MessageSquare, end: false };
+const hrLink = { to: paths.hr, label: 'HR management', icon: Briefcase, end: false };
 
 const adminLinks = [
   { to: paths.dashboard, label: 'Dashboard', icon: Home, end: true },
   { to: paths.employees, label: 'Employee report', icon: Search, end: false },
   { to: paths.leave, label: 'Leave management', icon: CalendarDays, end: false },
+  hrLink,
   feedbackLink,
 ];
 

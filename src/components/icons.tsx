@@ -242,6 +242,46 @@ export const MessageSquare = (p: IconProps) => (
   </svg>
 );
 
+export const Briefcase = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2" />
+  </svg>
+);
+
+export const Clock = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
+
+export const Building = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M4 21V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16M2 21h20M8 7h2M13 7h2M8 11h2M13 11h2M8 15h2M13 15h2M11 21v-3h3v3" />
+  </svg>
+);
+
+export const DollarSign = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 2v20M17 6.5c-.8-1-2.1-1.5-4-1.5-2.5 0-4 1.2-4 3s1.5 3 4 3 4 1.2 4 3-1.5 3-4 3c-1.9 0-3.2-.5-4-1.5" />
+  </svg>
+);
+
+export const FileText = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M6 3h8l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+    <path d="M14 3v5h5M8 12h6M8 16h6" />
+  </svg>
+);
+
+export const MapPin = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+    <circle cx="12" cy="10" r="2.5" />
+  </svg>
+);
+
 export const LinkIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
@@ -253,5 +293,25 @@ export const CheckCircle = (p: IconProps) => (
   <svg {...base(p)}>
     <circle cx="12" cy="12" r="9" />
     <path d="m8 12 2.5 2.5L16 9" />
+  </svg>
+);
+
+export const Users = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+export const Settings = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.46 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.4h.9a1.7 1.7 0 0 0 1.56-1.03 1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.73 5.7V5h2.4v.7a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.4 10c.1.62.62 1.03 1.24 1.03h.36v2.4h-.36A1.7 1.7 0 0 0 19.4 15Z" />
+  </svg>
+);
+
+export const Wallet = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M4 6h16a2 2 0 0 1 2 2v11H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v3" />
+    <path d="M22 12h-5a2 2 0 0 0 0 4h5M17 14h.01" />
   </svg>
 );

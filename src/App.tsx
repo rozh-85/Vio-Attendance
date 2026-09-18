@@ -17,6 +17,7 @@ import { LeaveManagementPage } from '@/pages/LeaveManagementPage';
 import { CatalogManagementPage } from '@/pages/CatalogManagementPage';
 import { FeedbackPage } from '@/pages/FeedbackPage';
 import { PublicFeedbackPage } from '@/pages/PublicFeedbackPage';
+import { HrManagementPage } from '@/pages/HrManagementPage';
 
 export default function App() {
   return (
@@ -62,6 +63,14 @@ export default function App() {
               element={
                 <RequireAuth allowFeedbackManager>
                   <FeedbackPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.hr}
+              element={
+                <RequireAuth>
+                  <HrManagementPage />
                 </RequireAuth>
               }
             />

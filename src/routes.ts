@@ -9,6 +9,7 @@ export const paths = {
   leave: '/leave',
   catalog: '/catalog',
   feedback: '/feedback',
+  hr: '/hr',
   publicFeedback: (token: string) => `/feedback/${token}`,
   // Unlisted: the shared-phone report names suspected proxy check-ins, so it
   // is not in the sidebar and asks for the owner's password of its own.
@@ -26,6 +27,7 @@ export const routePatterns = {
   leave: '/leave',
   catalog: '/catalog',
   feedback: '/feedback',
+  hr: '/hr',
   publicFeedback: '/feedback/:token',
   devices: '/rozhadmin',
   session: '/session/:sessionId',
