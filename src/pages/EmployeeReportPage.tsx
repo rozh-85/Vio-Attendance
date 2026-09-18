@@ -8,6 +8,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Download, Pencil, Search } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
 import { exportEmployeePdf } from '@/services/report/employeePdf';
+import { exportEmployeeTotalsPdf } from '@/services/report/employeeTotalsPdf';
 import { EditAttendanceModal } from '@/components/EditAttendanceModal';
 import {
   formatClock,
@@ -387,26 +388,42 @@ export function EmployeeReportPage() {
     );
   }
 
-  function exportEmployeeAllTime(employee: Employee) {
-    const employeeRows = reportRowsFor(employee, sessions, records).filter(
-      (row) => !row.beforeRegistration,
+  function exportAllEmployeeHours() {
+    exportEmployeeTotalsPdf(
+      employees
+        .slice()
+        .sort((a, b) => a.fullName.localeCompare(b.fullName))
+        .map((employee) => ({
+          name: employee.fullName,
+          totalHours: formatMinutes(
+            totalMinutesByEmployee.get(employee.id) ?? 0,
+          ),
+        })),
     );
-    exportPdf(employee, employeeRows, 'All time');
   }
 
   const allIncluded = rows.length > 0 && included.size === rows.length;
 
   return (
     <AdminLayout>
-      <header className="mb-6">
-        <div className="text-sm font-bold uppercase tracking-wide text-brand-600">
-          Vio Attendance
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="text-sm font-bold uppercase tracking-wide text-brand-600">
+            Vio Attendance
+          </div>
+          <h1 className="text-3xl font-bold">Employee report</h1>
+          <p className="mt-1 text-ink-500">
+            Search an employee to open their detailed sessions and attendance.
+          </p>
         </div>
-        <h1 className="text-3xl font-bold">Employee report</h1>
-        <p className="mt-1 text-ink-500">
-          Type an employee's name or code to see all their sessions and
-          attendance.
-        </p>
+        <Button
+          variant="secondary"
+          leftIcon={<Download width={18} height={18} />}
+          disabled={loading || employees.length === 0}
+          onClick={exportAllEmployeeHours}
+        >
+          Export all employees PDF
+        </Button>
       </header>
 
       <Card className="p-5">
@@ -435,9 +452,7 @@ export function EmployeeReportPage() {
                   <th className="px-4 py-3 font-semibold">Code</th>
                   <th className="px-4 py-3 font-semibold">Position</th>
                   <th className="px-4 py-3 font-semibold">Total hours</th>
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Actions
-                  </th>
+                  <th className="px-4 py-3 text-right font-semibold">Report</th>
                 </tr>
               </thead>
               <tbody>
@@ -472,7 +487,7 @@ export function EmployeeReportPage() {
                       )}
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -483,17 +498,6 @@ export function EmployeeReportPage() {
                           }}
                         >
                           View report
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          leftIcon={<Download width={15} height={15} />}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            exportEmployeeAllTime(employee);
-                          }}
-                        >
-                          PDF
                         </Button>
                       </div>
                     </td>
