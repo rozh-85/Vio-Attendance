@@ -352,7 +352,7 @@ export function InterviewTracking({
 
       <section
         aria-label="Interview candidate summary"
-        className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
+        className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6"
       >
         <SummaryItem label="Total Candidates" value={summary.total} tone="bg-slate-400" />
         <SummaryItem label="Approved" value={summary.approved} tone="bg-emerald-400" />
@@ -364,7 +364,7 @@ export function InterviewTracking({
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="border-b border-slate-200 p-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_190px_170px_190px_auto]">
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(260px,1fr)_190px_170px_190px_auto]">
             <label className="relative">
               <span className="sr-only">Search candidates</span>
               <Search

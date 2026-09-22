@@ -1,23 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/AdminLayout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatCard } from "@/components/ui/StatCard";
 import { Input } from "@/components/ui/Input";
 import {
-  Building,
   CalendarDays,
-  Clock,
+  ChevronDown,
   Download,
-  FileText,
-  MapPin,
   Pencil,
   Search,
-  Settings,
   Upload,
-  UserPlus,
-  Users,
-  Wallet,
 } from "@/components/icons";
 import { useDataService } from "@/services/data/context";
 import type { AttendanceRecord, Employee, LeaveRecord } from "@/types";
@@ -64,32 +58,13 @@ import {
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
+import {
+  HR_NAV_GROUPS,
+  isHrTab,
+  type HrTab,
+} from "@/services/hr/navigation";
 
-type Tab =
-  | "overview"
-  | "people"
-  | "organization"
-  | "time"
-  | "leave"
-  | "payroll"
-  | "hiring"
-  | "interviews"
-  | "locations"
-  | "rules"
-  | "reports";
-const tabItems: { id: Tab; label: string; icon: typeof Users }[] = [
-  { id: "overview", label: "Overview", icon: Users },
-  { id: "people", label: "People & profiles", icon: Users },
-  { id: "organization", label: "Organization", icon: Building },
-  { id: "time", label: "Time & attendance", icon: Clock },
-  { id: "leave", label: "Leave & holidays", icon: CalendarDays },
-  { id: "payroll", label: "Payroll", icon: Wallet },
-  { id: "hiring", label: "Recruitment", icon: FileText },
-  { id: "interviews", label: "Interview tracking", icon: UserPlus },
-  { id: "locations", label: "Locations & devices", icon: MapPin },
-  { id: "rules", label: "Rules & settings", icon: Settings },
-  { id: "reports", label: "Reports & audit", icon: Download },
-];
+type Tab = HrTab;
 
 const date = () => localDate();
 const id = (prefix: string) => createHrId(prefix);
@@ -134,8 +109,52 @@ function downloadJson(name: string, value: unknown) {
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
+function HrModuleSelector({
+  active,
+  onChange,
+  pendingCount,
+}: {
+  active: Tab;
+  onChange: (tab: Tab) => void;
+  pendingCount: number;
+}) {
+  return (
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 lg:hidden">
+        <label htmlFor="hr-module" className="mb-2 block text-xs font-bold uppercase tracking-wider text-ink-400">
+          HR module
+        </label>
+        <div className="relative">
+          <select
+            id="hr-module"
+            value={active}
+            onChange={(event) => onChange(event.target.value as Tab)}
+            className={`${fieldClass} appearance-none pr-10 font-semibold`}
+          >
+            {HR_NAV_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                    {item.id === "leave" && pendingCount > 0
+                      ? ` (${pendingCount} pending)`
+                      : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <ChevronDown
+            width={17}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-400"
+          />
+        </div>
+      </div>
+  );
+}
+
 export function HrManagementPage() {
   const data = useDataService();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [workspace, setWorkspace] = useState<HrWorkspace>(() =>
     createDefaultHrWorkspace(),
   );
@@ -146,12 +165,17 @@ export function HrManagementPage() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<Tab>("overview");
+  const requestedTab = searchParams.get("tab");
+  const tab: Tab = isHrTab(requestedTab) ? requestedTab : "overview";
   const [profileEditor, setProfileEditor] = useState<Employee | null>(null);
   const [period, setPeriod] = useState(workspace.payrollPeriod);
   const [attendanceFrom, setAttendanceFrom] = useState(date());
   const [attendanceTo, setAttendanceTo] = useState(date());
   const [employeeQuery, setEmployeeQuery] = useState("");
+
+  function setTab(next: Tab) {
+    setSearchParams({ tab: next });
+  }
 
   async function reload() {
     setLoading(true);
@@ -384,16 +408,15 @@ export function HrManagementPage() {
 
   return (
     <AdminLayout>
-      <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-sm font-bold uppercase tracking-wide text-brand-600">
-            Vio HR
+          <div className="text-xs font-bold uppercase tracking-wider text-brand-600">
+            Vio HR Department
           </div>
-          <h1 className="text-3xl font-bold">Human resources workspace</h1>
-          <p className="mt-1 max-w-3xl text-ink-500">
-            One place for your employee directory, contracts, attendance,
-            shifts, leave, payroll, documents, recruitment, locations, and audit
-            history.
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">HR Management</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-500">
+            Manage people, attendance, leave, payroll, recruitment, and HR
+            operations from one organized workspace.
           </p>
         </div>
         <div className="flex gap-2">
@@ -416,33 +439,23 @@ export function HrManagementPage() {
           </Button>
         </div>
       </header>
-      <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5">
-        <nav className="flex min-w-max gap-1">
-          {tabItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTab(item.id)}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${tab === item.id ? "bg-brand-600 text-white shadow-sm" : "text-ink-500 hover:bg-slate-100 hover:text-ink-900"}`}
+      <HrModuleSelector
+        active={tab}
+        onChange={setTab}
+        pendingCount={pendingRequests.length}
+      />
+      <main className="min-w-0">
+          {(notice || error) && (
+            <div
+              className={`mb-5 rounded-xl border px-4 py-3 text-sm font-semibold ${
+                error
+                  ? "border-rose-100 bg-rose-50 text-rose-700"
+                  : "border-emerald-100 bg-emerald-50 text-emerald-700"
+              }`}
             >
-              <item.icon width={16} height={16} />
-              {item.label}
-              {item.id === "leave" && pendingRequests.length > 0 && (
-                <span className="rounded-full bg-white/20 px-1.5 text-xs">
-                  {pendingRequests.length}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-      </div>
-      {(notice || error) && (
-        <div
-          className={`mb-5 rounded-xl px-4 py-3 text-sm font-semibold ${error ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}
-        >
-          {error || notice}
-        </div>
-      )}
+              {error || notice}
+            </div>
+          )}
 
       {tab === "overview" && (
         <Overview
@@ -533,16 +546,17 @@ export function HrManagementPage() {
           commit={commit}
         />
       )}
-      {profileEditor && (
-        <Editor
-          title={`Employee profile · ${profileEditor.fullName}`}
-          description="Maintain the complete HR record. Attendance identity fields remain in the employee report."
-          fields={profileFields}
-          initial={profileValues(profileFor(workspace, profileEditor.id))}
-          onClose={() => setProfileEditor(null)}
-          onSave={async (values) => saveProfile(profileEditor, values)}
-        />
-      )}
+          {profileEditor && (
+            <Editor
+              title={`Employee profile · ${profileEditor.fullName}`}
+              description="Maintain the complete HR record. Attendance identity fields remain in the employee report."
+              fields={profileFields}
+              initial={profileValues(profileFor(workspace, profileEditor.id))}
+              onClose={() => setProfileEditor(null)}
+              onSave={async (values) => saveProfile(profileEditor, values)}
+            />
+          )}
+      </main>
     </AdminLayout>
   );
 }
@@ -574,7 +588,7 @@ function Overview({
     .sort((a, b) => b.count - a.count);
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         <StatCard
           value={activeEmployees.length}
           label="Active employees"

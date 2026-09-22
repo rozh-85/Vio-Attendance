@@ -10,6 +10,7 @@ export const paths = {
   catalog: '/catalog',
   feedback: '/feedback',
   hr: '/hr',
+  hrTab: (tab: string) => `/hr?tab=${encodeURIComponent(tab)}`,
   publicFeedback: (token: string) => `/feedback/${token}`,
   // Unlisted: the shared-phone report names suspected proxy check-ins, so it
   // is not in the sidebar and asks for the owner's password of its own.
