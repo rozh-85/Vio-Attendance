@@ -161,6 +161,36 @@ export interface HrOvertimeRecord {
   status: HrRequestStatus;
 }
 
+export type HrInterviewStatus =
+  | "Approved"
+  | "Interviewed"
+  | "Call Not Answered"
+  | "Did Not Accept"
+  | "Rejected"
+  | "Outside Country"
+  | "Pending / Call Later";
+
+export interface HrInterviewHistoryEntry {
+  id: string;
+  date: string;
+  event: string;
+}
+
+export interface HrInterviewCandidate {
+  id: string;
+  date: string;
+  fullName: string;
+  phone: string;
+  location: string;
+  portfolioUrl: string;
+  status: HrInterviewStatus;
+  notes: string;
+  callAgainDate: string;
+  expectedReturnDate: string;
+  interviewDate: string;
+  history: HrInterviewHistoryEntry[];
+}
+
 export interface HrWorkspace {
   revision: number;
   departments: HrDepartment[];
@@ -213,6 +243,7 @@ export interface HrWorkspace {
     cvUrl: string;
     appliedAt: string;
   }[];
+  interviewCandidates: HrInterviewCandidate[];
   deviceAttendance: {
     id: string;
     deviceId: string;

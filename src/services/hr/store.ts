@@ -175,6 +175,7 @@ export function createDefaultHrWorkspace(): HrWorkspace {
     cycles: [],
     leaveBalances: [],
     candidates: [],
+    interviewCandidates: [],
     deviceAttendance: [],
     audit: [],
     settings: {
@@ -218,6 +219,8 @@ function mergeWorkspace(
     cycles: input?.cycles ?? defaults.cycles,
     leaveBalances: input?.leaveBalances ?? defaults.leaveBalances,
     candidates: input?.candidates ?? defaults.candidates,
+    interviewCandidates:
+      input?.interviewCandidates ?? defaults.interviewCandidates,
     deviceAttendance: input?.deviceAttendance ?? defaults.deviceAttendance,
     audit: input?.audit ?? defaults.audit,
   };

@@ -15,6 +15,7 @@ import {
   Search,
   Settings,
   Upload,
+  UserPlus,
   Users,
   Wallet,
 } from "@/components/icons";
@@ -62,6 +63,7 @@ import {
 } from "@/components/hr/HrUi";
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
+import { InterviewTracking } from "@/components/hr/InterviewTracking";
 
 type Tab =
   | "overview"
@@ -71,6 +73,7 @@ type Tab =
   | "leave"
   | "payroll"
   | "hiring"
+  | "interviews"
   | "locations"
   | "rules"
   | "reports";
@@ -82,6 +85,7 @@ const tabItems: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "leave", label: "Leave & holidays", icon: CalendarDays },
   { id: "payroll", label: "Payroll", icon: Wallet },
   { id: "hiring", label: "Recruitment", icon: FileText },
+  { id: "interviews", label: "Interview tracking", icon: UserPlus },
   { id: "locations", label: "Locations & devices", icon: MapPin },
   { id: "rules", label: "Rules & settings", icon: Settings },
   { id: "reports", label: "Reports & audit", icon: Download },
@@ -506,6 +510,9 @@ export function HrManagementPage() {
         />
       )}
       {tab === "hiring" && <Hiring workspace={workspace} commit={commit} />}
+      {tab === "interviews" && (
+        <InterviewTracking workspace={workspace} commit={commit} />
+      )}
       {tab === "locations" && (
         <div className="space-y-5">
           <Locations workspace={workspace} commit={commit} />
@@ -630,6 +637,11 @@ function Overview({
                 "Recruitment",
                 "Candidates, stages, skills and CV links",
                 "hiring",
+              ],
+              [
+                "Interview tracking",
+                "Contact outcomes, follow-up dates and candidate history",
+                "interviews",
               ],
               [
                 "Location controls",
