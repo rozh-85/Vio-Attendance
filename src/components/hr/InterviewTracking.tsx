@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  Download,
   Eye,
   LinkIcon,
   MapPin,
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { fieldClass } from "@/components/hr/HrUi";
 import { createHrId } from "@/services/hr/store";
+import { exportInterviewTrackingPdf } from "@/services/report/interviewPdf";
 import type {
   HrInterviewCandidate,
   HrInterviewStatus,
@@ -329,6 +331,12 @@ export function InterviewTracking({
   }
 
   const hasFilters = !!(query || statusFilter || dateFilter || locationFilter);
+  const pdfFilters = [
+    query.trim() ? `Search: ${query.trim()}` : "",
+    statusFilter ? `Status: ${statusFilter}` : "",
+    dateFilter ? `Date: ${formatDate(dateFilter)}` : "",
+    locationFilter ? `Location: ${locationFilter}` : "",
+  ].filter(Boolean);
 
   return (
     <div className="space-y-5">
@@ -341,13 +349,23 @@ export function InterviewTracking({
             Manage and track candidates contacted by the HR department.
           </p>
         </div>
-        <Button
-          size="sm"
-          leftIcon={<Plus width={16} />}
-          onClick={() => setEditing(emptyCandidate())}
-        >
-          Add Candidate
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            leftIcon={<Download width={16} />}
+            onClick={() => exportInterviewTrackingPdf(filtered, pdfFilters)}
+          >
+            Export PDF
+          </Button>
+          <Button
+            size="sm"
+            leftIcon={<Plus width={16} />}
+            onClick={() => setEditing(emptyCandidate())}
+          >
+            Add Candidate
+          </Button>
+        </div>
       </header>
 
       <section
