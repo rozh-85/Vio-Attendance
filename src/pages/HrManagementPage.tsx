@@ -46,11 +46,13 @@ import {
 import {
   Collection,
   Editor,
+  EditorPage,
   Section,
   Status,
   Table,
   type Column,
   type Field,
+  type FieldGroup,
   type Values,
   fieldClass,
   options,
@@ -60,6 +62,7 @@ import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
 import {
   HR_NAV_GROUPS,
+  hrTabLabel,
   isHrTab,
   type HrTab,
 } from "@/services/hr/navigation";
@@ -68,7 +71,53 @@ type Tab = HrTab;
 
 const date = () => localDate();
 const id = (prefix: string) => createHrId(prefix);
-const statusOptions = options(["active", "probation", "inactive"]);
+/**
+ * Whether someone still works here. `inactive` is what every "current staff"
+ * filter in the app keys off — attendance rows, payroll and the head counts
+ * all skip it — so the label spells out what it means rather than making HR
+ * remember that "inactive" is how you say "left".
+ */
+const statusOptions = [
+  { value: "active", label: "Active" },
+  { value: "probation", label: "Probation" },
+  { value: "inactive", label: "Former — left the company" },
+];
+
+/**
+ * The status as a dropdown, so HR can move somebody in or out of the company
+ * straight from a list instead of opening their whole profile. Saves on pick.
+ */
+function StatusSelect({
+  employee,
+  workspace,
+  onChange,
+}: {
+  employee: Employee;
+  workspace: HrWorkspace;
+  onChange: (employee: Employee, status: string) => void | Promise<void>;
+}) {
+  const status = profileFor(workspace, employee.id).status ?? "active";
+  const tone =
+    status === "inactive"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : status === "probation"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700";
+  return (
+    <select
+      aria-label={`Employment status for ${employee.fullName}`}
+      className={`h-9 rounded-lg border px-2 text-xs font-semibold outline-none transition-colors focus:ring-2 focus:ring-brand-100 ${tone}`}
+      value={status}
+      onChange={(event) => void onChange(employee, event.target.value)}
+    >
+      {statusOptions.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
 const employmentOptions = options([
   "Full time",
   "Part time",
@@ -167,7 +216,12 @@ export function HrManagementPage() {
   const [error, setError] = useState("");
   const requestedTab = searchParams.get("tab");
   const tab: Tab = isHrTab(requestedTab) ? requestedTab : "overview";
-  const [profileEditor, setProfileEditor] = useState<Employee | null>(null);
+  // The employee profile editor is a full page rather than a dialog — nearly
+  // forty fields do not fit in one. It hangs off `?edit=<employeeId>` so the
+  // browser's Back button closes it and a reload keeps you where you were.
+  const editingEmployeeId = searchParams.get("edit");
+  const profileEditor =
+    employees.find((employee) => employee.id === editingEmployeeId) ?? null;
   const [period, setPeriod] = useState(workspace.payrollPeriod);
   const [attendanceFrom, setAttendanceFrom] = useState(date());
   const [attendanceTo, setAttendanceTo] = useState(date());
@@ -175,6 +229,12 @@ export function HrManagementPage() {
 
   function setTab(next: Tab) {
     setSearchParams({ tab: next });
+  }
+  function openProfileEditor(employee: Employee) {
+    setSearchParams({ tab, edit: employee.id });
+  }
+  function closeProfileEditor() {
+    setSearchParams({ tab });
   }
 
   async function reload() {
@@ -203,10 +263,15 @@ export function HrManagementPage() {
   useEffect(() => {
     void reload();
   }, [data]);
-  async function commit(
+  /**
+   * Applies a change and saves it, re-throwing if it never reached storage.
+   * Use this where the caller navigates away on success; everywhere else
+   * {@link commit} swallows the failure into the page banner.
+   */
+  async function commitOrThrow(
     mutator: (w: HrWorkspace) => HrWorkspace,
     action: string,
-  ) {
+  ): Promise<void> {
     setSaving(true);
     setNotice("");
     setError("");
@@ -227,14 +292,45 @@ export function HrManagementPage() {
       setWorkspace(saved);
       setNotice("Saved.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save HR data.");
+      const message =
+        err instanceof Error ? err.message : "Could not save HR data.";
+      setError(message);
+      throw new Error(message);
     } finally {
       setSaving(false);
     }
   }
-  async function saveProfile(employee: Employee, values: Values) {
+  async function commit(
+    mutator: (w: HrWorkspace) => HrWorkspace,
+    action: string,
+  ): Promise<void> {
+    try {
+      await commitOrThrow(mutator, action);
+    } catch {
+      // Already reported in the page banner by commitOrThrow.
+    }
+  }
+  /** One-pick status change from a list. Stays on the page, banner reports it. */
+  async function setEmployeeStatus(employee: Employee, status: string) {
     const current = profileFor(workspace, employee.id);
     await commit(
+      (w) => ({
+        ...w,
+        profiles: {
+          ...w.profiles,
+          [employee.id]: {
+            ...current,
+            employeeId: employee.id,
+            status: status as HrEmployeeProfile["status"],
+          },
+        },
+      }),
+      `Set ${employee.fullName} to ${status}`,
+    );
+  }
+  async function saveProfile(employee: Employee, values: Values) {
+    const current = profileFor(workspace, employee.id);
+    await commitOrThrow(
       (w) => ({
         ...w,
         profiles: {
@@ -250,7 +346,7 @@ export function HrManagementPage() {
       }),
       `Updated employee profile for ${employee.fullName}`,
     );
-    setProfileEditor(null);
+    closeProfileEditor();
   }
   const activeEmployees = employees.filter(
     (e) => workspace.profiles[e.id]?.status !== "inactive",
@@ -293,88 +389,120 @@ export function HrManagementPage() {
       return [];
     }
   }, [workspace, employees, period]);
-  const profileFields: Field[] = [
-    { key: "jobTitle", label: "Job title", required: true },
+  // The profile form is laid out down the page in these sections. Grouping is
+  // the whole point of moving it out of a dialog: forty fields in one flat
+  // grid is a wall, five named blocks is a form.
+  const profileFieldGroups: FieldGroup[] = [
     {
-      key: "status",
-      label: "Employment status",
-      type: "select",
-      options: statusOptions,
-      required: true,
+      title: "Role & employment",
+      description: "Where this person sits in the company and what they are paid.",
+      fields: [
+        { key: "jobTitle", label: "Job title", required: true },
+        {
+          key: "status",
+          label: "Employment status",
+          type: "select",
+          options: statusOptions,
+          required: true,
+        },
+        {
+          key: "employmentType",
+          label: "Employment type",
+          type: "select",
+          options: employmentOptions,
+          required: true,
+        },
+        {
+          key: "departmentId",
+          label: "Department",
+          type: "select",
+          options: workspace.departments.map((d) => ({
+            value: d.id,
+            label: d.name,
+          })),
+        },
+        {
+          key: "managerId",
+          label: "Reports to",
+          type: "select",
+          options: employees
+            .filter((e) => e.id !== profileEditor?.id)
+            .map((e) => ({ value: e.id, label: e.fullName })),
+        },
+        { key: "joinDate", label: "Join date", type: "date", required: true },
+        { key: "contractEnd", label: "Contract end", type: "date" },
+        { key: "workHours", label: "Work hours" },
+        {
+          key: "baseSalary",
+          label: "Base monthly salary",
+          type: "number",
+          min: 0,
+          required: true,
+        },
+        { key: "email", label: "Work email", type: "email" },
+        { key: "bankAccount", label: "Bank account / IBAN" },
+      ],
     },
     {
-      key: "employmentType",
-      label: "Employment type",
-      type: "select",
-      options: employmentOptions,
-      required: true,
+      title: "Personal",
+      description: "Identity and contact details kept on the HR record.",
+      fields: [
+        { key: "birthDate", label: "Birth date", type: "date" },
+        { key: "birthPlace", label: "Birth place" },
+        {
+          key: "gender",
+          label: "Gender",
+          type: "select",
+          options: options(["male", "female", "other"]),
+        },
+        { key: "maritalStatus", label: "Marital status" },
+        { key: "bloodType", label: "Blood type" },
+        { key: "nationalId", label: "National ID" },
+        { key: "photoUrl", label: "Personal photo URL", type: "url" },
+        { key: "address", label: "Address", type: "textarea" },
+      ],
     },
     {
-      key: "departmentId",
-      label: "Department",
-      type: "select",
-      options: workspace.departments.map((d) => ({
-        value: d.id,
-        label: d.name,
-      })),
+      title: "Emergency & health",
+      description: "Who to call, and anything a first responder should know.",
+      fields: [
+        { key: "emergencyContact", label: "Emergency contact" },
+        { key: "emergencyRelation", label: "Emergency contact relation" },
+        { key: "emergencyPhone", label: "Emergency contact phone" },
+        { key: "chronicDisease", label: "Chronic disease" },
+      ],
     },
     {
-      key: "managerId",
-      label: "Reports to",
-      type: "select",
-      options: employees
-        .filter((e) => e.id !== profileEditor?.id)
-        .map((e) => ({ value: e.id, label: e.fullName })),
-    },
-    { key: "joinDate", label: "Join date", type: "date", required: true },
-    { key: "contractEnd", label: "Contract end", type: "date" },
-    { key: "birthDate", label: "Birth date", type: "date" },
-    { key: "birthPlace", label: "Birth place" },
-    {
-      key: "gender",
-      label: "Gender",
-      type: "select",
-      options: options(["male", "female", "other"]),
-    },
-    { key: "maritalStatus", label: "Marital status" },
-    { key: "bloodType", label: "Blood type" },
-    { key: "email", label: "Work email", type: "email" },
-    { key: "emergencyContact", label: "Emergency contact" },
-    { key: "emergencyRelation", label: "Emergency contact relation" },
-    { key: "emergencyPhone", label: "Emergency contact phone" },
-    { key: "chronicDisease", label: "Chronic disease" },
-    { key: "photoUrl", label: "Personal photo URL", type: "url" },
-    { key: "nationalId", label: "National ID" },
-    { key: "bankAccount", label: "Bank account / IBAN" },
-    { key: "address", label: "Address", type: "textarea" },
-    {
-      key: "baseSalary",
-      label: "Base monthly salary",
-      type: "number",
-      min: 0,
-      required: true,
+      title: "Education & skills",
+      description: "Qualifications and experience, searchable from the directory.",
+      fields: [
+        { key: "educationLevel", label: "Education level" },
+        { key: "university", label: "University / institute" },
+        { key: "specialization", label: "Specialization" },
+        { key: "graduationYear", label: "Graduation year" },
+        { key: "education", label: "Education", type: "textarea" },
+        {
+          key: "skills",
+          label: "Skills",
+          type: "textarea",
+          hint: "Comma-separated skills for the employee directory.",
+        },
+        { key: "experience", label: "Experience", type: "textarea" },
+        { key: "languages", label: "Languages", type: "textarea" },
+        { key: "computerSkills", label: "Computer skills", type: "textarea" },
+        { key: "trainings", label: "Courses / training", type: "textarea" },
+      ],
     },
     {
-      key: "skills",
-      label: "Skills",
-      type: "textarea",
-      hint: "Comma-separated skills for the employee directory.",
-    },
-    { key: "education", label: "Education", type: "textarea" },
-    { key: "educationLevel", label: "Education level" },
-    { key: "university", label: "University / institute" },
-    { key: "specialization", label: "Specialization" },
-    { key: "graduationYear", label: "Graduation year" },
-    { key: "experience", label: "Experience", type: "textarea" },
-    { key: "workHours", label: "Work hours" },
-    { key: "languages", label: "Languages", type: "textarea" },
-    { key: "computerSkills", label: "Computer skills", type: "textarea" },
-    { key: "trainings", label: "Courses / training", type: "textarea" },
-    {
-      key: "cvSummary",
-      label: "CV summary",
-      type: "textarea",
-      hint: "Keep a short, searchable summary here. Upload a CV link in Documents below.",
+      title: "Summary",
+      fields: [
+        {
+          key: "cvSummary",
+          label: "CV summary",
+          type: "textarea",
+          hint: "Keep a short, searchable summary here. Upload a CV link in Documents below.",
+        },
+      ],
     },
   ];
   const departmentColumns: Column<HrDepartment>[] = [
@@ -424,6 +552,25 @@ export function HrManagementPage() {
     return (
       <AdminLayout>
         <Card className="p-8 text-center text-rose-600">{error}</Card>
+      </AdminLayout>
+    );
+
+  // Editing a profile takes over the whole page — no module selector, no tab
+  // content behind it.
+  if (profileEditor)
+    return (
+      <AdminLayout>
+        <EditorPage
+          key={profileEditor.id}
+          eyebrow="Employee profile"
+          title={profileEditor.fullName}
+          description={`${profileEditor.code} · ${profileEditor.phone} — the complete HR record. Name, phone and position stay on the employee report.`}
+          backLabel={`Back to ${hrTabLabel(tab).toLowerCase()}`}
+          groups={profileFieldGroups}
+          initial={profileValues(profileFor(workspace, profileEditor.id))}
+          onClose={closeProfileEditor}
+          onSave={async (values) => saveProfile(profileEditor, values)}
+        />
       </AdminLayout>
     );
 
@@ -495,7 +642,8 @@ export function HrManagementPage() {
             workspace={workspace}
             query={employeeQuery}
             setQuery={setEmployeeQuery}
-            onEdit={setProfileEditor}
+            onEdit={openProfileEditor}
+            onStatusChange={setEmployeeStatus}
           />
           <HrDocuments
             workspace={workspace}
@@ -511,7 +659,8 @@ export function HrManagementPage() {
           attendance={attendance}
           query={employeeQuery}
           setQuery={setEmployeeQuery}
-          onEdit={setProfileEditor}
+          onEdit={openProfileEditor}
+          onStatusChange={setEmployeeStatus}
         />
       )}
       {tab === "organization" && (
@@ -577,16 +726,6 @@ export function HrManagementPage() {
           commit={commit}
         />
       )}
-          {profileEditor && (
-            <Editor
-              title={`Employee profile · ${profileEditor.fullName}`}
-              description="Maintain the complete HR record. Attendance identity fields remain in the employee report."
-              fields={profileFields}
-              initial={profileValues(profileFor(workspace, profileEditor.id))}
-              onClose={() => setProfileEditor(null)}
-              onSave={async (values) => saveProfile(profileEditor, values)}
-            />
-          )}
       </main>
     </AdminLayout>
   );
@@ -755,6 +894,7 @@ function People({
   workspace,
   query,
   setQuery,
+  onStatusChange,
   onEdit,
 }: {
   employees: Employee[];
@@ -762,6 +902,7 @@ function People({
   query: string;
   setQuery: (v: string) => void;
   onEdit: (e: Employee) => void;
+  onStatusChange: (e: Employee, status: string) => void | Promise<void>;
 }) {
   const rows = employees.filter((e) =>
     `${e.fullName} ${e.phone} ${e.code} ${e.position} ${profileFor(workspace, e.id).email}`
@@ -826,9 +967,11 @@ function People({
             {
               title: "Employment",
               render: (e) => (
-                <Status>
-                  {profileFor(workspace, e.id).status ?? "active"}
-                </Status>
+                <StatusSelect
+                  employee={e}
+                  workspace={workspace}
+                  onChange={onStatusChange}
+                />
               ),
             },
             {
@@ -944,6 +1087,7 @@ function EmployeeDetails({
   query,
   setQuery,
   onEdit,
+  onStatusChange,
 }: {
   employees: Employee[];
   workspace: HrWorkspace;
@@ -951,6 +1095,7 @@ function EmployeeDetails({
   query: string;
   setQuery: (v: string) => void;
   onEdit: (e: Employee) => void;
+  onStatusChange: (e: Employee, status: string) => void | Promise<void>;
 }) {
   const [view, setView] = useState<EmployeeDetailsView>("current");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1130,7 +1275,11 @@ function EmployeeDetails({
                           {formatEmployeeDate(profile.joinDate)}
                         </td>
                         <td className="px-5 py-3.5 align-middle">
-                          <Status>{profile.status ?? "active"}</Status>
+                          <StatusSelect
+                            employee={employee}
+                            workspace={workspace}
+                            onChange={onStatusChange}
+                          />
                         </td>
                         <td className="px-5 py-3.5 align-middle">
                           <div className="flex flex-col items-start gap-1">

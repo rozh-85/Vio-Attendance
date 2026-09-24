@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { Pencil, Plus, Search } from "@/components/icons";
+import { ArrowLeft, Pencil, Plus, Search } from "@/components/icons";
 
 export type Values = Record<string, string | number | boolean | string[]>;
 export interface Field {
@@ -142,6 +142,175 @@ export function Fields({
     </div>
   );
 }
+/**
+ * Runs the same checks the editors used to do inline, so the dialog and the
+ * full-page editor reject exactly the same input. Throws on the first problem.
+ */
+export function assertValid(fields: Field[], value: Values): void {
+  for (const f of fields) {
+    const v = value[f.key];
+    if (
+      f.required &&
+      (v == null ||
+        (typeof v === "string" && !v.trim()) ||
+        (Array.isArray(v) && v.length === 0))
+    )
+      throw new Error(`${f.label} is required.`);
+    if (
+      f.type === "number" &&
+      v !== "" &&
+      v != null &&
+      (!Number.isFinite(Number(v)) ||
+        (f.min !== undefined && Number(v) < f.min) ||
+        (f.max !== undefined && Number(v) > f.max))
+    )
+      throw new Error(`Enter a valid ${f.label.toLowerCase()}.`);
+  }
+}
+
+/** A titled block of fields inside {@link EditorPage}. */
+export interface FieldGroup {
+  title: string;
+  description?: string;
+  fields: Field[];
+}
+
+/**
+ * A record editor that takes the whole page instead of a dialog.
+ *
+ * Long forms — the employee profile runs to nearly forty fields — do not fit
+ * in a modal: it scrolls inside itself, hides the page behind it, and gives no
+ * room to group anything. This lays the same fields out down the page in
+ * titled sections, with the actions repeated at the top and the bottom so they
+ * are in reach whichever end of the form you are at.
+ *
+ * `onSave` owns what happens next: it is awaited, anything it throws is shown
+ * here, and leaving the page afterwards is the caller's business.
+ */
+export function EditorPage({
+  eyebrow,
+  title,
+  description,
+  backLabel,
+  groups,
+  initial,
+  onSave,
+  onClose,
+  saveLabel = "Save changes",
+}: {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  /** What the back link goes back to, e.g. "Employee details". */
+  backLabel: string;
+  groups: FieldGroup[];
+  initial: Values;
+  onSave: (v: Values) => Promise<void>;
+  onClose: () => void;
+  saveLabel?: string;
+}) {
+  const [value, setValue] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const fields = groups.flatMap((group) => group.fields);
+
+  // `ml-auto` keeps the buttons on the right even when the header wraps them
+  // onto their own line on a narrower screen.
+  const actions = (
+    <div className="ml-auto flex shrink-0 gap-2">
+      <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
+        Cancel
+      </Button>
+      <Button type="submit" loading={busy}>
+        {saveLabel}
+      </Button>
+    </div>
+  );
+
+  return (
+    <form
+      className="min-w-0"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setError("");
+        setBusy(true);
+        try {
+          assertValid(fields, value);
+          await onSave(value);
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : "Unable to save this record.",
+          );
+          // A failure near the bottom of a long form is easy to miss.
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <header className="mb-6">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition-colors hover:text-ink-900"
+        >
+          <ArrowLeft width={18} height={18} /> {backLabel}
+        </button>
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            {eyebrow && (
+              <div className="text-xs font-bold uppercase tracking-wider text-brand-600">
+                {eyebrow}
+              </div>
+            )}
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">{title}</h1>
+            {description && (
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-500">
+                {description}
+              </p>
+            )}
+          </div>
+          {actions}
+        </div>
+      </header>
+
+      {error && (
+        <p
+          role="alert"
+          className="mb-5 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700"
+        >
+          {error}
+        </p>
+      )}
+
+      <div className="space-y-5">
+        {groups.map((group) => (
+          <Section
+            key={group.title}
+            title={group.title}
+            description={group.description}
+          >
+            <div className="p-5">
+              <Fields
+                fields={group.fields}
+                value={value}
+                onChange={setValue}
+              />
+            </div>
+          </Section>
+        ))}
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
+        <p className="text-sm text-ink-500">
+          Nothing is saved until you choose {saveLabel.toLowerCase()}.
+        </p>
+        {actions}
+      </div>
+    </form>
+  );
+}
+
 export function Editor({
   title,
   fields,
@@ -174,25 +343,7 @@ export function Editor({
           setError("");
           setBusy(true);
           try {
-            for (const f of fields) {
-              const v = value[f.key];
-              if (
-                f.required &&
-                (v == null ||
-                  (typeof v === "string" && !v.trim()) ||
-                  (Array.isArray(v) && v.length === 0))
-              )
-                throw new Error(`${f.label} is required.`);
-              if (
-                f.type === "number" &&
-                v !== "" &&
-                v != null &&
-                (!Number.isFinite(Number(v)) ||
-                  (f.min !== undefined && Number(v) < f.min) ||
-                  (f.max !== undefined && Number(v) > f.max))
-              )
-                throw new Error(`Enter a valid ${f.label.toLowerCase()}.`);
-            }
+            assertValid(fields, value);
             await onSave(value);
             onClose();
           } catch (err) {

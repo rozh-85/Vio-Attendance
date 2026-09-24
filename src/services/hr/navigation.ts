@@ -55,3 +55,8 @@ export const HR_TABS = HR_NAV_GROUPS.flatMap((group) => group.items);
 export function isHrTab(value: string | null): value is HrTab {
   return HR_TABS.some((item) => item.id === value);
 }
+
+/** The sidebar label for a tab, e.g. for a "back to …" link. */
+export function hrTabLabel(tab: HrTab): string {
+  return HR_TABS.find((item) => item.id === tab)?.label ?? "HR management";
+}
