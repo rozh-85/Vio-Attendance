@@ -236,7 +236,7 @@ export function Editor({
 export function Status({ children }: { children: ReactNode }) {
   const value = String(children).toLowerCase();
   const color =
-    /approved|paid|active|present|complete|hired/.test(value) &&
+    /approved|paid|active|present|complete|hired|clocked in/.test(value) &&
     !/inactive|incomplete/.test(value)
       ? "bg-emerald-50 text-emerald-700"
       : /rejected|absent|expired|inactive/.test(value)

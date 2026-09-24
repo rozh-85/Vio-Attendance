@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/AdminLayout";
 import { Card } from "@/components/ui/Card";
@@ -329,8 +329,21 @@ export function HrManagementPage() {
     { key: "joinDate", label: "Join date", type: "date", required: true },
     { key: "contractEnd", label: "Contract end", type: "date" },
     { key: "birthDate", label: "Birth date", type: "date" },
+    { key: "birthPlace", label: "Birth place" },
+    {
+      key: "gender",
+      label: "Gender",
+      type: "select",
+      options: options(["male", "female", "other"]),
+    },
+    { key: "maritalStatus", label: "Marital status" },
+    { key: "bloodType", label: "Blood type" },
     { key: "email", label: "Work email", type: "email" },
     { key: "emergencyContact", label: "Emergency contact" },
+    { key: "emergencyRelation", label: "Emergency contact relation" },
+    { key: "emergencyPhone", label: "Emergency contact phone" },
+    { key: "chronicDisease", label: "Chronic disease" },
+    { key: "photoUrl", label: "Personal photo URL", type: "url" },
     { key: "nationalId", label: "National ID" },
     { key: "bankAccount", label: "Bank account / IBAN" },
     { key: "address", label: "Address", type: "textarea" },
@@ -348,7 +361,15 @@ export function HrManagementPage() {
       hint: "Comma-separated skills for the employee directory.",
     },
     { key: "education", label: "Education", type: "textarea" },
+    { key: "educationLevel", label: "Education level" },
+    { key: "university", label: "University / institute" },
+    { key: "specialization", label: "Specialization" },
+    { key: "graduationYear", label: "Graduation year" },
     { key: "experience", label: "Experience", type: "textarea" },
+    { key: "workHours", label: "Work hours" },
+    { key: "languages", label: "Languages", type: "textarea" },
+    { key: "computerSkills", label: "Computer skills", type: "textarea" },
+    { key: "trainings", label: "Courses / training", type: "textarea" },
     {
       key: "cvSummary",
       label: "CV summary",
@@ -482,6 +503,16 @@ export function HrManagementPage() {
             commit={commit}
           />
         </div>
+      )}
+      {tab === "employee-details" && (
+        <EmployeeDetails
+          employees={employees}
+          workspace={workspace}
+          attendance={attendance}
+          query={employeeQuery}
+          setQuery={setEmployeeQuery}
+          onEdit={setProfileEditor}
+        />
       )}
       {tab === "organization" && (
         <Organization
@@ -631,6 +662,11 @@ function Overview({
                 "People profiles",
                 "Personal, contract, salary, bank and emergency details",
                 "people",
+              ],
+              [
+                "Employee details",
+                "Current and former employees with today’s clocked status",
+                "employee-details",
               ],
               [
                 "Time policies",
@@ -872,6 +908,343 @@ function People({
           ))}
         </div>
       </Card>
+    </div>
+  );
+}
+
+type EmployeeDetailsView = "current" | "former" | "all";
+
+function formatEmployeeDate(value?: string): string {
+  if (!value) return "—";
+  const parsed = new Date(value.includes("T") ? value : `${value}T12:00:00`);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleDateString(undefined, {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+}
+
+function formatEmployeeTime(value?: string): string {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+}
+
+function EmployeeDetails({
+  employees,
+  workspace,
+  attendance,
+  query,
+  setQuery,
+  onEdit,
+}: {
+  employees: Employee[];
+  workspace: HrWorkspace;
+  attendance: AttendanceRecord[];
+  query: string;
+  setQuery: (v: string) => void;
+  onEdit: (e: Employee) => void;
+}) {
+  const [view, setView] = useState<EmployeeDetailsView>("current");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const today = localDate();
+  const records = [
+    ...attendance,
+    ...workspace.deviceAttendance.map((record) => ({
+      id: record.id,
+      sessionId: `device-${record.deviceId}`,
+      employeeId: record.employeeId,
+      checkInAt: record.checkInAt,
+      checkOutAt: record.checkOutAt,
+    })),
+  ];
+  const attendanceFor = (employeeId: string) => {
+    const todayRecords = records
+      .filter(
+        (record) =>
+          record.employeeId === employeeId &&
+          !!record.checkInAt &&
+          localDate(new Date(record.checkInAt)) === today,
+      )
+      .sort((a, b) =>
+        (b.checkInAt ?? "").localeCompare(a.checkInAt ?? ""),
+      );
+    const latest = todayRecords[0];
+    if (!latest?.checkInAt) {
+      return { state: "Not clocked" as const, checkInAt: "", checkOutAt: "" };
+    }
+    return {
+      state: latest.checkOutAt ? ("Clocked out" as const) : ("Clocked in" as const),
+      checkInAt: latest.checkInAt,
+      checkOutAt: latest.checkOutAt ?? "",
+    };
+  };
+  const currentCount = employees.filter(
+    (employee) => profileFor(workspace, employee.id).status !== "inactive",
+  ).length;
+  const formerCount = employees.length - currentCount;
+  const clockedInCount = employees.filter(
+    (employee) => attendanceFor(employee.id).state === "Clocked in",
+  ).length;
+  const visibleEmployees = employees
+    .filter((employee) => {
+      const isFormer = profileFor(workspace, employee.id).status === "inactive";
+      return view === "all" || (view === "former" ? isFormer : !isFormer);
+    })
+    .filter((employee) => {
+      const profile = profileFor(workspace, employee.id);
+      return `${employee.fullName} ${employee.code} ${employee.phone} ${employee.position} ${profile.jobTitle} ${profile.email}`
+        .toLowerCase()
+        .includes(query.toLowerCase());
+    });
+
+  const info = (label: string, value?: string | number) => (
+    <div key={label}>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+        {label}
+      </div>
+      <div className="mt-1 break-words text-sm font-medium text-ink-800">
+        {value === undefined || value === "" ? "—" : value}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard value={currentCount} label="Current employees" tone="info" />
+        <StatCard value={clockedInCount} label="Clocked in today" tone="success" />
+        <StatCard value={formerCount} label="Former employees" tone="warning" />
+        <StatCard value={employees.length} label="All employee records" tone="neutral" />
+      </div>
+      <Section
+        title="Employee details"
+        description="A live workforce register with today’s clocked status. Open a row to review the complete HR form, or edit it from the profile editor."
+        action={
+          <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {([
+              ["current", `Current · ${currentCount}`],
+              ["former", `Former · ${formerCount}`],
+              ["all", `All · ${employees.length}`],
+            ] as [EmployeeDetailsView, string][]).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setView(value);
+                  setExpandedId(null);
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  view === value
+                    ? "bg-white text-brand-700 shadow-sm"
+                    : "text-ink-500 hover:text-ink-900"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
+          <div className="flex min-w-[240px] flex-1 items-center gap-2">
+            <Search width={17} className="text-ink-400" />
+            <input
+              className={fieldClass}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search name, code, phone, title or email…"
+              aria-label="Search employee details"
+            />
+          </div>
+          <span className="text-sm text-ink-500">
+            Showing {visibleEmployees.length} of {employees.length}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="bg-slate-50/80">
+              <tr>
+                {[
+                  "Employee",
+                  "Role / department",
+                  "Contact",
+                  "Joined",
+                  "Employment",
+                  "Clocked today",
+                  "Actions",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    className="whitespace-nowrap px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500"
+                  >
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleEmployees.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-14 text-center text-ink-500">
+                    {view === "former"
+                      ? "No former employees match this search."
+                      : "No employee records match this search."}
+                  </td>
+                </tr>
+              ) : (
+                visibleEmployees.map((employee) => {
+                  const profile = profileFor(workspace, employee.id);
+                  const department = workspace.departments.find(
+                    (item) => item.id === profile.departmentId,
+                  )?.name;
+                  const clock = attendanceFor(employee.id);
+                  const expanded = expandedId === employee.id;
+                  return (
+                    <Fragment key={employee.id}>
+                      <tr
+                        className="border-t border-slate-100 transition-colors hover:bg-slate-50/60"
+                      >
+                        <td className="px-5 py-3.5 align-middle">
+                          <div className="font-semibold text-ink-900">{employee.fullName}</div>
+                          <div className="mt-0.5 font-mono text-xs text-ink-400">
+                            {employee.code} · {employee.phone}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 align-middle">
+                          <div>{profile.jobTitle || employee.position || "No title"}</div>
+                          <div className="text-xs text-ink-500">{department ?? "Unassigned"}</div>
+                        </td>
+                        <td className="px-5 py-3.5 align-middle">
+                          <div>{profile.email || "No email"}</div>
+                          <div className="text-xs text-ink-500">{profile.emergencyContact || "No emergency contact"}</div>
+                        </td>
+                        <td className="px-5 py-3.5 align-middle whitespace-nowrap">
+                          {formatEmployeeDate(profile.joinDate)}
+                        </td>
+                        <td className="px-5 py-3.5 align-middle">
+                          <Status>{profile.status ?? "active"}</Status>
+                        </td>
+                        <td className="px-5 py-3.5 align-middle">
+                          <div className="flex flex-col items-start gap-1">
+                            <Status>{clock.state}</Status>
+                            <span className="text-xs text-ink-500">
+                              {clock.checkInAt
+                                ? `${formatEmployeeTime(clock.checkInAt)}${clock.checkOutAt ? ` – ${formatEmployeeTime(clock.checkOutAt)}` : ""}`
+                                : "No record today"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 align-middle">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setExpandedId(expanded ? null : employee.id)}
+                            >
+                              {expanded ? "Hide details" : "View details"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              leftIcon={<Pencil width={14} />}
+                              onClick={() => onEdit(employee)}
+                            >
+                              Edit
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr key={`${employee.id}-details`} className="border-t border-slate-100 bg-slate-50/70">
+                          <td colSpan={7} className="px-5 py-5">
+                            <div className="grid gap-5 lg:grid-cols-4">
+                              <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-700">Personal</h3>
+                                <div className="mt-3 grid gap-3">{
+                                  [
+                                    info("Full name", employee.fullName),
+                                    info("Phone", employee.phone),
+                                    info("Birth date", formatEmployeeDate(profile.birthDate)),
+                                    info("Birth place", profile.birthPlace),
+                                    info("Gender", profile.gender),
+                                    info("Marital status", profile.maritalStatus),
+                                    info("Blood type", profile.bloodType),
+                                    info("Address", profile.address),
+                                  ]
+                                }</div>
+                              </div>
+                              <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-700">Education & skills</h3>
+                                <div className="mt-3 grid gap-3">{
+                                  [
+                                    info("Education level", profile.educationLevel || profile.education),
+                                    info("University / institute", profile.university),
+                                    info("Specialization", profile.specialization),
+                                    info("Graduation year", profile.graduationYear),
+                                    info("Skills", profile.skills),
+                                    info("Experience", profile.experience),
+                                    info("Languages", profile.languages),
+                                    info("Computer skills", profile.computerSkills),
+                                    info("Courses / training", profile.trainings),
+                                  ]
+                                }</div>
+                              </div>
+                              <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-700">Work record</h3>
+                                <div className="mt-3 grid gap-3">{
+                                  [
+                                    info("Job title", profile.jobTitle || employee.position),
+                                    info("Employment type", profile.employmentType),
+                                    info("Join date", formatEmployeeDate(profile.joinDate)),
+                                    info("Contract end", formatEmployeeDate(profile.contractEnd)),
+                                    info("Work hours", profile.workHours),
+                                    info("Monthly salary", profile.baseSalary ? money(profile.baseSalary, workspace.settings.currency) : "—"),
+                                    info("National ID", profile.nationalId),
+                                    info("Bank account", profile.bankAccount),
+                                  ]
+                                }</div>
+                              </div>
+                              <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-700">Emergency & documents</h3>
+                                <div className="mt-3 grid gap-3">{
+                                  [
+                                    info("Emergency contact", profile.emergencyContact),
+                                    info("Relation", profile.emergencyRelation),
+                                    info("Emergency phone", profile.emergencyPhone),
+                                    info("Chronic disease", profile.chronicDisease),
+                                    info("Personal photo", profile.photoUrl ? "Attached" : "Not attached"),
+                                    info(
+                                      "Documents",
+                                      profile.documents.length
+                                        ? profile.documents.map((document) => document.title).join(", ")
+                                        : "No documents",
+                                    ),
+                                    info("CV summary", profile.cvSummary),
+                                    info("Last clock-in", clock.checkInAt ? formatEmployeeTime(clock.checkInAt) : "—"),
+                                    info("Last clock-out", clock.checkOutAt ? formatEmployeeTime(clock.checkOutAt) : "—"),
+                                  ]
+                                }</div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Section>
     </div>
   );
 }

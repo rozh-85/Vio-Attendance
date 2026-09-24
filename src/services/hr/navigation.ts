@@ -1,6 +1,7 @@
 export type HrTab =
   | "overview"
   | "people"
+  | "employee-details"
   | "organization"
   | "time"
   | "leave"
@@ -20,6 +21,7 @@ export const HR_NAV_GROUPS: {
     items: [
       { id: "overview", label: "Overview" },
       { id: "people", label: "People & profiles" },
+      { id: "employee-details", label: "Employee details" },
       { id: "organization", label: "Organization" },
     ],
   },

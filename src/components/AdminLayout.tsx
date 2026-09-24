@@ -49,6 +49,7 @@ const sharedPhonesLink = {
 const hrIcons: Record<HrTab, typeof Users> = {
   overview: Home,
   people: Users,
+  'employee-details': Users,
   organization: Building,
   time: Clock,
   leave: CalendarDays,
