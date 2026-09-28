@@ -80,6 +80,8 @@ export class SupabaseDataService implements DataService {
       latitude: row.latitude ?? undefined,
       longitude: row.longitude ?? undefined,
       accuracy: row.accuracy_m ?? undefined,
+      ipAddress: row.ip_address ?? undefined,
+      ipCountry: row.ip_country ?? undefined,
       at: row.at,
     };
   }
@@ -555,6 +557,9 @@ interface CheckInEventRow {
   latitude: number | null;
   longitude: number | null;
   accuracy_m: number | null;
+  // Missing entirely until supabase/check-in-network.sql has been run.
+  ip_address?: string | null;
+  ip_country?: string | null;
   at: string;
 }
 

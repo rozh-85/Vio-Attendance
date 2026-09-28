@@ -175,8 +175,9 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         {mode === 'check-in' && (
           <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-ink-500">
-            Location is optional. If you allow it, your phone's approximate
-            position is kept for the private admin attendance report.
+            Please allow location when your phone asks — it shows you checked
+            in at the work site. A check-in without location is still saved,
+            but it is marked for your manager to review.
           </p>
         )}
         <Input

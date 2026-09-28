@@ -15,6 +15,8 @@ export const paths = {
   // Unlisted: the shared-phone report names suspected proxy check-ins, so it
   // is not in the sidebar and asks for the owner's password of its own.
   devices: '/rozhadmin',
+  // Behind the same owner password: who checked in away from the work site.
+  checkInLocations: '/rozhadmin/locations',
   session: (id: string) => `/session/${id}`,
   recover: '/recover',
   checkIn: (sessionId: string) => `/checkin/${sessionId}`,
@@ -31,6 +33,7 @@ export const routePatterns = {
   hr: '/hr',
   publicFeedback: '/feedback/:token',
   devices: '/rozhadmin',
+  checkInLocations: '/rozhadmin/locations',
   session: '/session/:sessionId',
   recover: '/recover',
   checkIn: '/checkin/:sessionId',

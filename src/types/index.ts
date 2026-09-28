@@ -123,6 +123,14 @@ export interface CheckInEvent {
   latitude?: number;
   longitude?: number;
   accuracy?: number;
+  /**
+   * The network the check-in arrived from, recorded by the database itself
+   * (see supabase/check-in-network.sql). Absent before that migration and on
+   * the local backend.
+   */
+  ipAddress?: string;
+  /** Two-letter country of that network, e.g. "IQ". "T1" is Tor. */
+  ipCountry?: string;
   at: string; // ISO timestamp
 }
 

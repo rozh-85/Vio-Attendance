@@ -53,9 +53,11 @@ Everything lives in one file: [`supabase/schema.sql`](supabase/schema.sql).
 
 To record the phone's approximate GPS position with each check-in, run
 [`supabase/check-in-location.sql`](supabase/check-in-location.sql) after the
-main schema. Coordinates are shown only in the owner-gated `/rozhadmin` report;
-if an employee declines the browser's location prompt, the check-in still works
-without coordinates.
+main schema. Coordinates are shown only on the owner-gated `/rozhadmin/locations`
+page; if an employee declines the browser's location prompt, the check-in still works
+without coordinates. To also record the network each check-in came from (for
+spotting VPNs), run [`supabase/check-in-network.sql`](supabase/check-in-network.sql).
+See [Checking where people check in from](#checking-where-people-check-in-from).
 
 A commented-out smoke test at the bottom of `schema.sql` runs the whole flow
 (create session → register employee → check in → check out) and cleans up after
@@ -66,7 +68,7 @@ itself, if you want to prove the database works before touching the UI.
 | `employees`       | `code`, `full_name`, `phone` (unique), `position`          |
 | `sessions`        | supervisor, title, location, status, the two QR gates      |
 | `attendance`      | one row per employee per session, with in/out timestamps   |
-| `check_in_events` | append-only phone and optional GPS log for each check-in    |
+| `check_in_events` | append-only phone, optional GPS and network log per check-in |
 
 The app talks to the database with the public **anon key**, which ships inside
 the browser bundle. That key can do only four things, all through
@@ -97,9 +99,9 @@ employee, it is reported in two places:
 
   That page names employees suspected of checking in for each other, so it is
   **unlisted**: reached by typing the address, and asking for the owner's email
-  and password on top of the supervisor sign-in. Once unlocked it joins the
-  sidebar for that browser tab; **Lock report** (or closing the browser) removes
-  it again. Change who can open it with `VITE_OWNER_EMAIL` /
+  and password on top of the supervisor sign-in. Once unlocked it — and
+  **Check-in locations**, behind the same password — joins the sidebar for that
+  browser tab; **Lock report** (or closing the browser) removes them again. Change who can open it with `VITE_OWNER_EMAIL` /
   `VITE_OWNER_PASSWORD` (see [`.env.example`](.env.example)); the built-in
   password is stored only as a SHA-256 digest in
   [`ownerGate.ts`](src/services/auth/ownerGate.ts).
@@ -122,6 +124,41 @@ and `v_window` in the SQL `check_in` function. Change them together.
 > This makes casual proxy check-ins obvious; it does not make them impossible.
 > An employee who clears their site data or opens a private tab gets a fresh
 > device id. Treat the report as a prompt to look up, not as proof.
+
+## Checking where people check in from
+
+Set the work sites once under **HR management → Locations & devices → Add work
+location**: a name, the latitude and longitude of the building (in Google Maps,
+press and hold on it) and an allowed radius — 100–200 m suits an office. Only
+**active** locations count. **Test a geofence** on the same page checks any
+position, or this device's own, against exactly the rule the report uses.
+
+From then on every QR check-in's GPS is compared with those locations, and the
+**`/rozhadmin/locations`** page names:
+
+- **Outside** — the phone was beyond the radius of every active location. The
+  page says how far, from the nearest one, with a map link.
+- **No location shared** — the employee refused the location prompt, or the
+  phone gave no GPS. Nothing shows they were on site.
+
+That page is the only place any of this appears: it sits behind the same owner
+password as the shared-phone report, and the session screen, the HR pages and
+every supervisor never see it. On **Today** it refreshes itself every few
+seconds, so it can stay open during check-in. **Nothing is ever blocked.** The
+comparison lives in [`geofence.ts`](src/services/attendance/geofence.ts).
+
+**VPNs.** A VPN changes the phone's internet address, never its GPS, so it
+cannot move a check-in inside a work location. After
+[`supabase/check-in-network.sql`](supabase/check-in-network.sql) has been run,
+the database also records each check-in's network address and its country
+(from Cloudflare, in front of Supabase). A network outside `VITE_HOME_COUNTRY`
+(`IQ` by default) is marked **VPN?** on that page, next to where the GPS says
+the phone really was; the **VPN** filter lists them all. If a row shows only an
+address and no country, click it to look the network up.
+
+> What this cannot catch: a fake-GPS app on a rooted or developer-mode phone
+> reports whatever position it is told to. The rotating QR (someone on site has
+> to show it) and the shared-phone report still apply in that case.
 
 ## Branding
 
@@ -225,6 +262,7 @@ src/
 | `/feedback/:token`       | Customer   | Read-only product feedback gallery     |
 | `/VioAdmin`             | Supervisor | Sign in (deliberately non-obvious)     |
 | `/rozhadmin`             | Owner      | Phones used by several employees (unlisted, own password) |
+| `/rozhadmin/locations`   | Owner      | Check-ins outside the work location, and VPNs (same password) |
 | `/checkin/:sessionId`    | Employee   | Enter code to check in                 |
 | `/checkout/:sessionId`   | Employee   | Enter code to check out                |
 | `/recover`               | Employee   | Look up code by phone number           |

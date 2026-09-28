@@ -129,10 +129,14 @@ create table if not exists public.check_in_events (
   -- Human-readable hint for the supervisor, e.g. "iPhone · Safari".
   device_label      text not null default '',
   -- Optional GPS captured on the employee's check-in device. These columns are
-  -- only surfaced in the owner report at /rozhadmin.
+  -- only surfaced on the owner page at /rozhadmin/locations.
   latitude          numeric(9,6),
   longitude         numeric(9,6),
   accuracy_m        numeric(8,2),
+  -- The network the check-in arrived from, filled by the trigger below. A
+  -- country other than the usual one suggests a VPN (owner report only).
+  ip_address        text,
+  ip_country        text,
   at                timestamptz not null default now()
 );
 
@@ -144,6 +148,59 @@ create index if not exists check_in_events_session_idx
   on public.check_in_events(session_id);
 create index if not exists check_in_events_at_idx
   on public.check_in_events(at desc);
+
+-- The trigger below writes these, so an older table must have them first.
+alter table public.check_in_events
+  add column if not exists ip_address text,
+  add column if not exists ip_country text;
+
+-- Fills ip_address / ip_country from the request headers. Same as
+-- supabase/check-in-network.sql — keep the two in step.
+create or replace function public.check_in_events_capture_network()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_headers json;
+  v_country text;
+begin
+  -- Only requests that came through the Data API carry headers. A row written
+  -- from the SQL editor simply stays without network details.
+  begin
+    v_headers := nullif(current_setting('request.headers', true), '')::json;
+  exception when others then
+    v_headers := null;
+  end;
+  if v_headers is null then
+    return new;
+  end if;
+
+  -- cf-connecting-ip is set by Cloudflare and cannot be supplied by the phone;
+  -- x-forwarded-for is the fallback the Supabase docs use.
+  new.ip_address := coalesce(
+    new.ip_address,
+    left(coalesce(
+      nullif(btrim(v_headers->>'cf-connecting-ip'), ''),
+      nullif(btrim(split_part(v_headers->>'x-forwarded-for', ',', 1)), ''),
+      nullif(btrim(v_headers->>'x-real-ip'), '')
+    ), 64)
+  );
+
+  -- "XX" is Cloudflare's "unknown"; "T1" (Tor) is kept on purpose.
+  v_country := upper(btrim(coalesce(v_headers->>'cf-ipcountry', '')));
+  if new.ip_country is null and v_country ~ '^[A-Z][A-Z0-9]$' and v_country <> 'XX' then
+    new.ip_country := v_country;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists check_in_events_capture_network on public.check_in_events;
+create trigger check_in_events_capture_network
+  before insert on public.check_in_events
+  for each row execute function public.check_in_events_capture_network();
 
 -- ── Employee self-service functions ──────────────────────────────────────────
 -- Anonymous employees never touch the employees/attendance tables directly. All

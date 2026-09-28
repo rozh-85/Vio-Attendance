@@ -39,12 +39,16 @@ const adminLinks = [
   feedbackLink,
 ];
 
-const sharedPhonesLink = {
-  to: paths.devices,
-  label: 'Shared phones',
-  icon: Phone,
-  end: false,
-};
+// `end` keeps "Shared phones" from lighting up on its /rozhadmin/… sibling.
+const ownerLinks = [
+  { to: paths.devices, label: 'Shared phones', icon: Phone, end: true },
+  {
+    to: paths.checkInLocations,
+    label: 'Check-in locations',
+    icon: MapPin,
+    end: false,
+  },
+];
 
 const hrIcons: Record<HrTab, typeof Users> = {
   overview: Home,
@@ -120,14 +124,14 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isHrPage) setHrOpen(true);
   }, [isHrPage]);
-  // The shared-phone report only joins the sidebar once its password has been
-  // entered this session, so it stays invisible to anyone reading the
-  // supervisor's screen — but is one click away for whoever unlocked it, instead
-  // of forcing them to retype the address every time they leave the page.
+  // The owner reports only join the sidebar once their password has been
+  // entered this session, so they stay invisible to anyone reading the
+  // supervisor's screen — but are one click away for whoever unlocked them,
+  // instead of forcing them to retype the address every time they leave.
   const links = isFeedbackManager
     ? [feedbackLink]
     : isOwnerUnlocked()
-      ? [...adminLinks, sharedPhonesLink]
+      ? [...adminLinks, ...ownerLinks]
       : adminLinks;
 
   return (

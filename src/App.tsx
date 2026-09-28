@@ -6,6 +6,7 @@ import { routePatterns } from '@/routes';
 import { SupervisorDashboard } from '@/pages/SupervisorDashboard';
 import { EmployeeReportPage } from '@/pages/EmployeeReportPage';
 import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
+import { CheckInLocationsPage } from '@/pages/CheckInLocationsPage';
 import { OwnerGate } from '@/components/OwnerGate';
 import { SessionView } from '@/pages/SessionView';
 import { CheckInPage } from '@/pages/CheckInPage';
@@ -81,6 +82,17 @@ export default function App() {
                 <RequireAuth>
                   <OwnerGate>
                     <SharedDevicesPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
+            {/* Same owner password: who checked in away from the work site. */}
+            <Route
+              path={routePatterns.checkInLocations}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="Check-in locations">
+                    <CheckInLocationsPage />
                   </OwnerGate>
                 </RequireAuth>
               }

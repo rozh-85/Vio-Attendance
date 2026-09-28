@@ -10,7 +10,7 @@ import { useDataService } from '@/services/data/context';
 import { lockOwner } from '@/services/auth/ownerGate';
 import { findSharedDeviceGroups } from '@/services/attendance/sharedDevices';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
-import { formatClock, formatDate } from '@/utils/time';
+import { formatDate } from '@/utils/time';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
 import type { CheckInEvent, Session, Employee } from '@/types';
@@ -132,34 +132,6 @@ export function SharedDevicesPage() {
   }, [groups, query, sessionId]);
 
   /**
-   * GPS is deliberately rendered only on this owner-gated route. The regular
-   * session and check-in screens never receive a location table.
-   */
-  const locationEvents = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const employeeById = new Map(employees.map((employee) => [employee.id, employee]));
-    return events
-      .filter(
-        (event) =>
-          typeof event.latitude === 'number' &&
-          typeof event.longitude === 'number',
-      )
-      .filter((event) => !sessionId || event.sessionId === sessionId)
-      .filter((event) => {
-        if (!q) return true;
-        const employee = employeeById.get(event.employeeId);
-        return Boolean(
-          employee &&
-            [employee.fullName, employee.code, employee.position]
-              .join(' ')
-              .toLowerCase()
-              .includes(q),
-        );
-      })
-      .sort((a, b) => b.at.localeCompare(a.at));
-  }, [employees, events, query, sessionId]);
-
-  /**
    * Describes what is on screen, so the numbers follow the filters. With a
    * session picked, the employee count is the employees checked in *to that
    * session* — the groups still list everyone the phone touched, but counting
@@ -269,84 +241,6 @@ export function SharedDevicesPage() {
           {error}
         </Card>
       )}
-
-      <Card className="mt-6 overflow-hidden">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="font-bold">Check-in locations</h2>
-          <p className="mt-1 text-sm text-ink-500">
-            GPS is shown only after this private report is unlocked. A phone that
-            denied location access has no coordinates here.
-          </p>
-        </div>
-        {loading ? (
-          <p className="px-5 py-8 text-sm text-ink-500">Loading…</p>
-        ) : locationEvents.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-ink-500">
-            No check-in locations match these filters.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50/70 text-xs uppercase tracking-wide text-ink-400">
-                <tr>
-                  <th className="px-5 py-3">Employee</th>
-                  <th className="px-5 py-3">Session</th>
-                  <th className="px-5 py-3">Checked in</th>
-                  <th className="px-5 py-3">Coordinates</th>
-                  <th className="px-5 py-3">Accuracy</th>
-                  <th className="px-5 py-3 text-right">Map</th>
-                </tr>
-              </thead>
-              <tbody>
-                {locationEvents.map((event) => {
-                  const employee = employees.find((item) => item.id === event.employeeId);
-                  const session = sessionsById.get(event.sessionId);
-                  const latitude = event.latitude as number;
-                  const longitude = event.longitude as number;
-                  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-                  return (
-                    <tr key={event.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-5 py-3.5 font-semibold">
-                        {employee?.fullName ?? 'Deleted employee'}
-                        {employee && (
-                          <span className="ml-2 font-mono text-xs text-ink-400">
-                            {employee.code}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-ink-600">
-                        {session?.title || session?.supervisorName || 'Another session'}
-                      </td>
-                      <td className="px-5 py-3.5 text-ink-600">
-                        <span className="block">{formatDate(event.at)}</span>
-                        <span className="text-xs text-ink-400">{formatClock(event.at)}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3.5 font-mono text-xs text-ink-600">
-                        {latitude.toFixed(6)}, {longitude.toFixed(6)}
-                      </td>
-                      <td className="px-5 py-3.5 text-ink-600">
-                        {typeof event.accuracy === 'number'
-                          ? `${Math.round(event.accuracy)} m`
-                          : '—'}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <a
-                          className="font-semibold text-brand-700 underline"
-                          href={mapUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open map
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
 
       <div className="mt-6">
         {loading ? (

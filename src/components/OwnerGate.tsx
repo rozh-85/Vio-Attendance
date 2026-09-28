@@ -8,9 +8,17 @@ import { isOwnerUnlocked, unlockOwner, verifyOwner } from '@/services/auth/owner
 
 /**
  * Asks for the owner's email and password before revealing its children. See
- * services/auth/ownerGate.ts for what this does and does not protect.
+ * services/auth/ownerGate.ts for what this does and does not protect. One
+ * unlock opens every owner page.
  */
-export function OwnerGate({ children }: { children: ReactNode }) {
+export function OwnerGate({
+  title = 'Shared phones',
+  children,
+}: {
+  /** The page being unlocked, shown above the form. */
+  title?: string;
+  children: ReactNode;
+}) {
   const [unlocked, setUnlocked] = useState(isOwnerUnlocked);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,7 +50,7 @@ export function OwnerGate({ children }: { children: ReactNode }) {
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
           <Phone width={26} height={26} />
         </div>
-        <h1 className="mt-5 text-center text-2xl font-bold">Shared phones</h1>
+        <h1 className="mt-5 text-center text-2xl font-bold">{title}</h1>
         <p className="mt-1 text-center text-ink-500">
           This report is private. Sign in to open it.
         </p>

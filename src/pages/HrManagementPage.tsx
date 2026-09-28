@@ -36,7 +36,6 @@ import {
   approvalChain,
   calculatePayroll,
   csvDownload,
-  distanceMeters,
   hierarchyError,
   leaveBalance,
   localDate,
@@ -57,6 +56,8 @@ import {
   fieldClass,
   options,
 } from "@/components/hr/HrUi";
+import { checkZone, formatDistance } from "@/services/attendance/geofence";
+import { getCheckInLocation } from "@/utils/geolocation";
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
@@ -2649,6 +2650,7 @@ function Locations({
       min: -90,
       max: 90,
       required: true,
+      hint: "In Google Maps, press and hold on the building: the two numbers shown are latitude, longitude. Or stand on site and use “Test a geofence” below.",
     },
     {
       key: "longitude",
@@ -2696,7 +2698,7 @@ function Locations({
     <div className="space-y-5">
       <Section
         title="Location policy"
-        description="Mobile check-in can require an enabled location. Enter coordinates from your site map and validate a device position before accepting attendance."
+        description="The work sites QR check-ins are measured against. Enter coordinates from your site map, then use the tester below to confirm a position lands inside."
         action={
           <span className="text-sm text-ink-500">
             {workspace.locations.filter((l) => l.active).length} active sites
@@ -2821,7 +2823,7 @@ function Locations({
       />
       <Section
         title="Test a geofence"
-        description="Use a GPS coordinate from a phone or device to confirm which location accepts it."
+        description="Type a GPS position, or stand on site and use this device's location. Check-ins are judged by exactly this rule."
       >
         <GeofenceTester locations={workspace.locations} />
       </Section>
@@ -2831,16 +2833,37 @@ function Locations({
 function GeofenceTester({ locations }: { locations: HrLocation[] }) {
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
-  const results = locations
-    .filter(
-      (l) =>
-        l.active &&
-        lat &&
-        lng &&
-        distanceMeters(Number(lat), Number(lng), l.latitude, l.longitude) <=
-          l.radiusMeters,
-    )
-    .map((l) => l.name);
+  const [locating, setLocating] = useState(false);
+  const [note, setNote] = useState("");
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  const valid =
+    lat !== "" &&
+    lng !== "" &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude);
+  const zone = valid ? checkZone({ latitude, longitude }, locations) : null;
+
+  async function useDeviceLocation() {
+    setLocating(true);
+    setNote("");
+    const position = await getCheckInLocation();
+    setLocating(false);
+    if (!position) {
+      setNote(
+        "This device did not share its location. Allow location access for this site, then try again.",
+      );
+      return;
+    }
+    setLat(position.latitude.toFixed(6));
+    setLng(position.longitude.toFixed(6));
+    setNote(
+      position.accuracy === undefined
+        ? ""
+        : `Accurate to about ${Math.round(position.accuracy)} m.`,
+    );
+  }
+
   return (
     <div className="grid gap-4 p-5 sm:grid-cols-3">
       <Input
@@ -2858,12 +2881,28 @@ function GeofenceTester({ locations }: { locations: HrLocation[] }) {
       <div className="rounded-xl bg-slate-50 p-4 text-sm">
         <div className="font-semibold">Result</div>
         <div className="mt-2 text-ink-500">
-          {!lat || !lng
+          {!valid
             ? "Enter coordinates."
-            : results.length
-              ? `Inside: ${results.join(", ")}`
-              : "Outside all active locations."}
+            : !zone
+              ? "No active location to test against."
+              : zone.kind === "inside"
+                ? `Inside ${zone.location.name} — ${formatDistance(zone.distance)} from its centre.`
+                : zone.kind === "outside"
+                  ? `Outside all active locations. Nearest is ${zone.location.name}, ${formatDistance(zone.distance)} away (allows ${zone.location.radiusMeters} m).`
+                  : "Enter coordinates."}
         </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 sm:col-span-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          loading={locating}
+          onClick={useDeviceLocation}
+        >
+          Use this device's location
+        </Button>
+        {note && <span className="text-sm text-ink-500">{note}</span>}
       </div>
     </div>
   );

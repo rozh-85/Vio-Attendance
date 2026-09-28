@@ -3,6 +3,7 @@ import type {
   HrDepartment,
   HrEmployeeProfile,
   HrLeaveType,
+  HrLocation,
   HrRule,
   HrShift,
   HrWorkspace,
@@ -253,6 +254,27 @@ export async function loadHrWorkspace(): Promise<HrWorkspace> {
     ...(result.data?.document ?? {}),
     revision: result.data?.revision ?? 0,
   });
+}
+
+/**
+ * Only the work locations (geofences), for the check-in locations page. Reads
+ * that one slice of the workspace document rather than the whole of it, which
+ * carries every profile and the audit log besides.
+ */
+export async function loadWorkLocations(): Promise<HrLocation[]> {
+  const client = hrClient();
+  if (!client) return (await loadHrWorkspace()).locations;
+  const result = await client
+    .from("vio_hr_workspace")
+    .select("locations:document->locations")
+    .eq("id", "default")
+    .maybeSingle();
+  if (result.error)
+    throw new Error(
+      `HR database unavailable. Apply supabase/hr.sql, then retry. ${result.error.message}`,
+    );
+  const locations = (result.data as { locations?: unknown } | null)?.locations;
+  return Array.isArray(locations) ? (locations as HrLocation[]) : [];
 }
 
 export async function saveHrWorkspace(
