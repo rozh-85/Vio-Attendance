@@ -128,6 +128,11 @@ create table if not exists public.check_in_events (
   device_session_id uuid not null,
   -- Human-readable hint for the supervisor, e.g. "iPhone · Safari".
   device_label      text not null default '',
+  -- Optional GPS captured on the employee's check-in device. These columns are
+  -- only surfaced in the owner report at /rozhadmin.
+  latitude          numeric(9,6),
+  longitude         numeric(9,6),
+  accuracy_m        numeric(8,2),
   at                timestamptz not null default now()
 );
 
@@ -197,7 +202,10 @@ create or replace function public.check_in(
   p_session_id   uuid,
   p_code         text,
   p_device_id    text default null,
-  p_device_label text default ''
+  p_device_label text default '',
+  p_latitude     numeric default null,
+  p_longitude    numeric default null,
+  p_accuracy     numeric default null
 )
 returns public.attendance
 language plpgsql
@@ -259,10 +267,15 @@ begin
 
   if v_device_session is not null then
     insert into public.check_in_events
-      (session_id, employee_id, device_id, device_session_id, device_label, at)
+      (session_id, employee_id, device_id, device_session_id, device_label,
+       latitude, longitude, accuracy_m, at)
     values
       (p_session_id, v_employee.id, v_device_id, v_device_session,
-       btrim(coalesce(p_device_label, '')), v_now);
+       btrim(coalesce(p_device_label, '')),
+       case when p_latitude between -90 and 90 then p_latitude end,
+       case when p_longitude between -180 and 180 then p_longitude end,
+       case when p_accuracy >= 0 then p_accuracy end,
+       v_now);
   end if;
 
   return v_row;
@@ -343,7 +356,8 @@ grant select, delete on public.check_in_events to authenticated;
 revoke execute on function public.register_employee(text, text, text) from public, anon;
 grant  execute on function public.register_employee(text, text, text) to authenticated;
 grant execute on function public.recover_employee_code(text)       to anon, authenticated;
-grant execute on function public.check_in(uuid, text, text, text)  to anon, authenticated;
+grant execute on function public.check_in(uuid, text, text, text, numeric, numeric, numeric)
+  to anon, authenticated;
 grant execute on function public.check_out(uuid, text)             to anon, authenticated;
 grant execute on function public.next_employee_code()              to authenticated;
 

@@ -11,6 +11,7 @@ import { isDataError } from '@/services/data';
 import type { Session } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
 import { currentDevice } from '@/utils/device';
+import { getCheckInLocation } from '@/utils/geolocation';
 import { isQrTokenValid } from '@/utils/qrToken';
 import { paths } from '@/routes';
 
@@ -76,7 +77,12 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
       // phone checked in several employees. Check-out doesn't need it.
       const record =
         mode === 'check-in'
-          ? await data.checkIn(sessionId, code.trim(), currentDevice())
+          ? await data.checkIn(
+              sessionId,
+              code.trim(),
+              currentDevice(),
+              await getCheckInLocation(),
+            )
           : await data.checkOut(sessionId, code.trim());
       setDoneAt(
         mode === 'check-in' ? record.checkInAt ?? null : record.checkOutAt ?? null,
@@ -167,6 +173,12 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
       ) : null}
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        {mode === 'check-in' && (
+          <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-ink-500">
+            Location is optional. If you allow it, your phone's approximate
+            position is kept for the private admin attendance report.
+          </p>
+        )}
         <Input
           label="Your code"
           required

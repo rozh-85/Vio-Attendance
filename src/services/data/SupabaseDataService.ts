@@ -3,6 +3,7 @@ import type {
   AttendanceEdit,
   AttendanceRecord,
   CheckInEvent,
+  CheckInLocation,
   DeviceInfo,
   NewSessionInput,
   NewEmployeeInput,
@@ -76,6 +77,9 @@ export class SupabaseDataService implements DataService {
       deviceId: row.device_id,
       deviceSessionId: row.device_session_id,
       deviceLabel: row.device_label ?? '',
+      latitude: row.latitude ?? undefined,
+      longitude: row.longitude ?? undefined,
+      accuracy: row.accuracy_m ?? undefined,
       at: row.at,
     };
   }
@@ -338,6 +342,7 @@ export class SupabaseDataService implements DataService {
     sessionId: string,
     code: string,
     device?: DeviceInfo,
+    location?: CheckInLocation,
   ): Promise<AttendanceRecord> {
     // All validation + write happens in the `check_in` security-definer
     // function so the anon key needs no direct rights on the attendance or
@@ -349,6 +354,9 @@ export class SupabaseDataService implements DataService {
       p_code: code.trim(),
       p_device_id: device?.id ?? null,
       p_device_label: device?.label ?? '',
+      p_latitude: location?.latitude ?? null,
+      p_longitude: location?.longitude ?? null,
+      p_accuracy: location?.accuracy ?? null,
     });
 
     if (error) {
@@ -544,6 +552,9 @@ interface CheckInEventRow {
   device_id: string;
   device_session_id: string;
   device_label: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy_m: number | null;
   at: string;
 }
 

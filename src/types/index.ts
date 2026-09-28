@@ -92,6 +92,14 @@ export interface DeviceInfo {
   label: string;
 }
 
+/** Approximate GPS position captured at the moment of a check-in. */
+export interface CheckInLocation {
+  latitude: number;
+  longitude: number;
+  /** Device-reported accuracy in metres, when available. */
+  accuracy?: number;
+}
+
 /**
  * One check-in, recorded together with the device it came from.
  *
@@ -111,6 +119,10 @@ export interface CheckInEvent {
    */
   deviceSessionId: string;
   deviceLabel: string;
+  /** Present when the employee allowed location access on the check-in device. */
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
   at: string; // ISO timestamp
 }
 

@@ -51,6 +51,12 @@ Everything lives in one file: [`supabase/schema.sql`](supabase/schema.sql).
    supervisor login (email + password, "Auto Confirm User" ticked).
 3. Open the app at `/VioAdmin` and sign in with that account.
 
+To record the phone's approximate GPS position with each check-in, run
+[`supabase/check-in-location.sql`](supabase/check-in-location.sql) after the
+main schema. Coordinates are shown only in the owner-gated `/rozhadmin` report;
+if an employee declines the browser's location prompt, the check-in still works
+without coordinates.
+
 A commented-out smoke test at the bottom of `schema.sql` runs the whole flow
 (create session → register employee → check in → check out) and cleans up after
 itself, if you want to prove the database works before touching the UI.
@@ -60,7 +66,7 @@ itself, if you want to prove the database works before touching the UI.
 | `employees`       | `code`, `full_name`, `phone` (unique), `position`          |
 | `sessions`        | supervisor, title, location, status, the two QR gates      |
 | `attendance`      | one row per employee per session, with in/out timestamps   |
-| `check_in_events` | append-only log of which phone made each check-in          |
+| `check_in_events` | append-only phone and optional GPS log for each check-in    |
 
 The app talks to the database with the public **anon key**, which ships inside
 the browser bundle. That key can do only four things, all through

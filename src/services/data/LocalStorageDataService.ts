@@ -2,6 +2,7 @@ import type {
   AttendanceEdit,
   AttendanceRecord,
   CheckInEvent,
+  CheckInLocation,
   DeviceInfo,
   NewSessionInput,
   NewEmployeeInput,
@@ -312,6 +313,7 @@ export class LocalStorageDataService implements DataService {
     sessionId: string,
     code: string,
     device?: DeviceInfo,
+    location?: CheckInLocation,
   ): Promise<AttendanceRecord> {
     return this.mutate(async () => {
       const session = await this.requireOpenSession(sessionId);
@@ -363,6 +365,9 @@ export class LocalStorageDataService implements DataService {
           deviceId: device.id,
           deviceSessionId,
           deviceLabel: device.label,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
+          accuracy: location?.accuracy,
           at: now,
         };
         this.write(KEYS.checkInEvents, [...events, event]);

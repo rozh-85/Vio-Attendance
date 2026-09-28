@@ -2,6 +2,7 @@ import type {
   AttendanceEdit,
   AttendanceRecord,
   CheckInEvent,
+  CheckInLocation,
   DeviceInfo,
   NewSessionInput,
   NewEmployeeInput,
@@ -54,6 +55,7 @@ export interface DataService {
     sessionId: string,
     code: string,
     device?: DeviceInfo,
+    location?: CheckInLocation,
   ): Promise<AttendanceRecord>;
   /** Marks an employee (by code) as checked out of a session. */
   checkOut(sessionId: string, code: string): Promise<AttendanceRecord>;
