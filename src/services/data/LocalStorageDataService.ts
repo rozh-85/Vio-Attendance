@@ -257,6 +257,29 @@ export class LocalStorageDataService implements DataService {
     });
   }
 
+  async deleteSession(id: string): Promise<void> {
+    return this.mutate(async () => {
+      const sessions = await this.listSessions();
+      this.write(
+        KEYS.sessions,
+        sessions.filter((s) => s.id !== id),
+      );
+
+      // Like the database's `on delete cascade`: its attendance and its
+      // entries in the device log go with it.
+      const records = await this.listAttendance();
+      this.write(
+        KEYS.attendance,
+        records.filter((r) => r.sessionId !== id),
+      );
+      const events = await this.listCheckInEvents();
+      this.write(
+        KEYS.checkInEvents,
+        events.filter((e) => e.sessionId !== id),
+      );
+    });
+  }
+
   // ── Attendance ────────────────────────────────────────────────────────────
   async listAttendance(sessionId?: string): Promise<AttendanceRecord[]> {
     const all = this.read<AttendanceRecord[]>(KEYS.attendance, []);

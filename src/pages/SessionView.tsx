@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +24,7 @@ import {
   Logout,
   QrIcon,
   Stop,
+  Trash,
   UserPlus,
 } from '@/components/icons';
 import { useSessionDetail } from '@/hooks/useSessionDetail';
@@ -51,6 +52,7 @@ interface DeleteEmployeeState {
 
 export function SessionView() {
   const { sessionId = '' } = useParams();
+  const navigate = useNavigate();
   const data = useDataService();
   // The shared-phone findings belong to the owner report; a supervisor opening
   // this session must not see them here either.
@@ -73,6 +75,9 @@ export function SessionView() {
   const [closing, setClosing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [confirmDeleteSession, setConfirmDeleteSession] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
+  const [deleteSessionError, setDeleteSessionError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteEmployee, setDeleteEmployee] = useState<DeleteEmployeeState | null>(null);
@@ -150,6 +155,20 @@ export function SessionView() {
       setConfirmClose(false);
     } finally {
       setClosing(false);
+    }
+  }
+
+  async function onDeleteSession() {
+    setDeletingSession(true);
+    setDeleteSessionError(null);
+    try {
+      await data.deleteSession(session!.id);
+      navigate(paths.dashboard, { replace: true });
+    } catch (err) {
+      setDeleteSessionError(
+        isDataError(err) ? err.message : 'Could not delete the session. Please try again.',
+      );
+      setDeletingSession(false);
     }
   }
 
@@ -268,7 +287,7 @@ export function SessionView() {
           </p>
           <p className="text-ink-500">{session.supervisorName}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
             leftIcon={<Download width={18} height={18} />}
@@ -286,6 +305,16 @@ export function SessionView() {
               Close session
             </Button>
           )}
+          <Button
+            variant="outline"
+            leftIcon={<Trash width={18} height={18} />}
+            onClick={() => {
+              setDeleteSessionError(null);
+              setConfirmDeleteSession(true);
+            }}
+          >
+            Delete session
+          </Button>
         </div>
       </div>
 
@@ -486,6 +515,49 @@ export function SessionView() {
             onClick={onCloseSession}
           >
             Close session
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Confirm delete session */}
+      <Modal
+        open={confirmDeleteSession}
+        onClose={() => !deletingSession && setConfirmDeleteSession(false)}
+        title="Delete this session?"
+        description="The session is removed for good, together with every check-in and check-out recorded in it. This cannot be undone."
+      >
+        <div className="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-ink-700">
+          <div className="font-semibold">{session.title || 'Untitled session'}</div>
+          <div className="text-ink-500">
+            {formatDate(session.startedAt)} · {session.supervisorName}
+          </div>
+          <div className="text-ink-500">
+            {stats.present}{' '}
+            {stats.present === 1 ? 'attendance record' : 'attendance records'}{' '}
+            will be deleted with it.
+          </div>
+        </div>
+        {deleteSessionError && (
+          <div className="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {deleteSessionError}
+          </div>
+        )}
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            fullWidth
+            disabled={deletingSession}
+            onClick={() => setConfirmDeleteSession(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            fullWidth
+            loading={deletingSession}
+            onClick={onDeleteSession}
+          >
+            Delete session
           </Button>
         </div>
       </Modal>

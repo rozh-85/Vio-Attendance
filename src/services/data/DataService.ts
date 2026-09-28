@@ -42,6 +42,11 @@ export interface DataService {
   updateSession(id: string, patch: Partial<Session>): Promise<Session>;
   /** Ends the session and checks out every still-present employee. */
   closeSession(id: string): Promise<Session>;
+  /**
+   * Deletes the session for good, together with its attendance records and
+   * its check-in log. Deleting a session that is already gone is not an error.
+   */
+  deleteSession(id: string): Promise<void>;
 
   // ── Attendance ────────────────────────────────────────────────────────────
   listAttendance(sessionId?: string): Promise<AttendanceRecord[]>;

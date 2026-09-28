@@ -329,6 +329,26 @@ export class SupabaseDataService implements DataService {
     });
   }
 
+  async deleteSession(id: string): Promise<void> {
+    // Attendance and the check-in log go with it: both reference the session
+    // with `on delete cascade`.
+    const { data, error } = await this.client
+      .from('sessions')
+      .delete()
+      .eq('id', id)
+      .select('id');
+    if (error && !hasPostgresErrorCode(error, '42501')) throw error;
+    if (!error && data?.length) return;
+
+    // Nothing deleted: either it was already gone, or the database refused —
+    // no delete grant (42501) or no row-level-security policy that allows it.
+    if (!error && !(await this.getSession(id))) return;
+    throw new DataError(
+      'NOT_ALLOWED',
+      'The database does not allow deleting sessions yet.',
+    );
+  }
+
   // ── Attendance ────────────────────────────────────────────────────────────
   async listAttendance(sessionId?: string): Promise<AttendanceRecord[]> {
     const rows = await this.fetchAllRows<AttendanceRow>(

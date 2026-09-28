@@ -19,6 +19,9 @@ employee's history exports to a Vio-branded PDF.
   rotates every 5 seconds so a forwarded screenshot won't work; a **Constant QR**
   toggle switches to one code that lasts the whole session.
 - **Close session** → ends it and checks out anyone still present.
+- **Delete session** → after a confirmation, removes the session for good
+  together with its attendance and check-in log. The database must allow
+  signed-in supervisors to delete sessions; until it does, the button says so.
 - **Export Excel** (per session) → one sheet: code, name, position, check-in,
   check-out, total time present.
 - **Employee report** → search an employee, narrow to a **month** or a **custom
