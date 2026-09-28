@@ -57,7 +57,7 @@ import {
   options,
 } from "@/components/hr/HrUi";
 import { checkZone, formatDistance } from "@/services/attendance/geofence";
-import { getCheckInLocation } from "@/utils/geolocation";
+import { readCheckInLocation } from "@/utils/geolocation";
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
@@ -2847,11 +2847,15 @@ function GeofenceTester({ locations }: { locations: HrLocation[] }) {
   async function useDeviceLocation() {
     setLocating(true);
     setNote("");
-    const position = await getCheckInLocation();
+    const { location: position, problem } = await readCheckInLocation();
     setLocating(false);
     if (!position) {
       setNote(
-        "This device did not share its location. Allow location access for this site, then try again.",
+        problem === "denied"
+          ? "Location is blocked for this site. Allow it in the browser's site settings, then try again."
+          : problem === "unsupported"
+            ? "This browser cannot share location."
+            : "This device could not find its position. Turn on Location (GPS), then try again.",
       );
       return;
     }

@@ -150,11 +150,19 @@ comparison lives in [`geofence.ts`](src/services/attendance/geofence.ts).
 **VPNs.** A VPN changes the phone's internet address, never its GPS, so it
 cannot move a check-in inside a work location. After
 [`supabase/check-in-network.sql`](supabase/check-in-network.sql) has been run,
-the database also records each check-in's network address and its country
-(from Cloudflare, in front of Supabase). A network outside `VITE_HOME_COUNTRY`
-(`IQ` by default) is marked **VPN?** on that page, next to where the GPS says
-the phone really was; the **VPN** filter lists them all. If a row shows only an
-address and no country, click it to look the network up.
+the database also records each check-in's network address, and its country
+when Cloudflare (in front of Supabase) passes one through. When it does not,
+the owner page looks the address up itself ([GeoJS](https://www.geojs.io/),
+then [country.is](https://country.is/) — only the bare address is sent, once
+per address). A network outside `VITE_HOME_COUNTRY` (`IQ` by default) is
+marked **VPN?** on that page, next to where the GPS says the phone really was;
+the **VPN** filter lists them all. Until the SQL has been run the page says
+"VPN detection is off".
+
+**When a phone shares no location**, the employee's check-in screen says why —
+location blocked for the site, GPS off, too slow, or a browser that cannot
+share it — and how to fix it. A precise GPS fix that is slow indoors falls
+back to the phone's quicker, rougher position rather than none.
 
 > What this cannot catch: a fake-GPS app on a rooted or developer-mode phone
 > reports whatever position it is told to. The rotating QR (someone on site has

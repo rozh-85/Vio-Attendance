@@ -4,18 +4,40 @@ import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Book, Check, Login, Logout } from '@/components/icons';
+import { Book, Check, Login, Logout, MapPin } from '@/components/icons';
 import { Logo } from '@/components/Logo';
 import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
 import type { Session } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
 import { currentDevice } from '@/utils/device';
-import { getCheckInLocation } from '@/utils/geolocation';
+import {
+  readCheckInLocation,
+  type LocationProblem,
+  type LocationReading,
+} from '@/utils/geolocation';
 import { isQrTokenValid } from '@/utils/qrToken';
 import { paths } from '@/routes';
 
 type Mode = 'check-in' | 'check-out';
+
+/** What to tell an employee whose phone gave no position, and how to fix it. */
+const LOCATION_HELP: Record<LocationProblem, string> = {
+  denied:
+    'Location is blocked for this website, so this check-in is marked for review. ' +
+    'To fix it — iPhone: Settings › Privacy & Security › Location Services › ' +
+    'Safari Websites › While Using. Android: tap the icon beside the web ' +
+    'address › Permissions › Location › Allow.',
+  unavailable:
+    'Your phone could not find its position, so this check-in is marked for ' +
+    'review. Turn on Location (GPS) before checking in next time.',
+  timeout:
+    'Your phone took too long to find its position, so this check-in is marked ' +
+    'for review. Make sure Location (GPS) is on before checking in next time.',
+  unsupported:
+    'This browser cannot share location, so this check-in is marked for review. ' +
+    'Open the check-in link in Safari or Chrome next time.',
+};
 
 const copy = {
   'check-in': {
@@ -55,6 +77,8 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationReading, setLocationReading] = useState<LocationReading | null>(null);
   const [doneAt, setDoneAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,15 +99,21 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
     try {
       // Check-in carries the phone's identity so the supervisor can see when one
       // phone checked in several employees. Check-out doesn't need it.
+      let reading: LocationReading | null = null;
+      if (mode === 'check-in') {
+        setLocating(true);
+        reading = await readCheckInLocation().finally(() => setLocating(false));
+      }
       const record =
         mode === 'check-in'
           ? await data.checkIn(
               sessionId,
               code.trim(),
               currentDevice(),
-              await getCheckInLocation(),
+              reading?.location,
             )
           : await data.checkOut(sessionId, code.trim());
+      setLocationReading(reading);
       setDoneAt(
         mode === 'check-in' ? record.checkInAt ?? null : record.checkOutAt ?? null,
       );
@@ -126,6 +156,15 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
           <p className="mt-1 text-ink-500">
             {session.title || session.supervisorName} · {formatClock(doneAt)}
           </p>
+          {locationReading?.location ? (
+            <p className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
+              <MapPin width={16} height={16} /> Location shared
+            </p>
+          ) : locationReading?.problem ? (
+            <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-left text-sm leading-6 text-amber-800">
+              {LOCATION_HELP[locationReading.problem]}
+            </p>
+          ) : null}
         </Card>
       </Screen>
     );
@@ -209,6 +248,11 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
         >
           {c.button}
         </Button>
+        {locating && (
+          <p className="text-center text-sm text-ink-500">
+            Finding your location…
+          </p>
+        )}
       </form>
 
       <p className="mt-6 text-center">

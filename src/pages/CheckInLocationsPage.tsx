@@ -18,6 +18,7 @@ import {
   type NetworkFlag,
   type ZoneCheck,
 } from '@/services/attendance/geofence';
+import { lookupIpCountry } from '@/services/attendance/ipCountry';
 import { loadWorkLocations } from '@/services/hr/store';
 import type { HrLocation } from '@/services/hr/types';
 import { formatDate, formatDateTime } from '@/utils/time';
@@ -139,6 +140,8 @@ export function CheckInLocationsPage() {
   const [workLocationsState, setWorkLocationsState] = useState<
     'loading' | 'ready' | 'error'
   >('loading');
+  /** ip → country, for check-ins the database recorded without a country. */
+  const [ipCountries, setIpCountries] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let active = true;
@@ -200,6 +203,38 @@ export function CheckInLocationsPage() {
     };
   }, []);
 
+  // Addresses without a country get one looked up, so a VPN still shows when
+  // Supabase does not pass Cloudflare's country header through.
+  useEffect(() => {
+    let active = true;
+    const missing = new Set(
+      events
+        .filter((e) => e.ipAddress && !e.ipCountry)
+        .map((e) => e.ipAddress as string),
+    );
+    for (const ip of missing) {
+      void lookupIpCountry(ip).then((country) => {
+        if (!active || !country) return;
+        setIpCountries((known) =>
+          known[ip] === country ? known : { ...known, [ip]: country },
+        );
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [events]);
+
+  const locatedEvents = useMemo(
+    () =>
+      events.map((e) =>
+        !e.ipCountry && e.ipAddress && ipCountries[e.ipAddress]
+          ? { ...e, ipCountry: ipCountries[e.ipAddress] }
+          : e,
+      ),
+    [events, ipCountries],
+  );
+
   const sessionsById = useMemo(
     () => new Map(sessions.map((s) => [s.id, s])),
     [sessions],
@@ -232,7 +267,7 @@ export function CheckInLocationsPage() {
 
   const reviews = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return reviewCheckIns(events, employees, workLocations)
+    return reviewCheckIns(locatedEvents, employees, workLocations)
       .filter((review) => !sessionId || review.event.sessionId === sessionId)
       .filter(
         (review) =>
@@ -249,7 +284,7 @@ export function CheckInLocationsPage() {
                 .includes(q),
           ),
       );
-  }, [employees, events, query, sessionId, workLocations]);
+  }, [employees, locatedEvents, query, sessionId, workLocations]);
 
   const counts: Record<Filter, number> = useMemo(
     () => ({
@@ -394,6 +429,14 @@ export function CheckInLocationsPage() {
             .
           </p>
         ) : null}
+
+        {!loading && events.length > 0 && !hasNetworkData && (
+          <p className="border-b border-amber-100 bg-amber-50/60 px-5 py-3 text-sm text-amber-800">
+            VPN detection is off: no check-in here has network details. Run
+            supabase/check-in-network.sql once in the Supabase SQL editor — it
+            covers every check-in made after that.
+          </p>
+        )}
 
         {loading ? (
           <p className="px-5 py-8 text-sm text-ink-500">Loading…</p>
