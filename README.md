@@ -156,8 +156,7 @@ the owner page looks the address up itself ([GeoJS](https://www.geojs.io/),
 then [country.is](https://country.is/) — only the bare address is sent, once
 per address). A network outside `VITE_HOME_COUNTRY` (`IQ` by default) is
 marked **VPN?** on that page, next to where the GPS says the phone really was;
-the **VPN** filter lists them all. Until the SQL has been run the page says
-"VPN detection is off".
+the **VPN** filter lists them all.
 
 **When a phone shares no location**, the employee's check-in screen says why —
 location blocked for the site, GPS off, too slow, or a browser that cannot

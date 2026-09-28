@@ -308,17 +308,13 @@ export function CheckInLocationsPage() {
   );
 
   const hasZones = activeZones(workLocations).length > 0;
-  const hasNetworkData = events.some((e) => e.ipAddress || e.ipCountry);
-
   let emptyText = 'No check-ins match these filters.';
   if (counts.all > 0 && filter === 'review') {
     emptyText = hasZones
       ? 'Everyone here checked in inside a work location.'
       : 'Nothing to compare yet — set a work location first.';
   } else if (counts.all > 0 && filter === 'vpn') {
-    emptyText = hasNetworkData
-      ? `No check-in came through a network outside ${countryName(HOME_COUNTRY)}.`
-      : 'No network details recorded yet. They start with the first check-in after supabase/check-in-network.sql has been run.';
+    emptyText = `No check-in came through a network outside ${countryName(HOME_COUNTRY)}.`;
   }
 
   return (
@@ -429,14 +425,6 @@ export function CheckInLocationsPage() {
             .
           </p>
         ) : null}
-
-        {!loading && events.length > 0 && !hasNetworkData && (
-          <p className="border-b border-amber-100 bg-amber-50/60 px-5 py-3 text-sm text-amber-800">
-            VPN detection is off: no check-in here has network details. Run
-            supabase/check-in-network.sql once in the Supabase SQL editor — it
-            covers every check-in made after that.
-          </p>
-        )}
 
         {loading ? (
           <p className="px-5 py-8 text-sm text-ink-500">Loading…</p>
