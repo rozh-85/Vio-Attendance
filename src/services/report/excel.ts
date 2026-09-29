@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { attendanceStatus } from '@/services/attendance/status';
 import type { AttendanceRecord, LeaveRecord, Session, Employee } from '@/types';
 import { formatClock, formatDateTime } from '@/utils/time';
 
@@ -116,6 +117,9 @@ function buildAttendanceReport(
       employeeMinutes += presentMinutes;
       if (record?.checkInAt) sessionsAttended += 1;
 
+      const status = attendanceStatus(session, record);
+      const missingCheckOut = status === 'not-checked-out';
+
       return {
         employeeCode: employee.code,
         employeeName: employee.fullName,
@@ -124,10 +128,16 @@ function buildAttendanceReport(
         checkInTime: record?.checkInAt ? formatClock(record.checkInAt) : '—',
         checkOutTime: record?.checkOutAt
           ? formatClock(record.checkOutAt)
+          : missingCheckOut
+            ? 'Not checked out'
+            : record?.checkInAt
+              ? 'In progress'
+              : '—',
+        status: missingCheckOut
+          ? 'Not checked out'
           : record?.checkInAt
-            ? 'In progress'
-            : '—',
-        status: record?.checkInAt ? 'Present' : 'Absent',
+            ? 'Present'
+            : 'Absent',
         timePresent: record?.checkInAt ? formatMinutes(presentMinutes) : '—',
       };
     });

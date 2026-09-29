@@ -2,13 +2,19 @@ import { Badge } from './ui/Badge';
 import { Input } from './ui/Input';
 import type { AttendanceStatus } from '@/types';
 
-/** Derives the status implied by a pair of `datetime-local` values. */
+/**
+ * Derives the status implied by a pair of `datetime-local` values. A check-in
+ * with no check-out means the employee is still here while the session runs,
+ * and that the check-out never happened once it has ended.
+ */
 export function attendanceStatusFrom(
   checkIn: string,
   checkOut: string,
+  sessionClosed = false,
 ): AttendanceStatus {
   if (!checkIn) return 'absent';
-  return checkOut ? 'checked-out' : 'checked-in';
+  if (checkOut) return 'checked-out';
+  return sessionClosed ? 'not-checked-out' : 'checked-in';
 }
 
 /** Validates a pair of `datetime-local` values, or null when they're fine. */
@@ -28,6 +34,8 @@ export function attendanceTimesError(
 export function AttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
   if (status === 'checked-in') return <Badge tone="success">✓ In</Badge>;
   if (status === 'checked-out') return <Badge tone="info">✓ Out</Badge>;
+  if (status === 'not-checked-out')
+    return <Badge tone="warning">! No check-out</Badge>;
   return <Badge tone="neutral">Absent</Badge>;
 }
 
@@ -41,19 +49,22 @@ export function AttendanceTimeFields({
   checkOut,
   onCheckInChange,
   onCheckOutChange,
+  sessionClosed = false,
 }: {
   /** `datetime-local` value ('' means unset). */
   checkIn: string;
   checkOut: string;
   onCheckInChange: (value: string) => void;
   onCheckOutChange: (value: string) => void;
+  /** Ended sessions read a missing check-out as one that never happened. */
+  sessionClosed?: boolean;
 }) {
   return (
     <>
       <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
         <span className="text-sm font-semibold text-ink-700">Status</span>
         <AttendanceStatusBadge
-          status={attendanceStatusFrom(checkIn, checkOut)}
+          status={attendanceStatusFrom(checkIn, checkOut, sessionClosed)}
         />
       </div>
 

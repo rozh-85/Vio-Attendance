@@ -22,12 +22,15 @@ export interface EditAttendeeValues {
 
 export function EditAttendeeModal({
   attendee,
+  sessionClosed = false,
   saving,
   error,
   onClose,
   onSave,
 }: {
   attendee: SessionAttendee;
+  /** Ended sessions read a missing check-out as one that never happened. */
+  sessionClosed?: boolean;
   saving: boolean;
   error?: string | null;
   onClose: () => void;
@@ -92,6 +95,7 @@ export function EditAttendeeModal({
           checkOut={checkOut}
           onCheckInChange={setCheckIn}
           onCheckOutChange={setCheckOut}
+          sessionClosed={sessionClosed}
         />
 
         {(validationError || error) && (

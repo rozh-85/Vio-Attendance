@@ -7,13 +7,15 @@ export interface EmployeePdfRow {
   date: string;
   checkIn: string;
   checkOut: string;
-  status: 'Present' | 'Absent' | 'Not registered yet';
+  status: 'Present' | 'Not checked out' | 'Absent' | 'Not registered yet';
   hours: string;
 }
 
 export interface EmployeePdfStats {
   totalSessions: number;
   attended: number;
+  /** Sessions the employee attended but never checked out of. */
+  notCheckedOut: number;
   absent: number;
   totalHours: string;
   /** The slice of time the report covers, e.g. "August 2026". */
@@ -35,7 +37,7 @@ export function exportEmployeePdf(
 ): void {
   const win = window.open('', '_blank');
   if (!win) return;
-  win.document.write(buildHtml(employee, stats, rows));
+  win.document.write(buildEmployeePdfHtml(employee, stats, rows));
   win.document.close();
 }
 
@@ -43,25 +45,31 @@ const RED = BRAND.red;
 const RED_DARK = BRAND.redDark;
 const RED_TINT = BRAND.redTint;
 
-function buildHtml(
+/** Green attended, amber attended-but-never-checked-out, red absent. */
+const GREEN = '#0C7A43';
+const AMBER = '#8A5A00';
+const STATUS_PAINT: Record<EmployeePdfRow['status'], string> = {
+  Present: `color:${GREEN};background:#E6F7EE;`,
+  'Not checked out': `color:${AMBER};background:#FDF1CF;`,
+  Absent: `color:${RED_DARK};background:${RED_TINT};`,
+  'Not registered yet': 'color:#6B7280;background:#F1F5F9;',
+};
+
+/** The printable document itself, so it can be rendered without printing it. */
+export function buildEmployeePdfHtml(
   employee: Employee,
   stats: EmployeePdfStats,
   rows: EmployeePdfRow[],
 ): string {
   const tableRows = rows
     .map((row, index) => {
-      const statusColor =
-        row.status === 'Present'
-          ? 'color:#0C7A43;background:#E6F7EE;'
-          : row.status === 'Absent'
-            ? `color:${RED_DARK};background:${RED_TINT};`
-            : 'color:#6B7280;background:#F1F5F9;';
+      const missing = row.status === 'Not checked out';
       return `<tr style="background:${index % 2 === 0 ? '#FFFFFF' : '#FBF6F6'}">
         <td>${esc(row.session)}</td>
         <td>${esc(row.date)}</td>
         <td class="num">${esc(row.checkIn)}</td>
-        <td class="num">${esc(row.checkOut)}</td>
-        <td><span class="badge" style="${statusColor}">${esc(row.status)}</span></td>
+        <td class="num${missing ? ' missing' : ''}">${esc(row.checkOut)}</td>
+        <td><span class="badge" style="${STATUS_PAINT[row.status]}">${esc(row.status)}</span></td>
         <td class="num">${esc(row.hours)}</td>
       </tr>`;
     })
@@ -92,7 +100,9 @@ function buildHtml(
   .stat { flex: 1; border: 1px solid ${BRAND.redLine}; border-radius: 10px; padding: 10px 14px; }
   .stat b { display: block; font-size: 20px; }
   .stat span { color: #6B7280; font-size: 10.5px; }
-  .stat.attended b { color: #0C7A43; }
+  .stat.attended b { color: ${GREEN}; }
+  .stat.missing b { color: ${AMBER}; }
+  .stat.missing { border-color: #EBD08A; background: #FFFBF0; }
   .stat.absent b { color: ${RED_DARK}; }
   .stat.hours b { color: ${RED}; }
   table { width: 100%; border-collapse: collapse; }
@@ -101,7 +111,11 @@ function buildHtml(
   thead th:last-child { border-radius: 0 8px 0 0; }
   td { padding: 8px 10px; border-bottom: 1px solid #F0E2E3; }
   td.num { font-variant-numeric: tabular-nums; }
+  td.missing { color: ${AMBER}; font-weight: 600; }
   .badge { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 10px; font-weight: 600; }
+  .key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 2px 12px; color: #6B7280; font-size: 10px; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+  .key i { width: 8px; height: 8px; border-radius: 50%; }
   tr { page-break-inside: avoid; }
   .foot { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; color: #9CA3AF; font-size: 10px; border-top: 1px solid #EEE; padding-top: 8px; }
   .foot .mark { display: flex; align-items: center; gap: 6px; }
@@ -132,8 +146,15 @@ function buildHtml(
   <div class="stats">
     <div class="stat"><b>${stats.totalSessions}</b><span>Total sessions</span></div>
     <div class="stat attended"><b>${stats.attended}</b><span>Attended</span></div>
+    <div class="stat missing"><b>${stats.notCheckedOut}</b><span>Not checked out</span></div>
     <div class="stat absent"><b>${stats.absent}</b><span>Absent</span></div>
     <div class="stat hours"><b>${esc(stats.totalHours)}</b><span>Total hours</span></div>
+  </div>
+
+  <div class="key">
+    <span><i style="background:${GREEN}"></i>Present — checked in and out</span>
+    <span><i style="background:${AMBER}"></i>Not checked out — attended, no check-out scanned</span>
+    <span><i style="background:${RED_DARK}"></i>Absent</span>
   </div>
 
   <table>

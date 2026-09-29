@@ -31,6 +31,7 @@ import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { useDataService } from '@/services/data/context';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import { isDataError } from '@/services/data';
+import { STATUS_LABEL, sessionIsOver } from '@/services/attendance/status';
 import { exportSessionAttendanceToExcel } from '@/services/report/sessionTemplateExcel';
 import { formatDate, formatClock } from '@/utils/time';
 import { paths } from '@/routes';
@@ -318,21 +319,42 @@ export function SessionView() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* Stats. The amber card only exists once a session has ended: until then
+          a missing check-out simply means the employee is still here. */}
+      <div
+        className={
+          'mt-6 grid grid-cols-2 gap-4 ' +
+          (stats.notCheckedOut > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4')
+        }
+      >
         <StatCard value={stats.registered} label="Registered" />
         <StatCard value={stats.checkedIn} label="Checked in" tone="success" />
         <StatCard value={stats.checkedOut} label="Checked out" tone="info" />
+        {stats.notCheckedOut > 0 && (
+          <StatCard
+            value={stats.notCheckedOut}
+            label="Not checked out"
+            tone="warning"
+          />
+        )}
         <StatCard
           value={stats.registered - stats.present}
           label="Not present"
-          tone="warning"
+          tone="danger"
         />
       </div>
 
       {/* Filters */}
       <div className="mt-6 flex flex-wrap items-center gap-2">
-        {(['all', 'checked-in', 'checked-out', 'absent'] as const).map(
+        {(
+          [
+            'all',
+            'checked-in',
+            'checked-out',
+            ...(stats.notCheckedOut > 0 ? (['not-checked-out'] as const) : []),
+            'absent',
+          ] as const
+        ).map(
           (filter) => (
             <button
               key={filter}
@@ -345,13 +367,7 @@ export function SessionView() {
               }
               onClick={() => setStatusFilter(filter)}
             >
-              {filter === 'all'
-                ? 'All'
-                : filter === 'checked-in'
-                ? 'Checked in'
-                : filter === 'checked-out'
-                ? 'Checked out'
-                : 'Absent'}
+              {filter === 'all' ? 'All' : STATUS_LABEL[filter]}
             </button>
           ),
         )}
@@ -498,7 +514,7 @@ export function SessionView() {
         open={confirmClose}
         onClose={() => setConfirmClose(false)}
         title="Close this session?"
-        description="Everyone still checked in will be checked out automatically. This cannot be undone."
+        description="Anyone still checked in is left as “Not checked out” — nobody is checked out automatically, so you can enter the real time yourself. This cannot be undone."
       >
         <div className="flex gap-3">
           <Button
@@ -596,6 +612,7 @@ export function SessionView() {
       {editAttendee && (
         <EditAttendeeModal
           attendee={editAttendee}
+          sessionClosed={sessionIsOver(session)}
           saving={savingEdit}
           error={editError}
           onClose={() => setEditAttendee(null)}

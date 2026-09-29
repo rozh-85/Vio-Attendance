@@ -230,15 +230,9 @@ export class LocalStorageDataService implements DataService {
       }
       const closedAt = new Date().toISOString();
 
-      // Auto check-out everyone who is still present.
-      const attendance = await this.listAttendance();
-      const updatedAttendance = attendance.map((r) =>
-        r.sessionId === id && r.checkInAt && !r.checkOutAt
-          ? { ...r, checkOutAt: closedAt }
-          : r,
-      );
-      this.write(KEYS.attendance, updatedAttendance);
-
+      // Whoever is still checked in keeps an empty check-out, which the screens
+      // and the reports read as "not checked out". See
+      // services/attendance/status.ts.
       const sessions = await this.listSessions();
       const idx = sessions.findIndex((s) => s.id === id);
       if (idx === -1) {

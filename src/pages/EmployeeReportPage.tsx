@@ -19,9 +19,11 @@ import {
   todayValue,
 } from '@/utils/time';
 import { cn } from '@/utils/cn';
+import { attendanceStatus } from '@/services/attendance/status';
 import type {
   AttendanceEdit,
   AttendanceRecord,
+  AttendanceStatus,
   Session,
   Employee,
 } from '@/types';
@@ -121,6 +123,8 @@ interface SessionRow {
   session: Session;
   record?: AttendanceRecord;
   minutes: number;
+  /** absent · checked-in · checked-out · not-checked-out. */
+  status: AttendanceStatus;
   /**
    * Sessions that ended before the employee registered are shown but excluded
    * from the Absent count — the employee could not have attended them.
@@ -151,6 +155,7 @@ function reportRowsFor(
         session,
         record,
         minutes: presentMinutes(session, record),
+        status: attendanceStatus(session, record),
         beforeRegistration,
       };
     });
@@ -285,6 +290,9 @@ export function EmployeeReportPage() {
     return {
       totalSessions: chosen.length,
       attended,
+      // Attended, but the session ended without a check-out being scanned.
+      notCheckedOut: chosen.filter((r) => r.status === 'not-checked-out')
+        .length,
       absent: chosen.length - attended,
       totalMinutes,
     };
@@ -356,24 +364,31 @@ export function EmployeeReportPage() {
       {
         totalSessions: chosen.length,
         attended,
+        notCheckedOut: chosen.filter((row) => row.status === 'not-checked-out')
+          .length,
         absent: chosen.length - attended,
         totalHours: formatMinutes(totalMinutes),
         period: label,
       },
-      chosen.map(({ session, record, minutes, beforeRegistration }) => ({
+      chosen.map(({ session, record, minutes, status, beforeRegistration }) => ({
         session: session.title || session.supervisorName,
         date: formatDateTime(session.startedAt),
         checkIn: record?.checkInAt ? formatClock(record.checkInAt) : '—',
         checkOut: record?.checkOutAt
           ? formatClock(record.checkOutAt)
-          : record?.checkInAt
-            ? 'In progress'
-            : '—',
-        status: record?.checkInAt
-          ? 'Present'
-          : beforeRegistration
-            ? 'Not registered yet'
-            : 'Absent',
+          : status === 'not-checked-out'
+            ? 'Not checked out'
+            : record?.checkInAt
+              ? 'In progress'
+              : '—',
+        status:
+          status === 'not-checked-out'
+            ? 'Not checked out'
+            : record?.checkInAt
+              ? 'Present'
+              : beforeRegistration
+                ? 'Not registered yet'
+                : 'Absent',
         hours: record?.checkInAt ? formatMinutes(minutes) : '—',
       })),
     );
@@ -607,10 +622,23 @@ export function EmployeeReportPage() {
             )}
           </Card>
 
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {/* The same five figures the PDF prints, in the same colours. */}
+          <div
+            className={
+              'mt-4 grid grid-cols-2 gap-4 ' +
+              (stats.notCheckedOut > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4')
+            }
+          >
             <StatCard value={stats.totalSessions} label="Total sessions" />
             <StatCard value={stats.attended} label="Attended" tone="success" />
-            <StatCard value={stats.absent} label="Absent" tone="warning" />
+            {stats.notCheckedOut > 0 && (
+              <StatCard
+                value={stats.notCheckedOut}
+                label="Not checked out"
+                tone="warning"
+              />
+            )}
+            <StatCard value={stats.absent} label="Absent" tone="danger" />
             <StatCard
               value={formatMinutes(stats.totalMinutes)}
               label="Total hours"
@@ -680,8 +708,14 @@ export function EmployeeReportPage() {
                 </thead>
                 <tbody>
                   {rows.map((row) => {
-                    const { session, record, minutes, beforeRegistration } =
-                      row;
+                    const {
+                      session,
+                      record,
+                      minutes,
+                      status,
+                      beforeRegistration,
+                    } = row;
+                    const missingCheckOut = status === 'not-checked-out';
                     const isIn = included.has(session.id);
                     return (
                       <tr
@@ -729,24 +763,32 @@ export function EmployeeReportPage() {
                         <td
                           className={cn(
                             'px-5 py-3.5 tabular-nums',
-                            isIn ? 'text-ink-700' : 'text-ink-300',
+                            missingCheckOut
+                              ? 'font-semibold text-amber-700'
+                              : isIn
+                                ? 'text-ink-700'
+                                : 'text-ink-300',
                           )}
                         >
                           {record?.checkOutAt
                             ? formatClock(record.checkOutAt)
-                            : record?.checkInAt
-                              ? 'In progress'
-                              : '—'}
+                            : missingCheckOut
+                              ? 'Not checked out'
+                              : record?.checkInAt
+                                ? 'In progress'
+                                : '—'}
                         </td>
                         <td
                           className={cn('px-5 py-3.5', !isIn && 'opacity-60')}
                         >
-                          {record?.checkInAt ? (
+                          {missingCheckOut ? (
+                            <Badge tone="warning">Not checked out</Badge>
+                          ) : record?.checkInAt ? (
                             <Badge tone="success">Present</Badge>
                           ) : beforeRegistration ? (
                             <Badge tone="neutral">Not registered yet</Badge>
                           ) : (
-                            <Badge tone="warning">Absent</Badge>
+                            <Badge tone="danger">Absent</Badge>
                           )}
                         </td>
                         <td

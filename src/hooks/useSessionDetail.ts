@@ -4,6 +4,7 @@ import {
   findSharedDeviceGroups,
   sharedDeviceNamesByEmployee,
 } from '@/services/attendance/sharedDevices';
+import { attendanceStatus } from '@/services/attendance/status';
 import { DEVICE_SESSION_WINDOW_HOURS } from '@/utils/device';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import type {
@@ -14,11 +15,6 @@ import type {
   SessionAttendee,
   Employee,
 } from '@/types';
-
-function statusOf(record?: AttendanceRecord): AttendanceStatus {
-  if (!record?.checkInAt) return 'absent';
-  return record.checkOutAt ? 'checked-out' : 'checked-in';
-}
 
 /**
  * Loads the device log around this session — from one device-session window
@@ -105,10 +101,13 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
     return employees
       .map((employee) => {
         const record = byEmployee.get(employee.id);
-        return { employee, record, status: statusOf(record) };
+        // Until the session itself has loaded, read it as still running: a
+        // missing check-out only means "never checked out" once it has ended.
+        const status = attendanceStatus(session ?? { status: 'active' }, record);
+        return { employee, record, status };
       })
       .sort((a, b) => a.employee.code.localeCompare(b.employee.code));
-  }, [employees, records]);
+  }, [employees, records, session]);
 
   /** Phones that checked in more than one employee around this session. */
   const sharedDevices = useMemo(
@@ -129,15 +128,18 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
   );
 
   const stats = useMemo(() => {
-    const checkedIn = attendees.filter((a) => a.status === 'checked-in').length;
-    const checkedOut = attendees.filter(
-      (a) => a.status === 'checked-out',
-    ).length;
+    const count = (status: AttendanceStatus) =>
+      attendees.filter((a) => a.status === status).length;
+    const checkedIn = count('checked-in');
+    const checkedOut = count('checked-out');
+    const notCheckedOut = count('not-checked-out');
     return {
       registered: employees.length,
-      present: checkedIn + checkedOut,
+      // Everyone who checked in attended, whether or not they checked out.
+      present: checkedIn + checkedOut + notCheckedOut,
       checkedIn,
       checkedOut,
+      notCheckedOut,
     };
   }, [attendees, employees.length]);
 

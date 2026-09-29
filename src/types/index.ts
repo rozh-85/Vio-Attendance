@@ -82,7 +82,16 @@ export interface AttendanceEdit {
   checkOutAt: string | null; // ISO timestamp or null
 }
 
-export type AttendanceStatus = 'absent' | 'checked-in' | 'checked-out';
+/**
+ * `not-checked-out` is a closed session's record with a check-in and no
+ * check-out: the employee was here and the check-out never happened. See
+ * `services/attendance/status.ts`.
+ */
+export type AttendanceStatus =
+  | 'absent'
+  | 'checked-in'
+  | 'checked-out'
+  | 'not-checked-out';
 
 /** Identifies the phone / browser a check-in was made from. */
 export interface DeviceInfo {

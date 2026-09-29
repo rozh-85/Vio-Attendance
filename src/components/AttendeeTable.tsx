@@ -9,6 +9,10 @@ function StatusBadge({ status }: { status: SessionAttendee['status'] }) {
     return <Badge tone="success">✓ In</Badge>;
   if (status === 'checked-out')
     return <Badge tone="info">✓ Out</Badge>;
+  // Checked in, session over, no check-out: amber, because it is neither an
+  // attendance to tick off nor an absence.
+  if (status === 'not-checked-out')
+    return <Badge tone="warning">! No check-out</Badge>;
   return <Badge tone="neutral">Absent</Badge>;
 }
 

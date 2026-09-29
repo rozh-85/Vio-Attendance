@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { attendanceStatus } from '@/services/attendance/status';
 import type { AttendanceRecord, Session, Employee } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
 
@@ -88,7 +89,13 @@ function buildSessionRows(
         employeeName: employee.fullName,
         position: employee.position,
         checkInTime: record?.checkInAt ? formatClock(record.checkInAt) : '',
-        checkOutTime: record?.checkOutAt ? formatClock(record.checkOutAt) : '',
+        // An empty check-out on an ended session is said out loud: nobody is
+        // checked out automatically any more.
+        checkOutTime: record?.checkOutAt
+          ? formatClock(record.checkOutAt)
+          : attendanceStatus(session, record) === 'not-checked-out'
+            ? 'Not checked out'
+            : '',
         totalTimePresent: total,
       };
     });

@@ -312,15 +312,9 @@ export class SupabaseDataService implements DataService {
   async closeSession(id: string): Promise<Session> {
     const closedAt = new Date().toISOString();
 
-    // Auto check-out anyone still present.
-    const { error: checkoutError } = await this.client
-      .from('attendance')
-      .update({ check_out_at: closedAt })
-      .eq('session_id', id)
-      .not('check_in_at', 'is', null)
-      .is('check_out_at', null);
-    if (checkoutError) throw checkoutError;
-
+    // Anyone still checked in keeps an empty check-out: the session says when
+    // it ended, and the record says the check-out never happened. Stamping one
+    // here would have invented a time nobody scanned.
     return this.updateSession(id, {
       status: 'closed',
       checkInOpen: false,

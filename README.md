@@ -2,9 +2,10 @@
 
 A React web app for taking employee attendance with QR codes. A supervisor
 starts a session and shows two QR codes; employees scan them with their phone to
-**check in** and **check out**. Closing a session auto-checks-out everyone still
-present. Results export to a cleanly-formatted Excel workbook, and any one
-employee's history exports to a Vio-branded PDF.
+**check in** and **check out**. Closing a session checks nobody out: whoever
+never scanned out is marked **Not checked out**, in amber, so a missed scan is
+visible instead of invented. Results export to a cleanly-formatted Excel
+workbook, and any one employee's history exports to a Vio-branded PDF.
 
 ## How it works
 
@@ -18,7 +19,11 @@ employee's history exports to a Vio-branded PDF.
   marked in / out. Each gate can be opened or paused independently. The QR
   rotates every 5 seconds so a forwarded screenshot won't work; a **Constant QR**
   toggle switches to one code that lasts the whole session.
-- **Close session** → ends it and checks out anyone still present.
+- **Close session** → ends it. Nobody is checked out automatically: anyone still
+  checked in becomes **Not checked out** (amber) on the session screen, in the
+  employee report, in the Excel sheet and on the PDF, next to **Present**
+  (green) and **Absent** (red). The supervisor can enter the real check-out time
+  by hand from either the session screen or the employee report.
 - **Delete session** → after a confirmation, removes the session for good
   together with its attendance and check-in log. The database must allow
   signed-in supervisors to delete sessions; until it does, the button says so.

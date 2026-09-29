@@ -5,6 +5,7 @@ import {
   AttendanceTimeFields,
   attendanceTimesError,
 } from './AttendanceTimeFields';
+import { sessionIsOver } from '@/services/attendance/status';
 import type { AttendanceEdit, AttendanceRecord, Session, Employee } from '@/types';
 import {
   formatDateTime,
@@ -79,6 +80,7 @@ export function EditAttendanceModal({
           checkOut={checkOut}
           onCheckInChange={setCheckIn}
           onCheckOutChange={setCheckOut}
+          sessionClosed={sessionIsOver(session)}
         />
 
         <button
