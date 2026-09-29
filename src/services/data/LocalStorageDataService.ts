@@ -1,5 +1,6 @@
 import type {
   AttendanceEdit,
+  AttendanceMark,
   AttendanceRecord,
   CheckInEvent,
   CheckInLocation,
@@ -459,6 +460,30 @@ export class LocalStorageDataService implements DataService {
         record = { id: uid(), sessionId, employeeId, checkInAt, checkOutAt };
         this.write(KEYS.attendance, [...records, record]);
       }
+      return record;
+    });
+  }
+
+  async setAttendanceMark(
+    sessionId: string,
+    employeeId: string,
+    mark: AttendanceMark | null,
+  ): Promise<AttendanceRecord> {
+    return this.mutate(async () => {
+      const records = await this.listAttendance();
+      const existing = records.find(
+        (r) => r.sessionId === sessionId && r.employeeId === employeeId,
+      );
+      const record: AttendanceRecord = {
+        ...(existing ?? { id: uid(), sessionId, employeeId }),
+        mark: mark ?? undefined,
+      };
+      this.write(
+        KEYS.attendance,
+        existing
+          ? records.map((r) => (r.id === existing.id ? record : r))
+          : [...records, record],
+      );
       return record;
     });
   }

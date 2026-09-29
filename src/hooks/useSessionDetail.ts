@@ -152,6 +152,17 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
     [data, sessionId],
   );
 
+  /** Shows a record the supervisor just saved without waiting for the next poll. */
+  const applyRecord = useCallback((saved: AttendanceRecord) => {
+    setRecords((prev) => {
+      const i = prev.findIndex((r) => r.employeeId === saved.employeeId);
+      if (i === -1) return [...prev, saved];
+      const next = prev.slice();
+      next[i] = saved;
+      return next;
+    });
+  }, []);
+
   const close = useCallback(async () => {
     const updated = await data.closeSession(sessionId);
     await refresh();
@@ -171,5 +182,6 @@ export function useSessionDetail(sessionId: string, pollMs = 3000) {
     refresh,
     update,
     close,
+    applyRecord,
   };
 }

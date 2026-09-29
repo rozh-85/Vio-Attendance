@@ -19,7 +19,11 @@ import {
   todayValue,
 } from '@/utils/time';
 import { cn } from '@/utils/cn';
-import { attendanceStatus } from '@/services/attendance/status';
+import {
+  MARK_LABEL,
+  attendanceStatus,
+  isExcused,
+} from '@/services/attendance/status';
 import type {
   AttendanceEdit,
   AttendanceRecord,
@@ -93,6 +97,13 @@ const PERIOD_TABS: {
     }),
   },
 ];
+
+/** One column per stat card on wider screens — written out so Tailwind sees them. */
+const STAT_COLUMNS: Record<number, string> = {
+  4: 'sm:grid-cols-4',
+  5: 'sm:grid-cols-5',
+  6: 'sm:grid-cols-6',
+};
 
 /** Stable identity for a period, so a change re-applies the default ticks. */
 function periodKey(period: Period): string {
@@ -286,6 +297,8 @@ export function EmployeeReportPage() {
   const stats = useMemo(() => {
     const chosen = rows.filter((r) => included.has(r.session.id));
     const attended = chosen.filter((r) => r.record?.checkInAt).length;
+    // Missed, but marked off / on leave / not their shift by the supervisor.
+    const excused = chosen.filter((r) => isExcused(r.record)).length;
     const totalMinutes = chosen.reduce((sum, r) => sum + r.minutes, 0);
     return {
       totalSessions: chosen.length,
@@ -293,7 +306,8 @@ export function EmployeeReportPage() {
       // Attended, but the session ended without a check-out being scanned.
       notCheckedOut: chosen.filter((r) => r.status === 'not-checked-out')
         .length,
-      absent: chosen.length - attended,
+      absent: chosen.length - attended - excused,
+      excused,
       totalMinutes,
     };
   }, [rows, included]);
@@ -358,6 +372,7 @@ export function EmployeeReportPage() {
 
   function exportPdf(employee: Employee, chosen: SessionRow[], label: string) {
     const attended = chosen.filter((row) => row.record?.checkInAt).length;
+    const excused = chosen.filter((row) => isExcused(row.record)).length;
     const totalMinutes = chosen.reduce((sum, row) => sum + row.minutes, 0);
     exportEmployeePdf(
       employee,
@@ -366,7 +381,8 @@ export function EmployeeReportPage() {
         attended,
         notCheckedOut: chosen.filter((row) => row.status === 'not-checked-out')
           .length,
-        absent: chosen.length - attended,
+        absent: chosen.length - attended - excused,
+        excused,
         totalHours: formatMinutes(totalMinutes),
         period: label,
       },
@@ -389,6 +405,7 @@ export function EmployeeReportPage() {
               : beforeRegistration
                 ? 'Not registered yet'
                 : 'Absent',
+        mark: record?.mark ? MARK_LABEL[record.mark] : undefined,
         hours: record?.checkInAt ? formatMinutes(minutes) : '—',
       })),
     );
@@ -626,7 +643,9 @@ export function EmployeeReportPage() {
           <div
             className={
               'mt-4 grid grid-cols-2 gap-4 ' +
-              (stats.notCheckedOut > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4')
+              STAT_COLUMNS[
+                4 + (stats.notCheckedOut > 0 ? 1 : 0) + (stats.excused > 0 ? 1 : 0)
+              ]
             }
           >
             <StatCard value={stats.totalSessions} label="Total sessions" />
@@ -639,6 +658,9 @@ export function EmployeeReportPage() {
               />
             )}
             <StatCard value={stats.absent} label="Absent" tone="danger" />
+            {stats.excused > 0 && (
+              <StatCard value={stats.excused} label="Excused" tone="note" />
+            )}
             <StatCard
               value={formatMinutes(stats.totalMinutes)}
               label="Total hours"
@@ -781,15 +803,22 @@ export function EmployeeReportPage() {
                         <td
                           className={cn('px-5 py-3.5', !isIn && 'opacity-60')}
                         >
-                          {missingCheckOut ? (
-                            <Badge tone="warning">Not checked out</Badge>
-                          ) : record?.checkInAt ? (
-                            <Badge tone="success">Present</Badge>
-                          ) : beforeRegistration ? (
-                            <Badge tone="neutral">Not registered yet</Badge>
-                          ) : (
-                            <Badge tone="danger">Absent</Badge>
-                          )}
+                          {/* Same reading as the session screen and the PDF:
+                              a mark on a missed session replaces "Absent". */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {isExcused(record) ? null : missingCheckOut ? (
+                              <Badge tone="warning">Not checked out</Badge>
+                            ) : record?.checkInAt ? (
+                              <Badge tone="success">Present</Badge>
+                            ) : beforeRegistration ? (
+                              <Badge tone="neutral">Not registered yet</Badge>
+                            ) : (
+                              <Badge tone="danger">Absent</Badge>
+                            )}
+                            {record?.mark && (
+                              <Badge tone="note">{MARK_LABEL[record.mark]}</Badge>
+                            )}
+                          </div>
                         </td>
                         <td
                           className={cn(

@@ -8,6 +8,11 @@ export interface EmployeePdfRow {
   checkIn: string;
   checkOut: string;
   status: 'Present' | 'Not checked out' | 'Absent' | 'Not registered yet';
+  /**
+   * The supervisor's mark, e.g. "Off" or "Overtime". On an absent row it is
+   * printed instead of "Absent"; on any other row, next to the status.
+   */
+  mark?: string;
   hours: string;
 }
 
@@ -16,7 +21,10 @@ export interface EmployeePdfStats {
   attended: number;
   /** Sessions the employee attended but never checked out of. */
   notCheckedOut: number;
+  /** Missed sessions without a mark to explain them. */
   absent: number;
+  /** Missed sessions the supervisor marked off, on leave, not their shift, … */
+  excused: number;
   totalHours: string;
   /** The slice of time the report covers, e.g. "August 2026". */
   period: string;
@@ -55,6 +63,14 @@ const STATUS_PAINT: Record<EmployeePdfRow['status'], string> = {
   'Not registered yet': 'color:#6B7280;background:#F1F5F9;',
 };
 
+/** Violet for the supervisor's marks, apart from every status colour. */
+const VIOLET = '#6D28D9';
+const MARK_PAINT = `color:${VIOLET};background:#F3EFFE;`;
+
+function badge(text: string, paint: string): string {
+  return `<span class="badge" style="${paint}">${esc(text)}</span>`;
+}
+
 /** The printable document itself, so it can be rendered without printing it. */
 export function buildEmployeePdfHtml(
   employee: Employee,
@@ -64,16 +80,24 @@ export function buildEmployeePdfHtml(
   const tableRows = rows
     .map((row, index) => {
       const missing = row.status === 'Not checked out';
+      // A mark on a missed session says why they were away, so it replaces
+      // "Absent"; on an attended one it is printed beside the status.
+      const statusCell =
+        row.mark && (row.status === 'Absent' || row.status === 'Not registered yet')
+          ? badge(row.mark, MARK_PAINT)
+          : badge(row.status, STATUS_PAINT[row.status]) +
+            (row.mark ? ` ${badge(row.mark, MARK_PAINT)}` : '');
       return `<tr style="background:${index % 2 === 0 ? '#FFFFFF' : '#FBF6F6'}">
         <td>${esc(row.session)}</td>
         <td>${esc(row.date)}</td>
         <td class="num">${esc(row.checkIn)}</td>
         <td class="num${missing ? ' missing' : ''}">${esc(row.checkOut)}</td>
-        <td><span class="badge" style="${STATUS_PAINT[row.status]}">${esc(row.status)}</span></td>
+        <td>${statusCell}</td>
         <td class="num">${esc(row.hours)}</td>
       </tr>`;
     })
     .join('');
+  const anyMark = rows.some((row) => row.mark);
 
   return `<!DOCTYPE html>
 <html>
@@ -104,6 +128,7 @@ export function buildEmployeePdfHtml(
   .stat.missing b { color: ${AMBER}; }
   .stat.missing { border-color: #EBD08A; background: #FFFBF0; }
   .stat.absent b { color: ${RED_DARK}; }
+  .stat.excused b { color: ${VIOLET}; }
   .stat.hours b { color: ${RED}; }
   table { width: 100%; border-collapse: collapse; }
   thead th { background: ${RED}; color: #fff; text-align: left; font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; padding: 9px 10px; }
@@ -148,6 +173,7 @@ export function buildEmployeePdfHtml(
     <div class="stat attended"><b>${stats.attended}</b><span>Attended</span></div>
     <div class="stat missing"><b>${stats.notCheckedOut}</b><span>Not checked out</span></div>
     <div class="stat absent"><b>${stats.absent}</b><span>Absent</span></div>
+    ${stats.excused > 0 ? `<div class="stat excused"><b>${stats.excused}</b><span>Excused</span></div>` : ''}
     <div class="stat hours"><b>${esc(stats.totalHours)}</b><span>Total hours</span></div>
   </div>
 
@@ -155,6 +181,7 @@ export function buildEmployeePdfHtml(
     <span><i style="background:${GREEN}"></i>Present — checked in and out</span>
     <span><i style="background:${AMBER}"></i>Not checked out — attended, no check-out scanned</span>
     <span><i style="background:${RED_DARK}"></i>Absent</span>
+    ${anyMark ? `<span><i style="background:${VIOLET}"></i>Marked by the supervisor — off, not their shift, overtime, hourly or official leave; a marked absence counts as excused</span>` : ''}
   </div>
 
   <table>

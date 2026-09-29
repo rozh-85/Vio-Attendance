@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AttendanceEdit,
+  AttendanceMark,
   AttendanceRecord,
   CheckInEvent,
   CheckInLocation,
@@ -66,6 +67,7 @@ export class SupabaseDataService implements DataService {
       employeeId: row.employee_id,
       checkInAt: row.check_in_at ?? undefined,
       checkOutAt: row.check_out_at ?? undefined,
+      mark: row.mark ?? undefined,
     };
   }
 
@@ -453,6 +455,34 @@ export class SupabaseDataService implements DataService {
     return this.toRecord(data as AttendanceRow);
   }
 
+  async setAttendanceMark(
+    sessionId: string,
+    employeeId: string,
+    mark: AttendanceMark | null,
+  ): Promise<AttendanceRecord> {
+    // One upsert on the (session, employee) pair: it creates the record for an
+    // absent employee and cannot collide with a check-in landing at the same
+    // moment. Only `mark` is written, so the times stay as they are.
+    const { data, error } = await this.client
+      .from('attendance')
+      .upsert(
+        { session_id: sessionId, employee_id: employeeId, mark },
+        { onConflict: 'session_id,employee_id' },
+      )
+      .select('*')
+      .single();
+    if (error) {
+      if (isMissingColumn(error, 'mark')) {
+        throw new DataError(
+          'DATABASE_OUTDATED',
+          'Marks need a one-time database update: run supabase/attendance-marks.sql in the Supabase SQL editor.',
+        );
+      }
+      throw error;
+    }
+    return this.toRecord(data as AttendanceRow);
+  }
+
   // ── Leave management ──────────────────────────────────────────────────────
   async listLeaveAllowances(year?: number): Promise<LeaveAllowance[]> {
     let query = this.client.from('leave_allowances').select('*').order('year', { ascending: false });
@@ -559,6 +589,8 @@ interface AttendanceRow {
   employee_id: string;
   check_in_at: string | null;
   check_out_at: string | null;
+  // Missing entirely until supabase/attendance-marks.sql has been run.
+  mark?: AttendanceMark | null;
 }
 
 interface CheckInEventRow {
@@ -614,6 +646,20 @@ function hasPostgresErrorCode(err: unknown, code: string): boolean {
     err !== null &&
     'code' in err &&
     (err as { code?: unknown }).code === code
+  );
+}
+
+/**
+ * True when the database has no such column yet — PostgREST reports it as
+ * PGRST204 when writing and Postgres as 42703 when reading.
+ */
+function isMissingColumn(
+  err: { code?: string; message?: string },
+  column: string,
+): boolean {
+  return (
+    (err.code === 'PGRST204' || err.code === '42703') &&
+    (err.message ?? '').includes(column)
   );
 }
 

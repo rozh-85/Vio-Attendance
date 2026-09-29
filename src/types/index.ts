@@ -53,7 +53,21 @@ export interface AttendanceRecord {
   employeeId: string;
   checkInAt?: string; // ISO timestamp
   checkOutAt?: string; // ISO timestamp
+  /** Set by the supervisor from the ⋯ menu on the session screen. */
+  mark?: AttendanceMark;
 }
+
+/**
+ * What the supervisor noted about one employee in one session. On a record
+ * without a check-in it explains the absence and is shown instead of "Absent";
+ * see `services/attendance/status.ts`.
+ */
+export type AttendanceMark =
+  | 'off'
+  | 'not-their-shift'
+  | 'overtime'
+  | 'hourly-leave'
+  | 'official-leave';
 
 /** Annual leave allowance for one employee. Missing records use the 12-day default. */
 export interface LeaveAllowance {

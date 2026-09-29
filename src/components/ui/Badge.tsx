@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/utils/cn';
 
-type Tone = 'neutral' | 'success' | 'info' | 'warning' | 'danger';
+type Tone = 'neutral' | 'success' | 'info' | 'warning' | 'danger' | 'note';
 
 const tones: Record<Tone, string> = {
   neutral: 'bg-slate-100 text-ink-500',
@@ -9,6 +9,8 @@ const tones: Record<Tone, string> = {
   info: 'bg-brand-50 text-brand-700',
   warning: 'bg-amber-50 text-amber-700',
   danger: 'bg-rose-50 text-rose-700',
+  // A supervisor's mark (off, overtime, …) — apart from every status colour.
+  note: 'bg-violet-50 text-violet-700',
 };
 
 export function Badge({

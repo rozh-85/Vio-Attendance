@@ -1,4 +1,9 @@
-import type { AttendanceRecord, AttendanceStatus, Session } from '@/types';
+import type {
+  AttendanceMark,
+  AttendanceRecord,
+  AttendanceStatus,
+  Session,
+} from '@/types';
 
 /**
  * One reading of an attendance record, used by the session screen, the employee
@@ -32,3 +37,32 @@ export const STATUS_LABEL: Record<AttendanceStatus, string> = {
   'checked-out': 'Checked out',
   'not-checked-out': 'Not checked out',
 };
+
+/** The session screen's ⋯ menu, in the order it offers them. */
+export const ATTENDANCE_MARKS: AttendanceMark[] = [
+  'off',
+  'not-their-shift',
+  'overtime',
+  'hourly-leave',
+  'official-leave',
+];
+
+/** What each mark is called, wherever it is shown. */
+export const MARK_LABEL: Record<AttendanceMark, string> = {
+  off: 'Off',
+  'not-their-shift': 'Not their shift',
+  overtime: 'Overtime',
+  'hourly-leave': 'Hourly leave',
+  'official-leave': 'Official leave',
+};
+
+/**
+ * No check-in, but a mark that explains why. Such a record is shown as its mark
+ * instead of "Absent", and counted as excused rather than absent. A mark on a
+ * record with a check-in (overtime, say) is shown next to its status instead.
+ */
+export function isExcused(
+  record?: Pick<AttendanceRecord, 'checkInAt' | 'mark'>,
+): boolean {
+  return !record?.checkInAt && !!record?.mark;
+}

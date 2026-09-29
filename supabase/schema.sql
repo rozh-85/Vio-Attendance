@@ -82,10 +82,20 @@ create table if not exists public.attendance (
   employee_id  uuid not null references public.employees(id) on delete cascade,
   check_in_at  timestamptz,
   check_out_at timestamptz,
+  -- The supervisor's ⋯ mark (see supabase/attendance-marks.sql).
+  mark         text
+    constraint attendance_mark_check
+    check (mark in ('off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave')),
   constraint attendance_session_employee_unique unique (session_id, employee_id),
   constraint attendance_checkout_after_checkin
     check (check_out_at is null or check_in_at is null or check_out_at >= check_in_at)
 );
+
+-- Older tables predate the mark column.
+alter table public.attendance
+  add column if not exists mark text
+    constraint attendance_mark_check
+    check (mark in ('off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave'));
 
 create index if not exists attendance_session_idx  on public.attendance(session_id);
 create index if not exists attendance_employee_idx on public.attendance(employee_id);

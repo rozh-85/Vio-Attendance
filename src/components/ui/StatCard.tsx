@@ -1,6 +1,6 @@
 import { cn } from '@/utils/cn';
 
-type Tone = 'neutral' | 'success' | 'info' | 'warning' | 'danger';
+type Tone = 'neutral' | 'success' | 'info' | 'warning' | 'danger' | 'note';
 
 const tones: Record<Tone, string> = {
   neutral: 'bg-white border-slate-200 text-ink-900',
@@ -8,6 +8,7 @@ const tones: Record<Tone, string> = {
   info: 'bg-brand-50/70 border-brand-100 text-brand-700',
   warning: 'bg-amber-50/70 border-amber-100 text-amber-700',
   danger: 'bg-rose-50/70 border-rose-100 text-rose-700',
+  note: 'bg-violet-50/70 border-violet-100 text-violet-700',
 };
 
 export function StatCard({

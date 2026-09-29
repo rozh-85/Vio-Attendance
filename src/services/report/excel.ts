@@ -1,5 +1,9 @@
 import { format } from 'date-fns';
-import { attendanceStatus } from '@/services/attendance/status';
+import {
+  MARK_LABEL,
+  attendanceStatus,
+  isExcused,
+} from '@/services/attendance/status';
 import type { AttendanceRecord, LeaveRecord, Session, Employee } from '@/types';
 import { formatClock, formatDateTime } from '@/utils/time';
 
@@ -119,6 +123,12 @@ function buildAttendanceReport(
 
       const status = attendanceStatus(session, record);
       const missingCheckOut = status === 'not-checked-out';
+      const statusText = missingCheckOut
+        ? 'Not checked out'
+        : record?.checkInAt
+          ? 'Present'
+          : 'Absent';
+      const mark = record?.mark ? MARK_LABEL[record.mark] : '';
 
       return {
         employeeCode: employee.code,
@@ -133,11 +143,12 @@ function buildAttendanceReport(
             : record?.checkInAt
               ? 'In progress'
               : '—',
-        status: missingCheckOut
-          ? 'Not checked out'
-          : record?.checkInAt
-            ? 'Present'
-            : 'Absent',
+        // Like the PDF: a mark replaces "Absent", or sits beside the status.
+        status: isExcused(record)
+          ? mark
+          : mark
+            ? `${statusText} · ${mark}`
+            : statusText,
         timePresent: record?.checkInAt ? formatMinutes(presentMinutes) : '—',
       };
     });

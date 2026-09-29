@@ -12,6 +12,7 @@ export type DataErrorCode =
   | 'ALREADY_CHECKED_OUT'
   | 'LEAVE_NOT_FOUND'
   | 'NOT_ALLOWED'
+  | 'DATABASE_OUTDATED'
   | 'NOT_IMPLEMENTED';
 
 export class DataError extends Error {

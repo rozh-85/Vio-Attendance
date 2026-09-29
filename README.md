@@ -24,6 +24,12 @@ workbook, and any one employee's history exports to a Vio-branded PDF.
   employee report, in the Excel sheet and on the PDF, next to **Present**
   (green) and **Absent** (red). The supervisor can enter the real check-out time
   by hand from either the session screen or the employee report.
+- **⋯ on an employee row** → mark them **Off**, **Not their shift**,
+  **Overtime**, **Hourly leave** or **Official leave** for that session. On
+  someone who did not check in, the mark replaces "Absent" — on screen, in the
+  employee PDF and in both Excel sheets — and counts as **Excused** instead of
+  absent. On someone who did, it shows next to their status. Needs
+  [`supabase/attendance-marks.sql`](supabase/attendance-marks.sql) run once.
 - **Delete session** → after a confirmation, removes the session for good
   together with its attendance and check-in log. The database must allow
   signed-in supervisors to delete sessions; until it does, the button says so.

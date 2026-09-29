@@ -40,6 +40,7 @@ import type {
   NewEmployeeInput,
   SessionAttendee,
   Employee,
+  AttendanceMark,
 } from '@/types';
 import type { ReactNode } from 'react';
 
@@ -70,6 +71,7 @@ export function SessionView() {
     update,
     close,
     refresh,
+    applyRecord,
   } = useSessionDetail(sessionId);
 
   const [modal, setModal] = useState<ModalKind>(null);
@@ -85,6 +87,7 @@ export function SessionView() {
   const [deleting, setDeleting] = useState(false);
   const [editAttendee, setEditAttendee] = useState<SessionAttendee | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [markError, setMarkError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
@@ -156,6 +159,24 @@ export function SessionView() {
       setConfirmClose(false);
     } finally {
       setClosing(false);
+    }
+  }
+
+  async function onMarkChange(
+    attendee: SessionAttendee,
+    mark: AttendanceMark | null,
+  ) {
+    setMarkError(null);
+    try {
+      applyRecord(
+        await data.setAttendanceMark(session!.id, attendee.employee.id, mark),
+      );
+    } catch (err) {
+      setMarkError(
+        isDataError(err)
+          ? err.message
+          : `Could not save the mark for ${attendee.employee.fullName}. Please try again.`,
+      );
     }
   }
 
@@ -422,11 +443,24 @@ export function SessionView() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        {markError && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <span>{markError}</span>
+            <button
+              type="button"
+              className="font-semibold underline"
+              onClick={() => setMarkError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <AttendeeTable
           attendees={filteredAttendees}
           sharedDeviceNames={ownerUnlocked ? sharedDeviceNames : undefined}
           onDeleteEmployee={onDeleteEmployeeClick}
           onEditEmployee={onEditEmployeeClick}
+          onMarkChange={onMarkChange}
         />
       </div>
 

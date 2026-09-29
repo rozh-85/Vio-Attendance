@@ -15,10 +15,11 @@ const employee: Employee = {
 const html = buildEmployeePdfHtml(
   employee,
   {
-    totalSessions: 5,
-    attended: 4,
+    totalSessions: 6,
+    attended: 3,
     notCheckedOut: 2,
     absent: 1,
+    excused: 1,
     totalHours: '31:20',
     period: 'September 2026',
   },
@@ -29,6 +30,7 @@ const html = buildEmployeePdfHtml(
       checkIn: '08:04',
       checkOut: '16:02',
       status: 'Present',
+      mark: 'Overtime',
       hours: '07:58',
     },
     {
@@ -53,6 +55,15 @@ const html = buildEmployeePdfHtml(
       checkIn: '—',
       checkOut: '—',
       status: 'Absent',
+      hours: '—',
+    },
+    {
+      session: 'Morning shift',
+      date: '24 Sep 2026, 08:00',
+      checkIn: '—',
+      checkOut: '—',
+      status: 'Absent',
+      mark: 'Off',
       hours: '—',
     },
     {

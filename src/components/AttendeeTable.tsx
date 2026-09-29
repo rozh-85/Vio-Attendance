@@ -1,8 +1,13 @@
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
-import type { SessionAttendee } from '@/types';
+import type { AttendanceMark, SessionAttendee } from '@/types';
+import {
+  ATTENDANCE_MARKS,
+  MARK_LABEL,
+  isExcused,
+} from '@/services/attendance/status';
 import { formatClock } from '@/utils/time';
-import { Pencil, Trash } from './icons';
+import { MoreHorizontal, Pencil, Trash } from './icons';
 
 function StatusBadge({ status }: { status: SessionAttendee['status'] }) {
   if (status === 'checked-in')
@@ -21,14 +26,17 @@ export function AttendeeTable({
   sharedDeviceNames,
   onDeleteEmployee,
   onEditEmployee,
+  onMarkChange,
 }: {
   attendees: SessionAttendee[];
   /** employeeId → the other employees who checked in from the same phone. */
   sharedDeviceNames?: Map<string, string[]>;
   onDeleteEmployee?: (employeeId: string, employeeCode: string, employeeName: string) => void;
   onEditEmployee?: (attendee: SessionAttendee) => void;
+  /** The ⋯ menu: off, not their shift, overtime, … — `null` clears it. */
+  onMarkChange?: (attendee: SessionAttendee, mark: AttendanceMark | null) => void;
 }) {
-  const showActions = !!onDeleteEmployee || !!onEditEmployee;
+  const showActions = !!onDeleteEmployee || !!onEditEmployee || !!onMarkChange;
 
   if (attendees.length === 0) {
     return (
@@ -83,7 +91,14 @@ export function AttendeeTable({
                   {employee.position || '—'}
                 </td>
                 <td className="px-5 py-3.5">
-                  <StatusBadge status={status} />
+                  {/* A mark on an absent employee explains the absence, so it
+                      stands in for "Absent"; otherwise it sits beside the status. */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {!isExcused(record) && <StatusBadge status={status} />}
+                    {record?.mark && (
+                      <Badge tone="note">{MARK_LABEL[record.mark]}</Badge>
+                    )}
+                  </div>
                 </td>
                 <td className="px-5 py-3.5 tabular-nums text-ink-700">
                   {formatClock(record?.checkInAt)}
@@ -119,6 +134,36 @@ export function AttendeeTable({
                         >
                           <Trash width={17} height={17} />
                         </button>
+                      )}
+                      {onMarkChange && (
+                        // A native list under the dots: it opens where it
+                        // fits, and as the phone's own picker on a phone.
+                        <label
+                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 transition focus-within:ring-2 focus-within:ring-brand-500 hover:bg-slate-100 hover:text-ink-900"
+                          title="Mark as off, not their shift, overtime, hourly leave or official leave"
+                        >
+                          <MoreHorizontal width={17} height={17} />
+                          <select
+                            aria-label={`Mark ${employee.fullName}`}
+                            className="absolute inset-0 h-full w-full cursor-pointer text-base opacity-0"
+                            value={record?.mark ?? ''}
+                            onChange={(e) =>
+                              onMarkChange(
+                                attendee,
+                                (e.target.value || null) as AttendanceMark | null,
+                              )
+                            }
+                          >
+                            <option value="">No mark</option>
+                            <optgroup label="Mark as">
+                              {ATTENDANCE_MARKS.map((mark) => (
+                                <option key={mark} value={mark}>
+                                  {MARK_LABEL[mark]}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        </label>
                       )}
                     </div>
                   </td>

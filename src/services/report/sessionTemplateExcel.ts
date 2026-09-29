@@ -1,5 +1,9 @@
 import { format } from 'date-fns';
-import { attendanceStatus } from '@/services/attendance/status';
+import {
+  MARK_LABEL,
+  attendanceStatus,
+  isExcused,
+} from '@/services/attendance/status';
 import type { AttendanceRecord, Session, Employee } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
 
@@ -79,9 +83,12 @@ function buildSessionRows(
     .map((employee) => {
       const record = recordsByEmployee.get(employee.id);
       const end = record?.checkOutAt ?? session.closedAt ?? new Date().toISOString();
-      const total =
-        record?.checkInAt
-          ? formatDuration(record.checkInAt, end)
+      const mark = record?.mark ? MARK_LABEL[record.mark] : '';
+      // Like the PDF: a mark replaces "Absent", or follows the time present.
+      const total = record?.checkInAt
+        ? formatDuration(record.checkInAt, end) + (mark ? ` · ${mark}` : '')
+        : isExcused(record)
+          ? mark
           : 'Absent';
 
       return {

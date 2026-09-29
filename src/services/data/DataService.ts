@@ -1,5 +1,6 @@
 import type {
   AttendanceEdit,
+  AttendanceMark,
   AttendanceRecord,
   CheckInEvent,
   CheckInLocation,
@@ -77,6 +78,16 @@ export interface DataService {
     sessionId: string,
     employeeId: string,
     edit: AttendanceEdit,
+  ): Promise<AttendanceRecord>;
+  /**
+   * Sets (or, with `null`, clears) the supervisor's mark on an employee's
+   * attendance for a session — creating the record for an absent employee.
+   * Check-in and check-out times are left as they are.
+   */
+  setAttendanceMark(
+    sessionId: string,
+    employeeId: string,
+    mark: AttendanceMark | null,
   ): Promise<AttendanceRecord>;
 
   // ── Leave management ──────────────────────────────────────────────────────
