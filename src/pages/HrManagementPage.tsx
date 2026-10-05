@@ -399,6 +399,7 @@ export function HrManagementPage() {
       description: "Where this person sits in the company and what they are paid.",
       fields: [
         { key: "jobTitle", label: "Job title", required: true },
+        { key: "duties", label: "Duties / type of work", type: "textarea" },
         {
           key: "status",
           label: "Employment status",
@@ -492,6 +493,18 @@ export function HrManagementPage() {
         { key: "languages", label: "Languages", type: "textarea" },
         { key: "computerSkills", label: "Computer skills", type: "textarea" },
         { key: "trainings", label: "Courses / training", type: "textarea" },
+      ],
+    },
+    {
+      title: "Attendance record",
+      description: "Absences, late arrivals, early leaves, overtime and deductions noted on the paper HR form.",
+      fields: [
+        {
+          key: "attendanceNotes",
+          label: "Attendance notes",
+          type: "textarea",
+          hint: "Notes only — they do not change attendance, leave balances or payroll.",
+        },
       ],
     },
     {
@@ -1352,6 +1365,7 @@ function EmployeeDetails({
                                 <div className="mt-3 grid gap-3">{
                                   [
                                     info("Job title", profile.jobTitle || employee.position),
+                                    info("Duties", profile.duties),
                                     info("Employment type", profile.employmentType),
                                     info("Join date", formatEmployeeDate(profile.joinDate)),
                                     info("Contract end", formatEmployeeDate(profile.contractEnd)),
@@ -1384,6 +1398,14 @@ function EmployeeDetails({
                                 }</div>
                               </div>
                             </div>
+                            {profile.attendanceNotes && (
+                              <div className="mt-5 border-t border-slate-200 pt-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-700">Attendance record</h3>
+                                <p className="mt-2 whitespace-pre-line text-sm text-ink-800">
+                                  {profile.attendanceNotes}
+                                </p>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )}

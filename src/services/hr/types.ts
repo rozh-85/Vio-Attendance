@@ -49,6 +49,13 @@ export interface HrEmployeeProfile {
   chronicDisease?: string;
   emergencyRelation?: string;
   emergencyPhone?: string;
+  /** What the job involves day to day ("type of work" on the paper HR form). */
+  duties?: string;
+  /**
+   * Absences, late arrivals, early leaves, overtime and deductions as written
+   * on the paper HR form. Kept as notes: they change no attendance or payroll.
+   */
+  attendanceNotes?: string;
   portalHash?: string;
   portalExpiresAt?: string;
 }
