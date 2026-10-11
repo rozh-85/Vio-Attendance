@@ -55,7 +55,8 @@ export interface DataService {
    * Marks an employee (by code) as checked in to a session. When `device` is
    * supplied the check-in is also written to the append-only device log, which
    * is what tells the supervisor that one phone checked in several employees. The
-   * log never refuses a check-in — it only records it.
+   * log never refuses a check-in — it only records it. A check-in without
+   * `location` is refused with LOCATION_REQUIRED.
    */
   checkIn(
     sessionId: string,

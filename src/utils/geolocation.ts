@@ -44,12 +44,11 @@ function readOnce(options: PositionOptions): Promise<LocationReading> {
 }
 
 /**
- * Reads the check-in phone's approximate position without making location a
- * requirement. A precise GPS fix is tried first; when that fails for any
- * reason but a refusal — slow GPS indoors is common — the quicker
- * network-based fix is taken rather than no position at all. Never throws: a
- * phone that cannot or will not share its position still checks in, and
- * `problem` says why.
+ * Reads the check-in phone's approximate position. A precise GPS fix is tried
+ * first; when that fails for any reason but a refusal — slow GPS indoors is
+ * common — the quicker network-based fix is taken rather than no position at
+ * all. Never throws: when there is no position, `problem` says why, so the
+ * check-in screen can say what to fix.
  */
 export async function readCheckInLocation(): Promise<LocationReading> {
   if (!navigator.geolocation) return { problem: 'unsupported' };

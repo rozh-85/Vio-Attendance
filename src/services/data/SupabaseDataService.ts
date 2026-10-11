@@ -365,37 +365,20 @@ export class SupabaseDataService implements DataService {
     // All validation + write happens in the `check_in` security-definer
     // function so the anon key needs no direct rights on the attendance or
     // employees tables. See supabase/harden-employee-data.sql. The function also
-    // records the device and enforces the per-device employee limit — see
-    // supabase/device-checkin-tracking.sql.
+    // records the device and refuses a check-in without a location — see
+    // supabase/require-check-in-location.sql. Refuse here too, so the rule holds
+    // before that SQL has been run.
+    if (!location) {
+      throw new DataError('LOCATION_REQUIRED', 'Location is required to check in.');
+    }
     const { data, error } = await this.client.rpc('check_in', {
       p_session_id: sessionId,
       p_code: code.trim(),
       p_device_id: device?.id ?? null,
       p_device_label: device?.label ?? '',
-      p_latitude: location?.latitude ?? null,
-      p_longitude: location?.longitude ?? null,
-      p_accuracy: location?.accuracy ?? null,
-    });
-
-    if (error) {
-      // A database that has not run the device-tracking migration yet only has
-      // the two-argument check_in. Fall back so check-in keeps working until
-      // the SQL is applied.
-      if (isMissingFunction(error)) {
-        return this.checkInWithoutDevice(sessionId, code);
-      }
-      this.throwRpcError(error);
-    }
-    return this.toRecord(data as AttendanceRow);
-  }
-
-  private async checkInWithoutDevice(
-    sessionId: string,
-    code: string,
-  ): Promise<AttendanceRecord> {
-    const { data, error } = await this.client.rpc('check_in', {
-      p_session_id: sessionId,
-      p_code: code.trim(),
+      p_latitude: location.latitude,
+      p_longitude: location.longitude,
+      p_accuracy: location.accuracy ?? null,
     });
     if (error) this.throwRpcError(error);
     return this.toRecord(data as AttendanceRow);
@@ -638,6 +621,7 @@ const RPC_ERROR_MESSAGES: Partial<Record<DataErrorCode, string>> = {
   NOT_CHECKED_IN: 'You have not checked in.',
   ALREADY_CHECKED_IN: 'You are already checked in.',
   ALREADY_CHECKED_OUT: 'You have already checked out.',
+  LOCATION_REQUIRED: 'Location is required to check in.',
 };
 
 function hasPostgresErrorCode(err: unknown, code: string): boolean {
@@ -663,13 +647,3 @@ function isMissingColumn(
   );
 }
 
-/**
- * True when PostgREST could not find an RPC with the arguments we sent — i.e.
- * the database is still on an older schema version.
- */
-function isMissingFunction(err: { code?: string; message?: string }): boolean {
-  return (
-    err.code === 'PGRST202' ||
-    (err.message ?? '').includes('Could not find the function')
-  );
-}

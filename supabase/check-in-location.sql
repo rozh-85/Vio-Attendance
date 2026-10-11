@@ -1,6 +1,8 @@
 -- Add optional GPS to the private check-in report.
 -- Run this once in Supabase after the existing schema.sql. Check-ins still
 -- work when a phone declines location access; those rows keep NULL coordinates.
+-- require-check-in-location.sql later makes location required: run it again
+-- if you ever re-run this file.
 
 alter table public.check_in_events
   add column if not exists latitude   numeric(9,6),

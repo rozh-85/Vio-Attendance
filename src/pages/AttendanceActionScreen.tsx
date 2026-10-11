@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
@@ -8,7 +8,7 @@ import { Book, Check, Login, Logout, MapPin } from '@/components/icons';
 import { Logo } from '@/components/Logo';
 import { useDataService } from '@/services/data/context';
 import { isDataError } from '@/services/data';
-import type { Session } from '@/types';
+import type { CheckInLocation, Session } from '@/types';
 import { formatClock, formatDate } from '@/utils/time';
 import { currentDevice } from '@/utils/device';
 import {
@@ -21,22 +21,25 @@ import { paths } from '@/routes';
 
 type Mode = 'check-in' | 'check-out';
 
-/** What to tell an employee whose phone gave no position, and how to fix it. */
+/**
+ * What to tell an employee whose phone gave no position, and how to fix it.
+ * Check-in needs a position, so each one ends with what to do to get one.
+ */
 const LOCATION_HELP: Record<LocationProblem, string> = {
   denied:
-    'Location is blocked for this website, so this check-in is marked for review. ' +
-    'To fix it — iPhone: Settings › Privacy & Security › Location Services › ' +
-    'Safari Websites › While Using. Android: tap the icon beside the web ' +
-    'address › Permissions › Location › Allow.',
+    'Location is blocked for this website. iPhone: Settings › Privacy & ' +
+    'Security › Location Services › Safari Websites › While Using. Android: ' +
+    'tap the icon beside the web address › Permissions › Location › Allow. ' +
+    'Then tap Try again — if it still says blocked, scan the QR code again.',
   unavailable:
-    'Your phone could not find its position, so this check-in is marked for ' +
-    'review. Turn on Location (GPS) before checking in next time.',
+    'Your phone could not find its position. Turn on Location (GPS), then tap ' +
+    'Try again.',
   timeout:
-    'Your phone took too long to find its position, so this check-in is marked ' +
-    'for review. Make sure Location (GPS) is on before checking in next time.',
+    'Your phone took too long to find its position. Make sure Location (GPS) ' +
+    'is on, then tap Try again.',
   unsupported:
-    'This browser cannot share location, so this check-in is marked for review. ' +
-    'Open the check-in link in Safari or Chrome next time.',
+    'This browser cannot share location. Open the check-in link in Safari or ' +
+    'Chrome.',
 };
 
 const copy = {
@@ -79,6 +82,7 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationReading, setLocationReading] = useState<LocationReading | null>(null);
+  const locationRequest = useRef<Promise<LocationReading> | null>(null);
   const [doneAt, setDoneAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,28 +96,51 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
     };
   }, [data, sessionId]);
 
+  const gateOpen = mode === 'check-in' ? session?.checkInOpen : session?.checkOutOpen;
+  const canSubmit = !!session && session.status !== 'closed' && !!gateOpen && qrOk;
+
+  /** Reads the phone's position, joining a read that is already under way. */
+  const findLocation = useCallback(() => {
+    if (!locationRequest.current) {
+      setLocating(true);
+      locationRequest.current = readCheckInLocation()
+        .then((reading) => {
+          setLocationReading(reading);
+          return reading;
+        })
+        .finally(() => {
+          locationRequest.current = null;
+          setLocating(false);
+        });
+    }
+    return locationRequest.current;
+  }, []);
+
+  // Ask as soon as check-in is possible, so the phone's location prompt — or a
+  // blocked location — shows up before the employee types their code.
+  useEffect(() => {
+    if (mode === 'check-in' && canSubmit) void findLocation();
+  }, [mode, canSubmit, findLocation]);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
       // Check-in carries the phone's identity so the supervisor can see when one
-      // phone checked in several employees. Check-out doesn't need it.
-      let reading: LocationReading | null = null;
+      // phone checked in several employees, and its position, which check-in
+      // requires. The position is read again now rather than reused from when
+      // the page opened. With none, stop here: the location box says how to
+      // fix it. Check-out needs neither.
+      let location: CheckInLocation | undefined;
       if (mode === 'check-in') {
-        setLocating(true);
-        reading = await readCheckInLocation().finally(() => setLocating(false));
+        location = (await findLocation()).location;
+        if (!location) return;
       }
       const record =
         mode === 'check-in'
-          ? await data.checkIn(
-              sessionId,
-              code.trim(),
-              currentDevice(),
-              reading?.location,
-            )
+          ? await data.checkIn(sessionId, code.trim(), currentDevice(), location)
           : await data.checkOut(sessionId, code.trim());
-      setLocationReading(reading);
       setDoneAt(
         mode === 'check-in' ? record.checkInAt ?? null : record.checkOutAt ?? null,
       );
@@ -156,21 +183,15 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
           <p className="mt-1 text-ink-500">
             {session.title || session.supervisorName} · {formatClock(doneAt)}
           </p>
-          {locationReading?.location ? (
+          {mode === 'check-in' && (
             <p className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
               <MapPin width={16} height={16} /> Location shared
             </p>
-          ) : locationReading?.problem ? (
-            <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-left text-sm leading-6 text-amber-800">
-              {LOCATION_HELP[locationReading.problem]}
-            </p>
-          ) : null}
+          )}
         </Card>
       </Screen>
     );
   }
-
-  const gateOpen = mode === 'check-in' ? session.checkInOpen : session.checkOutOpen;
 
   return (
     <Screen width="sm">
@@ -212,13 +233,37 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
       ) : null}
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        {mode === 'check-in' && (
-          <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-ink-500">
-            Please allow location when your phone asks — it shows you checked
-            in at the work site. A check-in without location is still saved,
-            but it is marked for your manager to review.
-          </p>
-        )}
+        {mode === 'check-in' &&
+          (locating ? (
+            <p className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-ink-500">
+              <MapPin width={16} height={16} className="shrink-0" /> Finding
+              your location…
+            </p>
+          ) : locationReading?.location ? (
+            <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+              <MapPin width={16} height={16} className="shrink-0" /> Location
+              found
+            </p>
+          ) : locationReading?.problem ? (
+            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+              <p className="font-bold">Location is required to check in</p>
+              <p className="mt-1">{LOCATION_HELP[locationReading.problem]}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                leftIcon={<MapPin width={16} height={16} />}
+                onClick={() => void findLocation()}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : (
+            <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-ink-500">
+              Location is required to check in — allow it when your phone asks.
+            </p>
+          ))}
         <Input
           label="Your code"
           required
@@ -242,17 +287,10 @@ export function AttendanceActionScreen({ mode }: { mode: Mode }) {
           fullWidth
           leftIcon={c.icon}
           loading={submitting}
-          disabled={
-            !code.trim() || session.status === 'closed' || !gateOpen || !qrOk
-          }
+          disabled={!code.trim() || !canSubmit}
         >
           {c.button}
         </Button>
-        {locating && (
-          <p className="text-center text-sm text-ink-500">
-            Finding your location…
-          </p>
-        )}
       </form>
 
       <p className="mt-6 text-center">

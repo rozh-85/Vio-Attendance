@@ -345,6 +345,9 @@ export class LocalStorageDataService implements DataService {
       if (!employee) {
         throw new DataError('EMPLOYEE_NOT_FOUND', 'No employee found for that code.');
       }
+      if (!location) {
+        throw new DataError('LOCATION_REQUIRED', 'Location is required to check in.');
+      }
 
       const deviceSessionId = await this.resolveDeviceSession(device);
 

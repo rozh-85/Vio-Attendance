@@ -299,6 +299,13 @@ begin
 
   if not v_session.check_in_open then raise exception 'CHECK_IN_CLOSED'; end if;
 
+  -- Check-in needs the phone's location; the app explains how to turn it on.
+  if p_latitude is null or p_longitude is null
+     or p_latitude not between -90 and 90
+     or p_longitude not between -180 and 180 then
+    raise exception 'LOCATION_REQUIRED';
+  end if;
+
   -- Which device session does this check-in belong to? Re-use the one this
   -- phone opened if it is still inside the window, otherwise start a new one.
   if v_device_id is not null then
@@ -339,8 +346,8 @@ begin
     values
       (p_session_id, v_employee.id, v_device_id, v_device_session,
        btrim(coalesce(p_device_label, '')),
-       case when p_latitude between -90 and 90 then p_latitude end,
-       case when p_longitude between -180 and 180 then p_longitude end,
+       p_latitude,
+       p_longitude,
        case when p_accuracy >= 0 then p_accuracy end,
        v_now);
   end if;
