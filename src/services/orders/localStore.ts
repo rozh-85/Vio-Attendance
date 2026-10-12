@@ -1,4 +1,5 @@
 import { OrdersError } from './errors';
+import { MAX_BACKDATE_DAYS } from './options';
 import type { OrdersStore } from './store';
 import type {
   ImportedOrder,
@@ -42,6 +43,20 @@ function write<T>(key: string, value: T[]): void {
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Same rule as the database: up to 90 days back, never in the future. */
+function orderDateOrNow(orderDate: string | null | undefined): string {
+  if (!orderDate) return new Date().toISOString();
+  const at = new Date(orderDate).getTime();
+  if (
+    Number.isNaN(at) ||
+    at > Date.now() + 10 * 60 * 1000 ||
+    at < Date.now() - MAX_BACKDATE_DAYS * 24 * 60 * 60 * 1000
+  ) {
+    throw new OrdersError('ORDER_DATE_INVALID');
+  }
+  return new Date(at).toISOString();
 }
 
 function randomToken(): string {
@@ -108,18 +123,21 @@ export class LocalOrdersStore implements OrdersStore {
     ) {
       throw new OrdersError('ORDER_INCOMPLETE');
     }
+    const { orderDate, ...fields } = order;
+    const createdAt = orderDateOrNow(orderDate);
     const orders = read<SalesOrder>(KEYS.orders);
     const orderNo = orders.reduce((max, o) => Math.max(max, o.orderNo), 0) + 1;
     write(KEYS.orders, [
       ...orders,
       {
-        ...order,
+        ...fields,
         totalPrice: Math.round(order.totalPrice),
         id: crypto.randomUUID(),
         orderNo,
         accountId: account.id,
         sellerName: account.displayName,
-        createdAt: new Date().toISOString(),
+        createdAt,
+        enteredAt: new Date().toISOString(),
         status: 'new',
         source: 'app',
       },
@@ -127,7 +145,7 @@ export class LocalOrdersStore implements OrdersStore {
     return { orderNo };
   }
 
-  /** The seller's own app orders of the last 24 hours. */
+  /** The seller's own app orders saved in the last 24 hours. */
   private async mine(token: string): Promise<{ accountId: string; orders: SalesOrder[] }> {
     const account = await this.accountFor(token);
     if (!account) throw new OrdersError('SESSION_EXPIRED');
@@ -135,7 +153,7 @@ export class LocalOrdersStore implements OrdersStore {
     return {
       accountId: account.id,
       orders: read<SalesOrder>(KEYS.orders).filter(
-        (o) => o.accountId === account.id && o.source === 'app' && o.createdAt > since,
+        (o) => o.accountId === account.id && o.source === 'app' && (o.enteredAt ?? o.createdAt) > since,
       ),
     };
   }
@@ -143,9 +161,10 @@ export class LocalOrdersStore implements OrdersStore {
   async listMyOrders(token: string): Promise<SellerOrder[]> {
     const { orders } = await this.mine(token);
     return orders
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .sort((a, b) => (b.enteredAt ?? b.createdAt).localeCompare(a.enteredAt ?? a.createdAt))
       .map(({ accountId: _a, sellerName: _s, source: _src, ...o }) => ({
         ...o,
+        enteredAt: o.enteredAt ?? o.createdAt,
         editedAt: o.editedAt ?? null,
         canChange: o.status === 'new',
       }));
@@ -157,10 +176,14 @@ export class LocalOrdersStore implements OrdersStore {
     if (!order.customerName.trim() || !order.customerPhone.trim() || !order.city.trim() || !(order.totalPrice > 0)) {
       throw new OrdersError('ORDER_INCOMPLETE');
     }
+    const { orderDate, ...fields } = order;
+    const createdAt = orderDate ? orderDateOrNow(orderDate) : null;
     write(
       KEYS.orders,
       read<SalesOrder>(KEYS.orders).map((o) =>
-        o.id === id ? { ...o, ...order, editedAt: new Date().toISOString() } : o,
+        o.id === id
+          ? { ...o, ...fields, createdAt: createdAt ?? o.createdAt, editedAt: new Date().toISOString() }
+          : o,
       ),
     );
   }
@@ -196,7 +219,14 @@ export class LocalOrdersStore implements OrdersStore {
       seen.add(row.importKey);
       orderNo += 1;
       added += 1;
-      orders.push({ ...row, id: crypto.randomUUID(), orderNo, status: 'new', source: 'import' });
+      orders.push({
+        ...row,
+        id: crypto.randomUUID(),
+        orderNo,
+        enteredAt: row.createdAt,
+        status: 'new',
+        source: 'import',
+      });
     }
     write(KEYS.orders, orders);
     return { added, skipped: rows.length - added };

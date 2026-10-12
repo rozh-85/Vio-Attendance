@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { format } from 'date-fns';
 import { Modal } from '@/components/ui/Modal';
 import { Input, Textarea } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -92,6 +93,7 @@ export function OrderEditModal({
         shift: form.shift,
         note: form.note,
         status: form.status,
+        createdAt: form.createdAt,
       };
       await getOrdersStore().updateOrder(form.id, patch);
       onSaved();
@@ -119,15 +121,31 @@ export function OrderEditModal({
               <option key={s} value={s}>{STATUS_LABEL[s]}</option>
             ))}
           </Select>
-          <Input label="Customer name" dir="auto" value={form.customerName} onChange={(e) => set('customerName', e.target.value)} />
-          <Input label="Phone" value={form.customerPhone} onChange={(e) => set('customerPhone', e.target.value)} />
-          <Input label="Second phone" value={form.secondPhone} onChange={(e) => set('secondPhone', e.target.value)} />
+          <Input
+            label="Order date"
+            type="date"
+            max={format(new Date(), 'yyyy-MM-dd')}
+            value={format(new Date(form.createdAt), 'yyyy-MM-dd')}
+            onChange={(e) => {
+              const [y, m, d] = e.target.value.split('-').map(Number);
+              if (!y || !m || !d) return;
+              // Keep the time of day; only the day moves.
+              const at = new Date(form.createdAt);
+              at.setFullYear(y, m - 1, d);
+              set('createdAt', at.toISOString());
+            }}
+          />
           <Input label="City" dir="auto" list="edit-cities" value={form.city} onChange={(e) => set('city', e.target.value)} />
           <datalist id="edit-cities">
             {CITIES.map((c) => (
               <option key={c} value={c} />
             ))}
           </datalist>
+          <div className="sm:col-span-2">
+            <Input label="Customer name" dir="auto" value={form.customerName} onChange={(e) => set('customerName', e.target.value)} />
+          </div>
+          <Input label="Phone" value={form.customerPhone} onChange={(e) => set('customerPhone', e.target.value)} />
+          <Input label="Second phone" value={form.secondPhone} onChange={(e) => set('secondPhone', e.target.value)} />
         </div>
         <Textarea label="Address" dir="auto" value={form.address} onChange={(e) => set('address', e.target.value)} />
         <div className="grid gap-4 sm:grid-cols-3">

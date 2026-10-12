@@ -132,5 +132,8 @@ export function sellerColor(index: number): string {
   return SELLER_COLORS[((index % SELLER_COLORS.length) + SELLER_COLORS.length) % SELLER_COLORS.length];
 }
 
+/** How far back a seller may date an order they forgot to save. */
+export const MAX_BACKDATE_DAYS = 90;
+
 /** The text to show for a seller whose name was left blank on the sheet. */
 export const UNKNOWN_SELLER = 'Unknown seller';

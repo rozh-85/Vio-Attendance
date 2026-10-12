@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO, subDays } from 'date-fns';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/Logo';
-import { Check, CheckCircle, Clock, FileText, Logout, Pencil, Plus, Trash, X } from '@/components/icons';
+import { CalendarDays, Check, CheckCircle, Clock, FileText, Logout, Pencil, Plus, Trash, X } from '@/components/icons';
 import {
   CATEGORIES,
   CITIES,
   GENDER_LABEL,
+  MAX_BACKDATE_DAYS,
   PLATFORMS,
   SHIFT_LABEL,
   STATUS_LABEL,
@@ -21,7 +22,7 @@ import {
   shiftAt,
 } from '@/services/orders/options';
 import { OrdersError, getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
-import type { NewSalesOrder, OrderStatus, SellerOrder, SellerSession } from '@/services/orders/types';
+import type { NewSalesOrder, OrderShift, OrderStatus, SellerOrder, SellerSession } from '@/services/orders/types';
 import { cn } from '@/utils/cn';
 
 const SESSION_KEY = 'vio.sellerSession';
@@ -31,9 +32,11 @@ const DRAFT_KEY = 'vio.sellerOrderDraft';
  * The form keeps the price and the times bought as typed text, so "95,000"
  * can show commas and the count can be cleared while typing.
  */
-interface Draft extends Omit<NewSalesOrder, 'totalPrice' | 'purchase' | 'purchaseCount'> {
+interface Draft extends Omit<NewSalesOrder, 'totalPrice' | 'purchase' | 'purchaseCount' | 'orderDate'> {
   price: string;
   timesBought: string;
+  /** `yyyy-MM-dd` of an earlier day for a forgotten order; '' means today. */
+  orderDay: string;
 }
 
 function emptyDraft(keep?: Pick<Draft, 'platform' | 'shift'>): Draft {
@@ -51,6 +54,7 @@ function emptyDraft(keep?: Pick<Draft, 'platform' | 'shift'>): Draft {
     timesBought: '1',
     shift: keep?.shift ?? shiftAt(),
     note: '',
+    orderDay: '',
   };
 }
 
@@ -75,6 +79,7 @@ function draftFrom(order: SellerOrder): Draft {
           : '',
     shift: order.shift,
     note: order.note,
+    orderDay: dayKey(new Date(order.createdAt)) === todayKey() ? '' : dayKey(new Date(order.createdAt)),
   };
 }
 
@@ -83,9 +88,32 @@ const timesNumber = (times: string | undefined) => {
   return n >= 1 && n <= 1000 ? n : null;
 };
 
-function orderFrom(draft: Draft): NewSalesOrder {
-  const { price, timesBought, ...rest } = draft;
+const dayKey = (date: Date) => format(date, 'yyyy-MM-dd');
+const todayKey = () => dayKey(new Date());
+
+/** An order saved on a later day gets the middle of its shift as its time. */
+const SHIFT_TIME: Record<OrderShift, [number, number]> = {
+  morning: [10, 0],
+  afternoon: [14, 30],
+  night: [20, 30],
+};
+
+function orderDateIso(day: string, shift: Draft['shift']): string {
+  if (day === todayKey()) return new Date().toISOString();
+  const [y, m, d] = day.split('-').map(Number);
+  const [hour, minute] = shift ? SHIFT_TIME[shift] : [12, 0];
+  return new Date(y, m - 1, d, hour, minute).toISOString();
+}
+
+/**
+ * `savedDay` is the day an order being edited already has. A new order for
+ * today, or an edit that keeps its day, sends no date and the server keeps it.
+ */
+function orderFrom(draft: Draft, savedDay?: string): NewSalesOrder {
+  const { price, timesBought, orderDay, ...rest } = draft;
   const purchaseCount = timesNumber(timesBought);
+  const day = orderDay || todayKey();
+  const unchanged = day === (savedDay ?? todayKey());
   return {
     ...rest,
     customerName: rest.customerName.trim(),
@@ -94,6 +122,7 @@ function orderFrom(draft: Draft): NewSalesOrder {
     totalPrice: priceNumber(price),
     purchaseCount,
     purchase: purchaseFromCount(purchaseCount),
+    orderDate: unchanged ? null : orderDateIso(day, rest.shift),
   };
 }
 
@@ -371,8 +400,8 @@ function SellerWorkspace({
   }, [loadMine]);
 
   const today = useMemo(() => {
-    const day = format(new Date(), 'yyyy-MM-dd');
-    const list = mine.filter((o) => format(new Date(o.createdAt), 'yyyy-MM-dd') === day);
+    const day = todayKey();
+    const list = mine.filter((o) => dayKey(new Date(o.enteredAt)) === day);
     return { orders: list.length, sales: list.reduce((sum, o) => sum + o.totalPrice, 0) };
   }, [mine]);
 
@@ -392,7 +421,9 @@ function SellerWorkspace({
       const orders = await loadMine();
       setFlash({
         tone: 'success',
-        text: `Order #${orderNo} saved`,
+        text: order.orderDate
+          ? `Order #${orderNo} saved for ${format(new Date(order.orderDate), 'd MMMM')}`
+          : `Order #${orderNo} saved`,
         order: orders.find((o) => o.orderNo === orderNo),
       });
       setFormKey((k) => k + 1);
@@ -508,11 +539,11 @@ function SellerWorkspace({
         </nav>
 
         <div className="mt-6 rounded-2xl border border-slate-200 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Today</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Saved today</div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div>
               <div className="text-2xl font-bold tabular-nums text-ink-900">{today.orders}</div>
-              <div className="text-xs text-ink-500">orders</div>
+              <div className="text-xs text-ink-500">{today.orders === 1 ? 'order' : 'orders'}</div>
             </div>
             <div>
               <div className="truncate text-lg font-bold tabular-nums text-brand-700" title={formatIqd(today.sales)}>
@@ -544,7 +575,7 @@ function SellerWorkspace({
             <div className="min-w-0 flex-1 leading-tight">
               <div className="truncate font-bold text-ink-900">Hi, {firstName}</div>
               <div className="text-xs text-ink-500">
-                Today: {today.orders} orders · {formatIqd(today.sales)}
+                Saved today: {today.orders} · {formatIqd(today.sales)}
               </div>
             </div>
             <button
@@ -702,7 +733,10 @@ function MyOrders({
             <div className="flex items-center gap-2">
               <span className="font-mono text-sm font-bold text-ink-900">#{o.orderNo}</span>
               <span className="text-sm text-ink-400">{format(new Date(o.createdAt), 'd MMM, hh:mm a')}</span>
-              <span className="ml-auto flex gap-1">
+              <span className="ml-auto flex flex-wrap justify-end gap-1">
+                {dayKey(new Date(o.createdAt)) !== dayKey(new Date(o.enteredAt)) && (
+                  <Badge tone="warning">Added later</Badge>
+                )}
                 {o.editedAt && <Badge tone="note">Edited</Badge>}
                 <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
               </span>
@@ -779,7 +813,9 @@ function MyOrders({
   );
 }
 
-type Errors = Partial<Record<'customerName' | 'customerPhone' | 'city' | 'address' | 'item' | 'price' | 'platform', string>>;
+type Errors = Partial<
+  Record<'customerName' | 'customerPhone' | 'city' | 'address' | 'item' | 'price' | 'platform' | 'orderDay', string>
+>;
 
 function validate(draft: Draft): Errors {
   const errors: Errors = {};
@@ -790,7 +826,104 @@ function validate(draft: Draft): Errors {
   if (!draft.itemModel.trim() && !draft.itemCategory.trim()) errors.item = 'Write the item model or its type.';
   if (priceNumber(draft.price) <= 0) errors.price = 'Write the total price.';
   if (!draft.platform) errors.platform = 'Pick where it was sold.';
+  if (draft.orderDay) {
+    const earliest = dayKey(subDays(new Date(), MAX_BACKDATE_DAYS));
+    if (draft.orderDay > todayKey() || draft.orderDay < earliest) {
+      errors.orderDay = `Pick a day in the last ${MAX_BACKDATE_DAYS} days.`;
+    }
+  }
   return errors;
+}
+
+/**
+ * Today by default. Yesterday, or any day in the last 90, for an order the
+ * seller forgot to save — it then counts on that day in the owner's report.
+ */
+function OrderDatePicker({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (day: string) => void;
+  error?: string;
+}) {
+  const today = todayKey();
+  const yesterday = dayKey(subDays(new Date(), 1));
+  const earliest = dayKey(subDays(new Date(), MAX_BACKDATE_DAYS));
+  const day = value || today;
+  const [other, setOther] = useState(day !== today && day !== yesterday);
+  const choice = other ? 'other' : day === yesterday ? 'yesterday' : 'today';
+  const options = [
+    { id: 'today', en: 'Today', ku: 'ئەمڕۆ' },
+    { id: 'yesterday', en: 'Yesterday', ku: 'دوێنێ' },
+    { id: 'other', en: 'Other', ku: 'ڕۆژێکی تر' },
+  ] as const;
+
+  return (
+    <Card className="p-5 sm:p-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600">
+            <CalendarDays width={22} height={22} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <h2 className="text-lg font-bold text-ink-900">Order date</h2>
+              <span dir="rtl" className="text-sm text-ink-400">
+                بەرواری ئۆردەر
+              </span>
+            </div>
+            <div className="text-sm text-ink-500">{format(parseISO(day), 'EEEE, d MMMM yyyy')}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 md:w-[22rem] md:shrink-0">
+          {options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className={chipClass(choice === o.id)}
+              onClick={() => {
+                if (o.id === 'other') {
+                  setOther(true);
+                  return;
+                }
+                setOther(false);
+                onChange(o.id === 'today' ? '' : yesterday);
+              }}
+            >
+              {o.en}
+              <span dir="rtl" className="block text-xs font-medium opacity-75">
+                {o.ku}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {other && (
+        <div className="mt-4 md:ml-14">
+          <input
+            type="date"
+            className={cn(inputClass, 'md:max-w-xs', error ? 'border-rose-400' : 'border-slate-200')}
+            min={earliest}
+            max={today}
+            value={day}
+            onChange={(e) => onChange(!e.target.value || e.target.value === today ? '' : e.target.value)}
+          />
+          <span className="mt-1.5 block text-sm text-ink-500">Any day in the last {MAX_BACKDATE_DAYS} days.</span>
+        </div>
+      )}
+      {day !== today && !error && (
+        <p className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 md:ml-14">
+          <Clock width={16} height={16} className="mt-0.5 shrink-0" />
+          <span>
+            Saved now, but counted on <b>{format(parseISO(day), 'd MMMM')}</b> in the report.
+          </span>
+        </p>
+      )}
+      <FieldError message={error} />
+    </Card>
+  );
 }
 
 /** The required details, in form order, for the summary's checklist. */
@@ -852,7 +985,7 @@ function OrderForm({
       return;
     }
     setSaving(true);
-    const message = await onSubmit(orderFrom(draft));
+    const message = await onSubmit(orderFrom(draft, initial ? dayKey(new Date(initial.createdAt)) : undefined));
     setSaving(false);
     if (message) setError(message);
   }
@@ -862,6 +995,8 @@ function OrderForm({
   return (
     <form onSubmit={submit} noValidate className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="space-y-4 pb-28 xl:pb-0">
+        <OrderDatePicker value={draft.orderDay ?? ''} onChange={(day) => set('orderDay', day)} error={errors.orderDay} />
+
         <Section step={1} title="Customer" ku="کڕیار">
           <label className="block">
             <Label en="Customer name" ku="ناوی کڕیار" required />
@@ -1112,6 +1247,15 @@ function OrderForm({
               </div>
             </div>
             <dl className="space-y-3 px-5 py-4 text-sm">
+              <SummaryRow
+                label="Date"
+                value={
+                  !draft.orderDay || draft.orderDay === todayKey()
+                    ? 'Today'
+                    : format(parseISO(draft.orderDay), 'EEE, d MMM yyyy')
+                }
+                sub={draft.orderDay && draft.orderDay !== todayKey() ? 'Added later' : undefined}
+              />
               <SummaryRow label="Customer" value={draft.customerName} sub={draft.customerPhone} />
               <SummaryRow label="Deliver to" value={draft.city} sub={draft.address} />
               <SummaryRow

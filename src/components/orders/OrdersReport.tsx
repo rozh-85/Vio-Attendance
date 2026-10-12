@@ -45,6 +45,15 @@ const SORTS = [
 ] as const;
 type SortId = (typeof SORTS)[number]['id'];
 
+/** Saved by the seller more than half a day after the order's own date. */
+function addedLater(order: SalesOrder): boolean {
+  return (
+    order.source === 'app' &&
+    !!order.enteredAt &&
+    new Date(order.enteredAt).getTime() - new Date(order.createdAt).getTime() > 12 * 60 * 60 * 1000
+  );
+}
+
 const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'> = {
   new: 'info',
   delivered: 'success',
@@ -753,10 +762,19 @@ export function OrdersReport({
                       <div className="font-mono text-xs text-ink-400">#{o.orderNo}</div>
                       <div className="font-medium">{format(new Date(o.createdAt), 'd MMM yyyy')}</div>
                       <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
-                      {o.editedAt && (
-                        <span title={`The seller changed this order on ${format(new Date(o.editedAt), 'd MMM yyyy, hh:mm a')}`}>
-                          <Badge tone="warning" className="mt-1">Edited</Badge>
-                        </span>
+                      {(o.editedAt || addedLater(o)) && (
+                        <div className="mt-1 flex flex-col items-start gap-1">
+                          {o.editedAt && (
+                            <span title={`The seller changed this order on ${format(new Date(o.editedAt), 'd MMM yyyy, hh:mm a')}`}>
+                              <Badge tone="warning">Edited</Badge>
+                            </span>
+                          )}
+                          {addedLater(o) && (
+                            <span title={`Saved on ${format(new Date(o.enteredAt as string), 'd MMM yyyy, hh:mm a')}`}>
+                              <Badge tone="note">Added later</Badge>
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">

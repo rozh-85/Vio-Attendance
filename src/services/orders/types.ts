@@ -34,6 +34,11 @@ export interface SalesOrder {
   source: 'app' | 'import';
   /** When the seller changed it after saving, if they did. */
   editedAt?: string | null;
+  /**
+   * When it was saved. `createdAt` is the day of the order itself, which a
+   * seller may set earlier for an order they forgot to save.
+   */
+  enteredAt?: string | null;
 }
 
 /** What a seller fills in. Seller, time and number are set by the server. */
@@ -53,10 +58,13 @@ export type NewSalesOrder = Pick<
   | 'purchaseCount'
   | 'shift'
   | 'note'
->;
+> & {
+  /** An earlier day for an order the seller forgot to save; left out means now. */
+  orderDate?: string | null;
+};
 
 /** What the owner may change on a saved order. */
-export type SalesOrderPatch = Partial<NewSalesOrder & Pick<SalesOrder, 'status' | 'sellerName'>>;
+export type SalesOrderPatch = Partial<NewSalesOrder & Pick<SalesOrder, 'status' | 'sellerName' | 'createdAt'>>;
 
 /** A row from the old Google Sheet, ready to be added. */
 export interface ImportedOrder extends NewSalesOrder {
@@ -93,6 +101,8 @@ export interface SellerOrder extends NewSalesOrder {
   id: string;
   orderNo: number;
   createdAt: string;
+  /** When the seller saved it; differs from `createdAt` for a forgotten order. */
+  enteredAt: string;
   editedAt: string | null;
   status: OrderStatus;
   /** Still new, so the seller may fix or delete it. */

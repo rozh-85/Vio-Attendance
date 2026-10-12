@@ -72,6 +72,7 @@ interface OrderRow {
   platform: string;
   purchase: SalesOrder['purchase'];
   purchase_count?: number | null;
+  entered_at?: string | null;
   shift: SalesOrder['shift'];
   note: string;
   status: SalesOrder['status'];
@@ -115,6 +116,7 @@ function toOrder(row: OrderRow): SalesOrder {
     status: row.status,
     source: row.source,
     editedAt: row.edited_at ?? null,
+    enteredAt: row.entered_at ?? null,
   };
 }
 
@@ -149,6 +151,7 @@ function orderColumns(order: SalesOrderPatch): Record<string, unknown> {
     note: 'note',
     status: 'status',
     sellerName: 'seller_name',
+    createdAt: 'created_at',
   };
   const row: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(order)) {
@@ -158,14 +161,14 @@ function orderColumns(order: SalesOrderPatch): Record<string, unknown> {
 }
 
 /**
- * A database that has not re-run social-orders.sql since purchase_count was
- * added rejects that column; the write is then repeated without it.
+ * Columns added after social-orders.sql was first run. A database that has
+ * not re-run it rejects them, and the write is repeated without them.
  */
-function lacksPurchaseCount(error: { code?: string; message?: string }): boolean {
-  return (
-    (error.code === 'PGRST204' || error.code === '42703') &&
-    (error.message ?? '').includes('purchase_count')
-  );
+const LATER_COLUMNS = ['purchase_count', 'entered_at'];
+
+function missingLaterColumn(error: { code?: string; message?: string } | null): string | null {
+  if (!error || (error.code !== 'PGRST204' && error.code !== '42703')) return null;
+  return LATER_COLUMNS.find((column) => (error.message ?? '').includes(column)) ?? null;
 }
 
 /**
@@ -230,6 +233,7 @@ class SupabaseOrdersStore implements OrdersStore {
       ...o,
       totalPrice: Number(o.totalPrice) || 0,
       purchaseCount: o.purchaseCount ?? null,
+      enteredAt: o.enteredAt ?? o.createdAt,
     }));
   }
 
@@ -270,8 +274,8 @@ class SupabaseOrdersStore implements OrdersStore {
   async updateOrder(id: string, patch: SalesOrderPatch): Promise<void> {
     const row = orderColumns(patch);
     let { error } = await this.client.from('social_orders').update(row).eq('id', id);
-    if (error && lacksPurchaseCount(error)) {
-      delete row.purchase_count;
+    for (let column = missingLaterColumn(error); column && column in row; column = missingLaterColumn(error)) {
+      delete row[column];
       ({ error } = await this.client.from('social_orders').update(row).eq('id', id));
     }
     if (error) throw translate(error);
@@ -294,15 +298,19 @@ class SupabaseOrdersStore implements OrdersStore {
         created_at: row.createdAt,
         source: 'import',
         import_key: row.importKey,
+        entered_at: row.createdAt,
       }));
       const upsert = (rows: Record<string, unknown>[]) =>
         this.client
           .from('social_orders')
           .upsert(rows, { onConflict: 'import_key', ignoreDuplicates: true })
           .select('id');
-      let { data, error } = await upsert(batch);
-      if (error && lacksPurchaseCount(error)) {
-        ({ data, error } = await upsert(batch.map(({ purchase_count: _count, ...rest }) => rest)));
+      let rows = batch;
+      let { data, error } = await upsert(rows);
+      for (let column = missingLaterColumn(error); column && column in rows[0]; column = missingLaterColumn(error)) {
+        const drop = column;
+        rows = rows.map(({ [drop]: _gone, ...rest }) => rest);
+        ({ data, error } = await upsert(rows));
       }
       if (error) throw translate(error);
       added += data?.length ?? 0;

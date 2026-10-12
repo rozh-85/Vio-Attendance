@@ -67,13 +67,20 @@ create table if not exists public.social_orders (
   edited_at      timestamptz,
   -- How many times the customer has bought, as the seller typed it.
   -- `purchase` above is the same number sorted into first / second / repeat.
-  purchase_count integer check (purchase_count between 1 and 1000)
+  purchase_count integer check (purchase_count between 1 and 1000),
+  -- When the seller saved it. `created_at` is the day of the order itself,
+  -- which a seller may set to an earlier day for an order they forgot.
+  entered_at     timestamptz default now()
 );
 
 -- Databases set up before these columns existed.
 alter table public.social_orders add column if not exists edited_at timestamptz;
 alter table public.social_orders add column if not exists purchase_count integer
   check (purchase_count between 1 and 1000);
+alter table public.social_orders add column if not exists entered_at timestamptz;
+-- Orders from before this column were saved on their own date.
+update public.social_orders set entered_at = created_at where entered_at is null;
+alter table public.social_orders alter column entered_at set default now();
 
 create index if not exists social_orders_created_idx
   on public.social_orders (created_at desc);
@@ -216,14 +223,29 @@ $$;
 create or replace function public.social_clean_order(p_order jsonb)
 returns public.social_orders
 language plpgsql
-immutable
+stable
 set search_path = ''
 as $$
 declare
   v_row   public.social_orders;
   v_price numeric;
   v_count integer;
+  v_date  timestamptz;
 begin
+  -- An optional earlier day, for an order the seller forgot to save: up to
+  -- 90 days back, never in the future. Left out means now.
+  if nullif(btrim(coalesce(p_order ->> 'orderDate', '')), '') is not null then
+    begin
+      v_date := (p_order ->> 'orderDate')::timestamptz;
+    exception when others then
+      raise exception 'ORDER_DATE_INVALID';
+    end;
+    if v_date > now() + interval '10 minutes' or v_date < now() - interval '90 days' then
+      raise exception 'ORDER_DATE_INVALID';
+    end if;
+  end if;
+  v_row.created_at := v_date;
+
   v_price := case
     when coalesce(p_order ->> 'totalPrice', '') ~ '^[0-9]+(\.[0-9]+)?$'
       then round((p_order ->> 'totalPrice')::numeric)
@@ -293,10 +315,12 @@ begin
   v_clean := public.social_clean_order(p_order);
 
   insert into public.social_orders (
+    created_at, entered_at,
     account_id, seller_name, customer_name, customer_phone, second_phone,
     city, address, item_model, item_category, total_price, gender, platform,
     purchase, purchase_count, shift, note)
   values (
+    coalesce(v_clean.created_at, now()), now(),
     v_account.id, v_account.display_name, v_clean.customer_name,
     v_clean.customer_phone, v_clean.second_phone, v_clean.city, v_clean.address,
     v_clean.item_model, v_clean.item_category, v_clean.total_price,
@@ -309,8 +333,8 @@ end;
 $$;
 
 -- ── Seller: their own orders of the last 24 hours ───────────────────────────
--- An order can be fixed or deleted by its seller for 24 hours, and only while
--- it is still new — once the owner marks it delivered, cancelled or returned
+-- An order can be fixed or deleted by its seller for 24 hours after saving
+-- it, and only while it is still new — once the owner marks it delivered, cancelled or returned
 -- it is the owner's to change.
 create or replace function public.social_my_orders(p_token text)
 returns jsonb
@@ -333,6 +357,7 @@ begin
              'orderNo', o.order_no,
              'createdAt', o.created_at,
              'editedAt', o.edited_at,
+             'enteredAt', coalesce(o.entered_at, o.created_at),
              'customerName', o.customer_name,
              'customerPhone', o.customer_phone,
              'secondPhone', o.second_phone,
@@ -349,11 +374,11 @@ begin
              'note', o.note,
              'status', o.status,
              'canChange', o.status = 'new')
-           order by o.created_at desc)
+           order by coalesce(o.entered_at, o.created_at) desc)
       from public.social_orders as o
      where o.account_id = v_account.id
        and o.source = 'app'
-       and o.created_at > now() - interval '24 hours'
+       and coalesce(o.entered_at, o.created_at) > now() - interval '24 hours'
   ), '[]'::jsonb);
 end;
 $$;
@@ -387,6 +412,7 @@ begin
          platform       = v_clean.platform,
          purchase       = v_clean.purchase,
          purchase_count = v_clean.purchase_count,
+         created_at     = coalesce(v_clean.created_at, created_at),
          shift          = v_clean.shift,
          note           = v_clean.note,
          edited_at      = now()
@@ -394,7 +420,7 @@ begin
      and account_id = v_account.id
      and source = 'app'
      and status = 'new'
-     and created_at > now() - interval '24 hours';
+     and coalesce(entered_at, created_at) > now() - interval '24 hours';
   if not found then
     raise exception 'ORDER_LOCKED';
   end if;
@@ -420,7 +446,7 @@ begin
      and account_id = v_account.id
      and source = 'app'
      and status = 'new'
-     and created_at > now() - interval '24 hours';
+     and coalesce(entered_at, created_at) > now() - interval '24 hours';
   if not found then
     raise exception 'ORDER_LOCKED';
   end if;
