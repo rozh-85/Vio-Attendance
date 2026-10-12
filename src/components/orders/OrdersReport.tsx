@@ -91,27 +91,16 @@ function SortHeader({
   );
 }
 
-/** The period the owner last looked at, kept in this browser only. */
-const PERIOD_KEY = 'vio.ordersReport.period';
-
-interface SavedPeriod {
-  period: PeriodId | 'custom';
-  from: string;
-  to: string;
-}
-
-/** All time the first time, so every order shows; after that, the last choice. */
-function loadPeriod(): SavedPeriod {
-  try {
-    const saved = JSON.parse(localStorage.getItem(PERIOD_KEY) ?? 'null') as SavedPeriod | null;
-    if (saved?.period === 'custom') return saved;
-    if (saved && PERIODS.some((p) => p.id === saved.period)) {
-      return { period: saved.period, ...periodRange(saved.period as PeriodId) };
-    }
-  } catch {
-    // Storage blocked or unreadable: fall back to all time.
-  }
-  return { period: 'all', ...periodRange('all') };
+/**
+ * The report always opens on all time, so every order is in view. (It used
+ * to reopen on the last period picked, and a remembered "Today" with no
+ * orders yet looked like the data was gone.) The one-off key that stored it
+ * is removed.
+ */
+try {
+  localStorage.removeItem('vio.ordersReport.period');
+} catch {
+  // Nothing to remove.
 }
 
 /** Saved more than half a day after the order's own date (by a seller, or a dated note on the old sheet). */
@@ -380,13 +369,8 @@ export function OrdersReport({
   colorOf: (seller: string) => string;
   onChanged: () => void;
 }) {
-  const [initialPeriod] = useState(loadPeriod);
-  const [period, setPeriod] = useState<PeriodId | 'custom'>(initialPeriod.period);
-  const [filters, setFilters] = useState<OrderFilters>(() => ({
-    ...EMPTY_FILTERS,
-    from: initialPeriod.from,
-    to: initialPeriod.to,
-  }));
+  const [period, setPeriod] = useState<PeriodId | 'custom'>('all');
+  const [filters, setFilters] = useState<OrderFilters>(() => ({ ...EMPTY_FILTERS, ...periodRange('all') }));
   const [view, setView] = useState<ReportView>(loadView);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
@@ -401,20 +385,16 @@ export function OrdersReport({
     setPage(0);
   };
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(PERIOD_KEY, JSON.stringify({ period, from: filters.from, to: filters.to }));
-    } catch {
-      // Not remembered this time; the report still works.
-    }
-  }, [period, filters.from, filters.to]);
-
   const pickPeriod = (id: PeriodId) => {
     setPeriod(id);
     update(periodRange(id));
   };
 
   const filtered = useMemo(() => filterOrders(orders, filters), [orders, filters]);
+  const latestOrderAt = useMemo(
+    () => orders.reduce((latest, o) => (o.createdAt > latest ? o.createdAt : latest), orders[0]?.createdAt ?? ''),
+    [orders],
+  );
   const summary = useMemo(() => summarize(filtered, filters), [filtered, filters]);
 
   // Seller chips count orders in the period with every filter except seller.
@@ -812,6 +792,30 @@ export function OrdersReport({
           sub={`of ${summary.customers} customers`}
         />
       </div>
+
+      {filtered.length === 0 && orders.length > 0 && (
+        <Card className="flex flex-wrap items-center gap-4 border-amber-200 bg-amber-50/70 p-5">
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-amber-900">
+              {activeFilterCount(filters) > 0
+                ? 'No orders match these filters'
+                : `No orders for ${describePeriod(filters).replace(/^All time$/, 'this period')}`}
+            </div>
+            <div className="text-sm text-amber-800">
+              There are {orders.length.toLocaleString('en-US')} orders in total — the latest on{' '}
+              {format(new Date(latestOrderAt), 'd MMM yyyy')}.
+            </div>
+          </div>
+          <Button
+            onClick={() => {
+              setPeriod('all');
+              update({ ...EMPTY_FILTERS, ...periodRange('all') });
+            }}
+          >
+            Show all {orders.length.toLocaleString('en-US')} orders
+          </Button>
+        </Card>
+      )}
 
       {/* ── Table or charts ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
