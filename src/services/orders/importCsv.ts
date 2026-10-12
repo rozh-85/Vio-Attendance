@@ -131,18 +131,25 @@ function timestampParser(values: string[]): (value: string) => Date | null {
 
 const EASTERN_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 
+const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+
 function westernDigits(value: string): string {
-  return value.replace(/[٠-٩]/g, (d) => String(EASTERN_DIGITS.indexOf(d)));
+  return value
+    .replace(/[٠-٩]/g, (d) => String(EASTERN_DIGITS.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String(PERSIAN_DIGITS.indexOf(d)));
 }
 
 /**
  * "95000" → 95,000. "120,000(no options)" → 120,000 and the words go to the
- * note. Under 1,000 was typed in thousands ("180" for 180,000).
+ * note. "1.140.000" and "٤٥.٠٠٠" use dots between thousands, "٥٥،٠٠٠" an
+ * Arabic comma. Under 1,000 was typed in thousands ("180" for 180,000).
  */
 function parsePrice(raw: string): { price: number; extra: string; scaled: boolean } {
-  const text = westernDigits(raw).trim();
+  const text = westernDigits(raw).trim().replace(/[،٬]/g, ',').replace(/٫/g, '.');
   const m = /^[\s\d,.]+/.exec(text);
-  const number = m ? Number(m[0].replace(/[,\s]/g, '')) : NaN;
+  let digits = m ? m[0].replace(/[,\s]/g, '') : '';
+  if (/^\d{1,3}(\.\d{3})+$/.test(digits)) digits = digits.replace(/\./g, '');
+  const number = digits ? Number(digits) : NaN;
   const extra = m ? text.slice(m[0].length).trim() : text;
   if (!Number.isFinite(number) || number <= 0) return { price: 0, extra: text, scaled: false };
   if (number < 1000) return { price: Math.round(number * 1000), extra, scaled: true };
