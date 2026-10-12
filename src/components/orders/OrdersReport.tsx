@@ -48,10 +48,9 @@ const SORTS = [
 ] as const;
 type SortId = (typeof SORTS)[number]['id'];
 
-/** Saved by the seller more than half a day after the order's own date. */
+/** Saved more than half a day after the order's own date (by a seller, or a dated note on the old sheet). */
 function addedLater(order: SalesOrder): boolean {
   return (
-    order.source === 'app' &&
     !!order.enteredAt &&
     new Date(order.enteredAt).getTime() - new Date(order.createdAt).getTime() > 12 * 60 * 60 * 1000
   );
