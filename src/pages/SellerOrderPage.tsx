@@ -419,6 +419,21 @@ function SellerWorkspace({
 
   const firstName = session.displayName.split(/\s+/)[0] || session.displayName;
 
+  /** Empties the new-order form, date and platform included, after asking if anything was typed. */
+  const clearForm = () => {
+    const saved = loadJson<Draft>(DRAFT_KEY);
+    const typed =
+      !!saved &&
+      (
+        ['customerName', 'customerPhone', 'secondPhone', 'city', 'address', 'itemModel', 'itemCategory', 'price', 'note'] as const
+      ).some((key) => String(saved[key] ?? '').trim() !== '');
+    if (typed && !window.confirm('Clear everything typed in this order and start again?')) return;
+    saveJson(DRAFT_KEY, emptyDraft());
+    setFormKey((k) => k + 1);
+    setFlash(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const go = (next: View) => {
     setView(next);
     if (next.kind !== 'mine') setFlash(null);
@@ -653,6 +668,15 @@ function SellerWorkspace({
             {view.kind === 'mine' && (
               <Button leftIcon={<Plus />} onClick={() => go({ kind: 'new' })}>
                 New order
+              </Button>
+            )}
+            {view.kind === 'new' && (
+              <Button variant="outline" size="sm" leftIcon={<X width={16} height={16} />} onClick={clearForm}>
+                Clear form
+                <span className="text-slate-300">·</span>
+                <span dir="rtl" className="font-medium text-ink-400">
+                  پاککردنەوە
+                </span>
               </Button>
             )}
           </div>
