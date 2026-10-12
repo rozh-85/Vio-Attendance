@@ -209,8 +209,8 @@ function Section({ step, title, ku, children }: { step: number; title: string; k
 
 /**
  * The page social media sellers use to log orders. A seller sees only their
- * own orders of the last 24 hours, to fix or delete one while it is still new
- * — never anyone else's. Everything else is in the owner's report.
+ * own orders, and can fix or delete one while it is still new — never anyone
+ * else's. Everything else is in the owner's report.
  */
 export function SellerOrderPage() {
   const store = getOrdersStore();
@@ -497,7 +497,7 @@ function SellerWorkspace({
         ? {
             en: 'My orders',
             ku: 'ئۆردەرەکانم',
-            sub: 'All your orders. You can fix or delete one for 24 hours after saving it, while it is still new.',
+            sub: 'All your orders. You can fix or delete an order while it is still new.',
           }
         : { en: `Edit order #${view.order.orderNo}`, ku: 'دەستکاریکردن', sub: 'Change what was wrong, then save.' };
 
@@ -578,7 +578,7 @@ function SellerWorkspace({
 
         <p className="mt-auto flex gap-2 text-xs leading-5 text-ink-400">
           <Clock width={14} height={14} className="mt-0.5 shrink-0" />
-          You can fix or delete an order for 24 hours, while it is still new.
+          You can fix or delete an order while it is still new.
         </p>
         <button
           type="button"
@@ -732,22 +732,11 @@ function SellerWorkspace({
   );
 }
 
-/** A small figure above the My orders table, with a line saying what it counts. */
-function MiniStat({ label, value, hint }: { label: string; value: string; hint: string }) {
-  return (
-    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div className="text-xs font-bold uppercase tracking-wide text-ink-400">{label}</div>
-      <div className="mt-0.5 text-xl font-bold tabular-nums text-ink-900 sm:text-2xl">{value}</div>
-      <div className="mt-0.5 text-xs text-ink-500">{hint}</div>
-    </div>
-  );
-}
-
 const MY_RANGES = [
-  { id: 'today', label: 'Today', long: 'Today' },
-  { id: 'week', label: '7 days', long: 'Last 7 days' },
-  { id: 'month', label: 'Month', long: 'This month' },
-  { id: 'all', label: 'All', long: 'All time' },
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: '7 days' },
+  { id: 'month', label: 'Month' },
+  { id: 'all', label: 'All' },
 ] as const;
 type MyRange = (typeof MY_RANGES)[number]['id'];
 
@@ -756,8 +745,7 @@ const MY_PAGE = 20;
 /** Why the seller cannot change an order, for the lock's tooltip. */
 function lockReason(o: SellerOrder): string {
   if (o.status !== 'new') return `${STATUS_LABEL[o.status]} by your manager — ask them to change it.`;
-  if (o.source === 'import') return 'From the old order sheet — ask your manager to change it.';
-  return 'Saved over 24 hours ago — ask your manager to change it.';
+  return 'From the old order sheet — ask your manager to change it.';
 }
 
 /**
@@ -822,7 +810,6 @@ function MyOrders({
     );
   }
 
-  const fixable = shown.filter((o) => o.canChange).length;
   const rows = shown.slice(page * MY_PAGE, page * MY_PAGE + MY_PAGE);
   const cell = 'px-2 py-3 sm:px-4';
 
@@ -863,15 +850,6 @@ function MyOrders({
             }}
           />
         </label>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:max-w-xl">
-        <MiniStat
-          label="Orders"
-          value={shown.length.toLocaleString('en-US')}
-          hint={MY_RANGES.find((r) => r.id === range)?.long ?? ''}
-        />
-        <MiniStat label="Can fix" value={String(fixable)} hint="Edit or delete, first 24 hours" />
       </div>
 
       <Card className="overflow-hidden">
@@ -1029,8 +1007,8 @@ function MyOrders({
 
       <p className="flex items-start gap-2 text-xs leading-5 text-ink-400">
         <Clock width={14} height={14} className="mt-0.5 shrink-0" />
-        You can edit or delete an order for 24 hours after you save it, while it is New. Older orders, orders from
-        the old sheet and orders your manager has marked are locked.
+        You can edit or delete an order while it is New. Orders from the old sheet and orders your manager has
+        marked are locked.
       </p>
     </div>
   );
@@ -1040,7 +1018,7 @@ type Errors = Partial<
   Record<'customerName' | 'customerPhone' | 'city' | 'address' | 'item' | 'price' | 'platform' | 'orderDay', string>
 >;
 
-function validate(draft: Draft): Errors {
+function validate(draft: Draft, savedDay?: string): Errors {
   const errors: Errors = {};
   if (!draft.customerName.trim()) errors.customerName = 'Write the customer’s name.';
   if (draft.customerPhone.replace(/\D/g, '').length < 7) errors.customerPhone = 'Write a full phone number.';
@@ -1049,7 +1027,7 @@ function validate(draft: Draft): Errors {
   if (!draft.itemModel.trim() && !draft.itemCategory.trim()) errors.item = 'Write the item model or its type.';
   if (priceNumber(draft.price) <= 0) errors.price = 'Write the total price.';
   if (!draft.platform) errors.platform = 'Pick where it was sold.';
-  if (draft.orderDay) {
+  if (draft.orderDay && draft.orderDay !== savedDay) {
     const earliest = dayKey(subDays(new Date(), MAX_BACKDATE_DAYS));
     if (draft.orderDay > todayKey() || draft.orderDay < earliest) {
       errors.orderDay = `Pick a day in the last ${MAX_BACKDATE_DAYS} days.`;
@@ -1208,13 +1186,14 @@ function OrderForm({
     setErrors((e) => ({ ...e, [key === 'itemModel' || key === 'itemCategory' ? 'item' : key]: undefined }));
   };
 
+  const savedDay = initial ? dayKey(new Date(initial.createdAt)) : undefined;
   const price = priceNumber(draft.price);
-  const missing = validate(draft);
+  const missing = validate(draft, savedDay);
   const done = CHECKS.filter((c) => !missing[c.key]).length;
 
   async function submit(e?: FormEvent) {
     e?.preventDefault();
-    const found = validate(draft);
+    const found = validate(draft, savedDay);
     setErrors(found);
     setError(null);
     if (Object.keys(found).length) {
@@ -1222,7 +1201,7 @@ function OrderForm({
       return;
     }
     setSaving(true);
-    const message = await onSubmit(orderFrom(draft, initial ? dayKey(new Date(initial.createdAt)) : undefined));
+    const message = await onSubmit(orderFrom(draft, savedDay));
     setSaving(false);
     if (message) setError(message);
   }

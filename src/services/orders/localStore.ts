@@ -145,16 +145,13 @@ export class LocalOrdersStore implements OrdersStore {
     return { orderNo };
   }
 
-  /** The seller's own app orders saved in the last 24 hours. */
+  /** The seller's own orders that they saved in the app. */
   private async mine(token: string): Promise<{ accountId: string; orders: SalesOrder[] }> {
     const account = await this.accountFor(token);
     if (!account) throw new OrdersError('SESSION_EXPIRED');
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     return {
       accountId: account.id,
-      orders: read<SalesOrder>(KEYS.orders).filter(
-        (o) => o.accountId === account.id && o.source === 'app' && (o.enteredAt ?? o.createdAt) > since,
-      ),
+      orders: read<SalesOrder>(KEYS.orders).filter((o) => o.accountId === account.id && o.source === 'app'),
     };
   }
 

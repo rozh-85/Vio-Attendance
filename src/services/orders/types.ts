@@ -106,7 +106,7 @@ export interface SellerOrder extends NewSalesOrder {
   editedAt: string | null;
   status: OrderStatus;
   source: 'app' | 'import';
-  /** Saved in the app in the last 24 hours and still new: the seller may fix or delete it. */
+  /** Saved in the app and still new: the seller may fix or delete it. */
   canChange: boolean;
 }
 

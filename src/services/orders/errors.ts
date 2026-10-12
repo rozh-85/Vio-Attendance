@@ -18,7 +18,7 @@ export const MESSAGES: Record<OrdersErrorCode, string> = {
   ORDER_INCOMPLETE: 'Fill in the customer, phone, city, platform and price.',
   ORDER_DATE_INVALID: 'Pick an order date in the last 90 days — not in the future.',
   ORDER_LOCKED:
-    'This order can no longer be changed here — it is over 24 hours old or your manager has already handled it. Ask your manager to fix it.',
+    'This order can no longer be changed here — your manager has already handled it. Ask your manager to fix it.',
   USERNAME_TAKEN: 'That username is already used by another account.',
   ACCOUNT_INVALID:
     'Give the account a name, and a username of 3–32 letters, numbers, dots, dashes or underscores.',
