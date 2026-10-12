@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Download, FileText, Pencil, Search, Sliders, Trash, X } from '@/components/icons';
+import { Download, FileText, Pencil, Search, Trash, X } from '@/components/icons';
 import {
   GENDER_LABEL,
   PURCHASE_LABEL,
@@ -16,6 +16,7 @@ import {
 } from '@/services/orders/options';
 import {
   EMPTY_FILTERS,
+  FACETS,
   PERIODS,
   activeFilterCount,
   describePeriod,
@@ -25,6 +26,7 @@ import {
   sellerOf,
   summarize,
   type Breakdown,
+  type Facet,
   type OrderFilters,
   type PeriodId,
 } from '@/services/orders/report';
@@ -33,6 +35,7 @@ import type { OrderStatus, SalesOrder } from '@/services/orders/types';
 import { exportOrdersExcel } from '@/services/report/ordersExcel';
 import { exportOrdersPdf } from '@/services/report/ordersPdf';
 import { cn } from '@/utils/cn';
+import { MultiSelect, type MultiSelectOption } from './MultiSelect';
 import { OrderEditModal } from './OrderEditModal';
 
 const PAGE_SIZE = 25;
@@ -63,7 +66,7 @@ const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'
 
 const chip = (selected: boolean) =>
   cn(
-    'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition',
+    'inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold transition',
     selected
       ? 'border-brand-600 bg-brand-50 text-brand-700'
       : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
@@ -71,6 +74,16 @@ const chip = (selected: boolean) =>
 
 const selectClass =
   'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
+
+/** One labelled row of the filter panel; the label sits on the left on wide screens. */
+function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 px-5 py-4 md:flex-row md:gap-5">
+      <div className="text-xs font-bold uppercase tracking-wide text-ink-400 md:w-16 md:shrink-0 md:pt-2.5">{label}</div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
 
 function Kpi({
   label,
@@ -122,7 +135,7 @@ function BreakdownCard({
   label?: (key: string) => string;
   colorOf?: (key: string) => string;
   onPick?: (key: string) => void;
-  picked?: string;
+  picked?: string[];
   limit?: number;
 }) {
   const [all, setAll] = useState(false);
@@ -139,19 +152,19 @@ function BreakdownCard({
       ) : (
         <ul className="space-y-1">
           {shown.map((item) => {
-            const active = picked === item.key;
+            const active = !!picked?.includes(item.key);
             return (
               <li key={item.key}>
                 <button
                   type="button"
                   disabled={!onPick || item.key === '—'}
-                  onClick={() => onPick?.(active ? '' : item.key)}
+                  onClick={() => onPick?.(item.key)}
                   className={cn(
                     'grid w-full grid-cols-[minmax(0,7rem)_1fr_auto] items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition',
                     onPick && 'hover:bg-slate-50',
                     active && 'bg-brand-50 ring-1 ring-brand-200',
                   )}
-                  title={onPick ? (active ? 'Remove this filter' : 'Show only these orders') : undefined}
+                  title={onPick ? (active ? 'Remove from the filter' : 'Add to the filter') : undefined}
                 >
                   <span dir="auto" className="truncate text-left font-medium text-ink-700">
                     {item.key === '—' ? 'Not set' : label(item.key)}
@@ -304,7 +317,6 @@ export function OrdersReport({
 }) {
   const [period, setPeriod] = useState<PeriodId | 'custom'>('month');
   const [filters, setFilters] = useState<OrderFilters>(() => ({ ...EMPTY_FILTERS, ...periodRange('month') }));
-  const [moreOpen, setMoreOpen] = useState(false);
   const [sort, setSort] = useState<SortId>('newest');
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
@@ -333,14 +345,54 @@ export function OrdersReport({
     return counts;
   }, [orders, filters]);
 
+  // Platforms, cities and categories that appear in any order, most used first.
   const options = useMemo(() => {
-    const uniq = (values: string[]) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    return {
-      platforms: uniq(orders.map((o) => o.platform)),
-      cities: uniq(orders.map((o) => o.city)),
-      categories: uniq(orders.map((o) => o.itemCategory)),
+    const byUse = (values: string[]): MultiSelectOption[] => {
+      const counts = new Map<string, number>();
+      for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+      return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([value]) => ({ value, label: value }));
     };
+    const fixed = <K extends string>(labels: Record<K, string>): MultiSelectOption[] =>
+      (Object.keys(labels) as K[]).map((value) => ({ value, label: labels[value] }));
+    return {
+      platforms: byUse(orders.map((o) => o.platform)),
+      cities: byUse(orders.map((o) => o.city)),
+      categories: byUse(orders.map((o) => o.itemCategory)),
+      statuses: fixed(STATUS_LABEL),
+      shifts: (Object.keys(SHIFT_LABEL) as (keyof typeof SHIFT_LABEL)[]).map((value) => ({
+        value,
+        label: `${SHIFT_LABEL[value].en} (${SHIFT_LABEL[value].hours})`,
+      })),
+      purchases: (Object.keys(PURCHASE_LABEL) as (keyof typeof PURCHASE_LABEL)[]).map((value) => ({
+        value,
+        label: PURCHASE_LABEL[value].en,
+      })),
+      genders: (Object.keys(GENDER_LABEL) as (keyof typeof GENDER_LABEL)[]).map((value) => ({
+        value,
+        label: GENDER_LABEL[value].en,
+      })),
+    } satisfies Record<Facet, MultiSelectOption[]>;
   }, [orders]);
+
+  // How many orders each value would show, with every other filter applied.
+  const facetCounts = useMemo(() => {
+    const result = {} as Record<Facet, Map<string, number>>;
+    for (const facet of Object.keys(FACETS) as Facet[]) {
+      const counts = new Map<string, number>();
+      for (const o of filterOrders(orders, { ...filters, [facet]: [] })) {
+        const key = FACETS[facet](o);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      result[facet] = counts;
+    }
+    return result;
+  }, [orders, filters]);
+
+  const setFacet = (facet: Facet, values: string[]) => update({ [facet]: values } as Partial<OrderFilters>);
+  const toggleFacet = (facet: Facet, value: string) => {
+    const list = filters[facet] as string[];
+    setFacet(facet, list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  };
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -367,18 +419,17 @@ export function OrdersReport({
         ? summary.trend.length
         : 0;
 
-  const extraCount = activeFilterCount({ ...filters, sellers: [], query: '' });
   const pct = (n: number) => (summary.orders ? `${Math.round((n / summary.orders) * 100)}% of orders` : '—');
 
   const filterText = [
     filters.sellers.length ? `Sellers: ${filters.sellers.join(', ')}` : 'All sellers',
-    filters.platform && `Platform: ${filters.platform}`,
-    filters.city && `City: ${filters.city}`,
-    filters.category && `Category: ${filters.category}`,
-    filters.status && `Status: ${STATUS_LABEL[filters.status]}`,
-    filters.shift && `Shift: ${SHIFT_LABEL[filters.shift].en}`,
-    filters.purchase && `Customer: ${PURCHASE_LABEL[filters.purchase].en}`,
-    filters.gender && `Gender: ${GENDER_LABEL[filters.gender].en}`,
+    filters.platforms.length > 0 && `Platform: ${filters.platforms.join(', ')}`,
+    filters.cities.length > 0 && `City: ${filters.cities.join(', ')}`,
+    filters.categories.length > 0 && `Category: ${filters.categories.join(', ')}`,
+    filters.statuses.length > 0 && `Status: ${filters.statuses.map((v) => STATUS_LABEL[v]).join(', ')}`,
+    filters.shifts.length > 0 && `Shift: ${filters.shifts.map((v) => SHIFT_LABEL[v].en).join(', ')}`,
+    filters.purchases.length > 0 && `Customer: ${filters.purchases.map((v) => PURCHASE_LABEL[v].en).join(', ')}`,
+    filters.genders.length > 0 && `Gender: ${filters.genders.map((v) => GENDER_LABEL[v].en).join(', ')}`,
     filters.query.trim() && `Search: “${filters.query.trim()}”`,
   ]
     .filter(Boolean)
@@ -423,42 +474,43 @@ export function OrdersReport({
   return (
     <div className="space-y-6">
       {/* ── Filters ─────────────────────────────────────────────────────── */}
-      <Card className="space-y-4 p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          {PERIODS.map((p) => (
-            <button key={p.id} type="button" className={chip(period === p.id)} onClick={() => pickPeriod(p.id)}>
-              {p.label}
+      <Card className="divide-y divide-slate-100">
+        <FilterRow label="Period">
+          <div className="flex flex-wrap gap-2">
+            {PERIODS.map((p) => (
+              <button key={p.id} type="button" className={chip(period === p.id)} onClick={() => pickPeriod(p.id)}>
+                {p.label}
+              </button>
+            ))}
+            <button type="button" className={chip(period === 'custom')} onClick={() => setPeriod('custom')}>
+              Custom dates
             </button>
-          ))}
-          <button type="button" className={chip(period === 'custom')} onClick={() => setPeriod('custom')}>
-            Custom dates
-          </button>
-        </div>
-        {period === 'custom' && (
-          <div className="grid gap-3 sm:max-w-md sm:grid-cols-2">
-            <label className="text-sm font-semibold text-ink-700">
-              From
-              <input
-                type="date"
-                className={cn(selectClass, 'mt-1')}
-                value={filters.from}
-                onChange={(e) => update({ from: e.target.value })}
-              />
-            </label>
-            <label className="text-sm font-semibold text-ink-700">
-              To
-              <input
-                type="date"
-                className={cn(selectClass, 'mt-1')}
-                value={filters.to}
-                onChange={(e) => update({ to: e.target.value })}
-              />
-            </label>
           </div>
-        )}
+          {period === 'custom' && (
+            <div className="mt-3 grid gap-3 sm:max-w-md sm:grid-cols-2">
+              <label className="text-sm font-semibold text-ink-700">
+                From
+                <input
+                  type="date"
+                  className={cn(selectClass, 'mt-1')}
+                  value={filters.from}
+                  onChange={(e) => update({ from: e.target.value })}
+                />
+              </label>
+              <label className="text-sm font-semibold text-ink-700">
+                To
+                <input
+                  type="date"
+                  className={cn(selectClass, 'mt-1')}
+                  value={filters.to}
+                  onChange={(e) => update({ to: e.target.value })}
+                />
+              </label>
+            </div>
+          )}
+        </FilterRow>
 
-        <div>
-          <div className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Sellers</div>
+        <FilterRow label="Sellers">
           <div className="flex flex-wrap gap-2">
             <button type="button" className={chip(filters.sellers.length === 0)} onClick={() => update({ sellers: [] })}>
               All sellers
@@ -483,11 +535,15 @@ export function OrdersReport({
               );
             })}
           </div>
-        </div>
+        </FilterRow>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="relative min-w-0 flex-1 basis-64">
-            <Search width={16} height={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+        <FilterRow label="Filters">
+          <label className="relative block">
+            <Search
+              width={16}
+              height={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
+            />
             <input
               className={cn(selectClass, 'pl-10')}
               placeholder="Search customer, phone, item, address or #order…"
@@ -495,86 +551,69 @@ export function OrdersReport({
               onChange={(e) => update({ query: e.target.value })}
             />
           </label>
-          <Button
-            variant={moreOpen || extraCount ? 'secondary' : 'outline'}
-            leftIcon={<Sliders width={16} height={16} />}
-            onClick={() => setMoreOpen((v) => !v)}
-          >
-            More filters{extraCount ? ` (${extraCount})` : ''}
-          </Button>
-          {(activeFilterCount(filters) > 0) && (
-            <Button
-              variant="ghost"
-              leftIcon={<X width={16} height={16} />}
-              onClick={() => update({ ...EMPTY_FILTERS, from: filters.from, to: filters.to })}
-            >
-              Clear
-            </Button>
-          )}
-        </div>
-
-        {moreOpen && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <select className={selectClass} value={filters.platform} onChange={(e) => update({ platform: e.target.value })}>
-              <option value="">Every platform</option>
-              {options.platforms.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-            <select className={selectClass} value={filters.city} onChange={(e) => update({ city: e.target.value })}>
-              <option value="">Every city</option>
-              {options.cities.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <select className={selectClass} value={filters.category} onChange={(e) => update({ category: e.target.value })}>
-              <option value="">Every category</option>
-              {options.categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <select
-              className={selectClass}
-              value={filters.status}
-              onChange={(e) => update({ status: e.target.value as OrderFilters['status'] })}
-            >
-              <option value="">Every status</option>
-              {(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => (
-                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-              ))}
-            </select>
-            <select
-              className={selectClass}
-              value={filters.shift}
-              onChange={(e) => update({ shift: e.target.value as OrderFilters['shift'] })}
-            >
-              <option value="">Every shift</option>
-              {(Object.keys(SHIFT_LABEL) as (keyof typeof SHIFT_LABEL)[]).map((s) => (
-                <option key={s} value={s}>{SHIFT_LABEL[s].en} ({SHIFT_LABEL[s].hours})</option>
-              ))}
-            </select>
-            <select
-              className={selectClass}
-              value={filters.purchase}
-              onChange={(e) => update({ purchase: e.target.value as OrderFilters['purchase'] })}
-            >
-              <option value="">New and returning customers</option>
-              {(Object.keys(PURCHASE_LABEL) as (keyof typeof PURCHASE_LABEL)[]).map((p) => (
-                <option key={p} value={p}>{PURCHASE_LABEL[p].en}</option>
-              ))}
-            </select>
-            <select
-              className={selectClass}
-              value={filters.gender}
-              onChange={(e) => update({ gender: e.target.value as OrderFilters['gender'] })}
-            >
-              <option value="">Every gender</option>
-              {(Object.keys(GENDER_LABEL) as (keyof typeof GENDER_LABEL)[]).map((g) => (
-                <option key={g} value={g}>{GENDER_LABEL[g].en}</option>
-              ))}
-            </select>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <MultiSelect
+              label="Platform"
+              options={options.platforms}
+              selected={filters.platforms}
+              counts={facetCounts.platforms}
+              onChange={(v) => setFacet('platforms', v)}
+            />
+            <MultiSelect
+              label="City"
+              searchable
+              options={options.cities}
+              selected={filters.cities}
+              counts={facetCounts.cities}
+              onChange={(v) => setFacet('cities', v)}
+            />
+            <MultiSelect
+              label="Category"
+              searchable
+              options={options.categories}
+              selected={filters.categories}
+              counts={facetCounts.categories}
+              onChange={(v) => setFacet('categories', v)}
+            />
+            <MultiSelect
+              label="Status"
+              options={options.statuses}
+              selected={filters.statuses}
+              counts={facetCounts.statuses}
+              onChange={(v) => setFacet('statuses', v)}
+            />
+            <MultiSelect
+              label="Shift"
+              options={options.shifts}
+              selected={filters.shifts}
+              counts={facetCounts.shifts}
+              onChange={(v) => setFacet('shifts', v)}
+            />
+            <MultiSelect
+              label="Customer"
+              options={options.purchases}
+              selected={filters.purchases}
+              counts={facetCounts.purchases}
+              onChange={(v) => setFacet('purchases', v)}
+            />
+            <MultiSelect
+              label="Gender"
+              options={options.genders}
+              selected={filters.genders}
+              counts={facetCounts.genders}
+              onChange={(v) => setFacet('genders', v)}
+            />
+            {activeFilterCount(filters) > 0 && (
+              <button
+                type="button"
+                onClick={() => update({ ...EMPTY_FILTERS, from: filters.from, to: filters.to })}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+              >
+                <X width={15} height={15} /> Clear all
+              </button>
+            )}
           </div>
-        )}
+        </FilterRow>
       </Card>
 
       {/* ── Totals ──────────────────────────────────────────────────────── */}
@@ -703,22 +742,27 @@ export function OrdersReport({
         <BreakdownCard
           title="Platform"
           items={summary.byPlatform}
-          picked={filters.platform}
-          onPick={(platform) => update({ platform })}
+          picked={filters.platforms}
+          onPick={(v) => toggleFacet('platforms', v)}
         />
-        <BreakdownCard title="City" items={summary.byCity} picked={filters.city} onPick={(city) => update({ city })} />
+        <BreakdownCard
+          title="City"
+          items={summary.byCity}
+          picked={filters.cities}
+          onPick={(v) => toggleFacet('cities', v)}
+        />
         <BreakdownCard
           title="Category"
           items={summary.byCategory}
-          picked={filters.category}
-          onPick={(category) => update({ category })}
+          picked={filters.categories}
+          onPick={(v) => toggleFacet('categories', v)}
         />
         <BreakdownCard
           title="Shift"
           items={summary.byShift}
           label={(key) => (key in SHIFT_LABEL ? `${SHIFT_LABEL[key as keyof typeof SHIFT_LABEL].en} ${SHIFT_LABEL[key as keyof typeof SHIFT_LABEL].hours}` : key)}
-          picked={filters.shift}
-          onPick={(shift) => update({ shift: shift as OrderFilters['shift'] })}
+          picked={filters.shifts}
+          onPick={(v) => toggleFacet('shifts', v)}
         />
       </div>
 

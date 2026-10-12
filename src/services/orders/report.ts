@@ -13,33 +13,46 @@ import {
 import { UNKNOWN_SELLER, countsAsSale } from './options';
 import type { OrderPurchase, OrderShift, OrderStatus, SalesOrder, CustomerGender } from './types';
 
+/** Each list holds the values to keep; an empty list keeps every value. */
 export interface OrderFilters {
   /** `yyyy-MM-dd`, inclusive; '' = open. */
   from: string;
   to: string;
-  /** Seller names; empty = every seller. */
   sellers: string[];
-  platform: string;
-  city: string;
-  category: string;
-  status: OrderStatus | '';
-  shift: OrderShift | '';
-  purchase: OrderPurchase | '';
-  gender: CustomerGender | '';
+  platforms: string[];
+  cities: string[];
+  categories: string[];
+  statuses: OrderStatus[];
+  shifts: OrderShift[];
+  purchases: OrderPurchase[];
+  genders: CustomerGender[];
   query: string;
 }
+
+/** The list filters other than seller, each read from one field of an order. */
+export const FACETS = {
+  platforms: (o: SalesOrder) => o.platform,
+  cities: (o: SalesOrder) => o.city,
+  categories: (o: SalesOrder) => o.itemCategory,
+  statuses: (o: SalesOrder) => o.status,
+  shifts: (o: SalesOrder) => o.shift,
+  purchases: (o: SalesOrder) => o.purchase,
+  genders: (o: SalesOrder) => o.gender,
+} as const;
+
+export type Facet = keyof typeof FACETS;
 
 export const EMPTY_FILTERS: OrderFilters = {
   from: '',
   to: '',
   sellers: [],
-  platform: '',
-  city: '',
-  category: '',
-  status: '',
-  shift: '',
-  purchase: '',
-  gender: '',
+  platforms: [],
+  cities: [],
+  categories: [],
+  statuses: [],
+  shifts: [],
+  purchases: [],
+  genders: [],
   query: '',
 };
 
@@ -99,13 +112,10 @@ export function filterOrders(orders: SalesOrder[], f: OrderFilters): SalesOrder[
     if (f.from && date < f.from) return false;
     if (f.to && date > f.to) return false;
     if (sellers.size && !sellers.has(sellerOf(order))) return false;
-    if (f.platform && order.platform !== f.platform) return false;
-    if (f.city && order.city !== f.city) return false;
-    if (f.category && order.itemCategory !== f.category) return false;
-    if (f.status && order.status !== f.status) return false;
-    if (f.shift && order.shift !== f.shift) return false;
-    if (f.purchase && order.purchase !== f.purchase) return false;
-    if (f.gender && order.gender !== f.gender) return false;
+    for (const facet of Object.keys(FACETS) as Facet[]) {
+      const keep = f[facet] as string[];
+      if (keep.length && !keep.includes(FACETS[facet](order))) return false;
+    }
     if (query) {
       if (query.startsWith('#') && queryDigits) return String(order.orderNo) === queryDigits;
       const text = [
@@ -133,9 +143,8 @@ export function filterOrders(orders: SalesOrder[], f: OrderFilters): SalesOrder[
 export function activeFilterCount(f: OrderFilters): number {
   return (
     (f.sellers.length ? 1 : 0) +
-    [f.platform, f.city, f.category, f.status, f.shift, f.purchase, f.gender, f.query.trim()].filter(
-      Boolean,
-    ).length
+    (Object.keys(FACETS) as Facet[]).filter((facet) => f[facet].length).length +
+    (f.query.trim() ? 1 : 0)
   );
 }
 
