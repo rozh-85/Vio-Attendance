@@ -40,6 +40,29 @@ import { OrderEditModal } from './OrderEditModal';
 
 const PAGE_SIZE = 25;
 
+/** The period the owner last looked at, kept in this browser only. */
+const PERIOD_KEY = 'vio.ordersReport.period';
+
+interface SavedPeriod {
+  period: PeriodId | 'custom';
+  from: string;
+  to: string;
+}
+
+/** All time the first time, so every order shows; after that, the last choice. */
+function loadPeriod(): SavedPeriod {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PERIOD_KEY) ?? 'null') as SavedPeriod | null;
+    if (saved?.period === 'custom') return saved;
+    if (saved && PERIODS.some((p) => p.id === saved.period)) {
+      return { period: saved.period, ...periodRange(saved.period as PeriodId) };
+    }
+  } catch {
+    // Storage blocked or unreadable: fall back to all time.
+  }
+  return { period: 'all', ...periodRange('all') };
+}
+
 const SORTS = [
   { id: 'newest', label: 'Newest first' },
   { id: 'oldest', label: 'Oldest first' },
@@ -314,8 +337,13 @@ export function OrdersReport({
   colorOf: (seller: string) => string;
   onChanged: () => void;
 }) {
-  const [period, setPeriod] = useState<PeriodId | 'custom'>('month');
-  const [filters, setFilters] = useState<OrderFilters>(() => ({ ...EMPTY_FILTERS, ...periodRange('month') }));
+  const [initialPeriod] = useState(loadPeriod);
+  const [period, setPeriod] = useState<PeriodId | 'custom'>(initialPeriod.period);
+  const [filters, setFilters] = useState<OrderFilters>(() => ({
+    ...EMPTY_FILTERS,
+    from: initialPeriod.from,
+    to: initialPeriod.to,
+  }));
   const [sort, setSort] = useState<SortId>('newest');
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
@@ -326,6 +354,14 @@ export function OrdersReport({
     setFilters((f) => ({ ...f, ...patch }));
     setPage(0);
   };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PERIOD_KEY, JSON.stringify({ period, from: filters.from, to: filters.to }));
+    } catch {
+      // Not remembered this time; the report still works.
+    }
+  }, [period, filters.from, filters.to]);
 
   const pickPeriod = (id: PeriodId) => {
     setPeriod(id);
