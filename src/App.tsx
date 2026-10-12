@@ -8,6 +8,7 @@ import { EmployeeReportPage } from '@/pages/EmployeeReportPage';
 import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
 import { CheckInLocationsPage } from '@/pages/CheckInLocationsPage';
 import { SocialOrdersPage } from '@/pages/SocialOrdersPage';
+import { OrderEditPage } from '@/pages/OrderEditPage';
 import { SellerOrderPage } from '@/pages/SellerOrderPage';
 import { OwnerGate } from '@/components/OwnerGate';
 import { SessionView } from '@/pages/SessionView';
@@ -106,6 +107,17 @@ export default function App() {
                 <RequireAuth>
                   <OwnerGate title="Social media orders">
                     <SocialOrdersPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
+            {/* One order on its own page, opened from the orders report. */}
+            <Route
+              path={routePatterns.socialOrder}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="Social media orders">
+                    <OrderEditPage />
                   </OwnerGate>
                 </RequireAuth>
               }

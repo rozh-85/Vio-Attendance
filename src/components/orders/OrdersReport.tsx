@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ChevronDown, ChevronUp, Download, FileText, Pencil, Search, Trash, X } from '@/components/icons';
+import { CheckCircle, ChevronDown, ChevronUp, Download, FileText, Pencil, Search, Trash, X } from '@/components/icons';
 import {
   GENDER_LABEL,
   PURCHASE_LABEL,
@@ -35,8 +36,9 @@ import type { OrderStatus, SalesOrder } from '@/services/orders/types';
 import { exportOrdersExcel } from '@/services/report/ordersExcel';
 import { exportOrdersPdf } from '@/services/report/ordersPdf';
 import { cn } from '@/utils/cn';
+import { clearReportReturn, readReportMemory, writeReportMemory } from '@/services/orders/reportMemory';
+import { paths } from '@/routes';
 import { MultiSelect, type MultiSelectOption } from './MultiSelect';
-import { OrderEditModal } from './OrderEditModal';
 
 const PAGE_SIZES = [25, 50, 100] as const;
 
@@ -369,20 +371,74 @@ export function OrdersReport({
   colorOf: (seller: string) => string;
   onChanged: () => void;
 }) {
-  const [period, setPeriod] = useState<PeriodId | 'custom'>('all');
-  const [filters, setFilters] = useState<OrderFilters>(() => ({ ...EMPTY_FILTERS, ...periodRange('all') }));
-  const [view, setView] = useState<ReportView>(loadView);
-  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
-  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
-  const [page, setPage] = useState(0);
+  // Coming back from an order's page restores where the owner was; a fresh
+  // load (or refresh) starts on all time.
+  const [memory] = useState(readReportMemory);
+  const navigate = useNavigate();
+  const [period, setPeriod] = useState<PeriodId | 'custom'>(memory?.period ?? 'all');
+  const [filters, setFilters] = useState<OrderFilters>(
+    () => memory?.filters ?? { ...EMPTY_FILTERS, ...periodRange('all') },
+  );
+  const [view, setView] = useState<ReportView>(() => memory?.view ?? loadView());
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>(memory?.sort ?? { key: 'date', dir: 'desc' });
+  const [pageSize, setPageSize] = useState<number>(memory?.pageSize ?? PAGE_SIZES[0]);
+  const [page, setPage] = useState(memory?.page ?? 0);
+  const [highlight, setHighlight] = useState<string | null>(memory?.highlightId ?? null);
+  const [notice, setNotice] = useState<string | null>(memory?.notice ?? null);
   const tableRef = useRef<HTMLDivElement>(null);
-  const [editing, setEditing] = useState<SalesOrder | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const update = (patch: Partial<OrderFilters>) => {
     setFilters((f) => ({ ...f, ...patch }));
     setPage(0);
+  };
+
+  // Back from an order's page: same scroll position; the highlight and the
+  // "saved" note show once, then fade.
+  useEffect(() => {
+    if (memory?.scrollY) requestAnimationFrame(() => window.scrollTo(0, memory.scrollY));
+    clearReportReturn();
+  }, [memory]);
+  useEffect(() => {
+    if (!highlight) return;
+    const timer = window.setTimeout(() => setHighlight(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [highlight]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    writeReportMemory({
+      period,
+      filters,
+      view,
+      sort,
+      pageSize,
+      page,
+      scrollY: 0,
+      highlightId: null,
+      notice: null,
+    });
+  }, [period, filters, view, sort, pageSize, page]);
+
+  /** Opens an order on its own page, remembering where the report was. */
+  const openOrder = (o: SalesOrder) => {
+    writeReportMemory({
+      period,
+      filters,
+      view,
+      sort,
+      pageSize,
+      page,
+      scrollY: window.scrollY,
+      highlightId: null,
+      notice: null,
+    });
+    navigate(paths.socialOrder(o.id));
   };
 
   const pickPeriod = (id: PeriodId) => {
@@ -817,6 +873,21 @@ export function OrdersReport({
         </Card>
       )}
 
+      {notice && (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-3 text-emerald-800">
+          <CheckCircle width={20} height={20} className="shrink-0" />
+          <span className="flex-1 font-semibold">{notice}</span>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setNotice(null)}
+            className="grid size-8 place-items-center rounded-lg opacity-60 hover:opacity-100"
+          >
+            <X width={16} height={16} />
+          </button>
+        </div>
+      )}
+
       {/* ── Table or charts ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-2xl bg-slate-100 p-1">
@@ -1033,7 +1104,14 @@ export function OrdersReport({
               <>
               <ul className="divide-y divide-slate-100 sm:hidden">
                 {pageRows.map((o) => (
-                  <li key={o.id} className={cn('px-4 py-3', !countsAsSale(o.status) && 'bg-slate-50/60 text-ink-400')}>
+                  <li
+                    key={o.id}
+                    className={cn(
+                      'px-4 py-3 transition-colors duration-700',
+                      !countsAsSale(o.status) && 'bg-slate-50/60 text-ink-400',
+                      highlight === o.id && 'bg-amber-50',
+                    )}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 text-xs text-ink-500">
@@ -1073,7 +1151,7 @@ export function OrdersReport({
                           type="button"
                           className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-slate-100 hover:text-ink-700"
                           aria-label={`Edit order ${o.orderNo}`}
-                          onClick={() => setEditing(o)}
+                          onClick={() => openOrder(o)}
                         >
                           <Pencil width={16} height={16} />
                         </button>
@@ -1111,8 +1189,9 @@ export function OrdersReport({
                       <tr
                         key={o.id}
                         className={cn(
-                          'border-b border-slate-100 align-top last:border-0 hover:bg-slate-50/60',
+                          'border-b border-slate-100 align-top transition-colors duration-700 last:border-0 hover:bg-slate-50/60',
                           !countsAsSale(o.status) && 'bg-slate-50/60 text-ink-400',
+                          highlight === o.id && 'bg-amber-50 hover:bg-amber-50',
                         )}
                       >
                         <td className="whitespace-nowrap px-3 py-3">
@@ -1191,7 +1270,7 @@ export function OrdersReport({
                               className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-slate-100 hover:text-ink-700"
                               title="Edit order"
                               aria-label={`Edit order ${o.orderNo}`}
-                              onClick={() => setEditing(o)}
+                              onClick={() => openOrder(o)}
                             >
                               <Pencil width={16} height={16} />
                             </button>
@@ -1260,15 +1339,6 @@ export function OrdersReport({
         {orders.length > 0 && ` Orders on record: ${orders.length}, the first on ${format(new Date(orders.map(orderDay).sort()[0]), 'd MMM yyyy')}.`}
       </p>
 
-      <OrderEditModal
-        order={editing}
-        sellers={sellers}
-        onClose={() => setEditing(null)}
-        onSaved={() => {
-          setEditing(null);
-          onChanged();
-        }}
-      />
     </div>
   );
 }

@@ -96,6 +96,20 @@ export function sellerOf(order: SalesOrder): string {
   return order.sellerName.trim() || UNKNOWN_SELLER;
 }
 
+/**
+ * Every seller name: accounts first, in the order they were made, then any
+ * other name on the orders by how many it has — so each keeps one colour.
+ */
+export function sellerList(orders: SalesOrder[], accountNames: string[]): string[] {
+  const counts = new Map<string, number>();
+  for (const o of orders) counts.set(sellerOf(o), (counts.get(sellerOf(o)) ?? 0) + 1);
+  const others = [...counts.entries()]
+    .filter(([name]) => !accountNames.includes(name))
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
+  return [...accountNames, ...others];
+}
+
 /** The calendar day an order was taken, in this browser's time zone. */
 export function orderDay(order: SalesOrder): string {
   return day(new Date(order.createdAt));

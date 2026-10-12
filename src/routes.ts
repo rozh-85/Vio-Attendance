@@ -19,6 +19,7 @@ export const paths = {
   checkInLocations: '/rozhadmin/locations',
   // Behind the same owner password: the social media sellers' orders.
   socialOrders: '/rozhadmin/orders',
+  socialOrder: (id: string) => `/rozhadmin/orders/${id}`,
   // Public, unlisted: where social media sellers sign in and add orders.
   sellerOrders: '/orders',
   session: (id: string) => `/session/${id}`,
@@ -39,6 +40,7 @@ export const routePatterns = {
   devices: '/rozhadmin',
   checkInLocations: '/rozhadmin/locations',
   socialOrders: '/rozhadmin/orders',
+  socialOrder: '/rozhadmin/orders/:orderId',
   sellerOrders: '/orders',
   session: '/session/:sessionId',
   recover: '/recover',

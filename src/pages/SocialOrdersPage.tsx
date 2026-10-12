@@ -8,7 +8,7 @@ import { OrderImport } from '@/components/orders/OrderImport';
 import { useDataService } from '@/services/data/context';
 import { lockOwner } from '@/services/auth/ownerGate';
 import { sellerColor } from '@/services/orders/options';
-import { sellerOf } from '@/services/orders/report';
+import { sellerList } from '@/services/orders/report';
 import { OrdersError, getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { SalesOrder, SocialAccount } from '@/services/orders/types';
 import type { Employee } from '@/types';
@@ -76,16 +76,7 @@ export function SocialOrdersPage() {
 
   // Accounts first, in the order they were made, then any other name from the
   // old sheet by how many orders it has — so each seller keeps one colour.
-  const sellers = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const o of orders) counts.set(sellerOf(o), (counts.get(sellerOf(o)) ?? 0) + 1);
-    const names = accounts.map((a) => a.displayName);
-    const others = [...counts.entries()]
-      .filter(([name]) => !names.includes(name))
-      .sort((a, b) => b[1] - a[1])
-      .map(([name]) => name);
-    return [...names, ...others];
-  }, [orders, accounts]);
+  const sellers = useMemo(() => sellerList(orders, accounts.map((a) => a.displayName)), [orders, accounts]);
 
   const colorOf = useCallback(
     (seller: string) => {
