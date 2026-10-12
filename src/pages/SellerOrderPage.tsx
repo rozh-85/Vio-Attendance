@@ -634,7 +634,12 @@ function SellerWorkspace({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+        <main
+          className={cn(
+            'mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-10',
+            view.kind === 'mine' ? 'max-w-[100rem]' : 'max-w-6xl',
+          )}
+        >
           <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="flex flex-wrap items-baseline gap-x-3 text-2xl font-bold text-ink-900 sm:text-3xl">
@@ -886,11 +891,12 @@ function MyOrders({
                   <th className={cell}>Order</th>
                   <th className={cell}>Customer</th>
                   <th className={cn(cell, 'hidden md:table-cell')}>Delivery</th>
-                  <th className={cn(cell, 'hidden lg:table-cell')}>Item</th>
-                  <th className={cn(cell, 'hidden md:table-cell')}>Sold on</th>
-                  <th className={cn(cell, 'text-right')}>Price</th>
-                  <th className={cn(cell, 'hidden sm:table-cell')}>Status</th>
+                  <th className={cn(cell, 'hidden xl:table-cell')}>Item</th>
+                  <th className={cn(cell, 'hidden 2xl:table-cell')}>Sold on</th>
                   <th className={cn(cell, 'text-right')}>
+                    Price<span className="hidden sm:inline"> · status</span>
+                  </th>
+                  <th className={cn(cell, 'w-12 text-right')}>
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
@@ -900,14 +906,14 @@ function MyOrders({
                   const later = o.source === 'app' && dayKey(new Date(o.createdAt)) !== dayKey(new Date(o.enteredAt));
                   return (
                     <tr key={o.id} className="border-b border-slate-100 align-top last:border-0 hover:bg-slate-50/60">
-                      <td className={cell}>
+                      <td className={cn(cell, 'sm:whitespace-nowrap')}>
                         <div className="font-mono font-bold text-ink-900">#{o.orderNo}</div>
                         <div className="whitespace-nowrap text-xs text-ink-500">
                           {format(new Date(o.createdAt), 'd MMM yy')}
                         </div>
                         <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
                         {(later || o.editedAt || o.source === 'import') && (
-                          <div className="mt-1 flex flex-col items-start gap-1">
+                          <div className="mt-1 flex flex-col items-start gap-1 sm:whitespace-nowrap">
                             {o.source === 'import' && (
                               <span title="Brought in from the old Google order sheet">
                                 <Badge>Old sheet</Badge>
@@ -936,11 +942,14 @@ function MyOrders({
                         <div dir="auto" className="text-left font-medium text-ink-900">
                           {o.city}
                         </div>
-                        <div dir="auto" className="max-w-[12rem] truncate text-left text-xs text-ink-500" title={o.address}>
+                        <div dir="auto" className="max-w-[10rem] truncate text-left text-xs text-ink-500" title={o.address}>
                           {o.address || '—'}
                         </div>
+                        <div className="max-w-[10rem] truncate font-mono text-xs text-ink-400 xl:hidden" title={o.itemModel}>
+                          {o.itemModel}
+                        </div>
                       </td>
-                      <td className={cn(cell, 'hidden lg:table-cell')}>
+                      <td className={cn(cell, 'hidden xl:table-cell')}>
                         <div className="max-w-[10rem] truncate font-mono text-xs font-semibold text-ink-900" title={o.itemModel}>
                           {o.itemModel || '—'}
                         </div>
@@ -948,7 +957,7 @@ function MyOrders({
                           {o.itemCategory}
                         </div>
                       </td>
-                      <td className={cn(cell, 'hidden whitespace-nowrap md:table-cell')}>
+                      <td className={cn(cell, 'hidden whitespace-nowrap 2xl:table-cell')}>
                         <div className="font-medium text-ink-900">{o.platform || '—'}</div>
                         <div className="text-xs text-ink-500">
                           {[o.shift && SHIFT_LABEL[o.shift].en, purchaseText(o.purchaseCount, o.purchase)]
@@ -958,17 +967,16 @@ function MyOrders({
                       </td>
                       <td className={cn(cell, 'whitespace-nowrap text-right')}>
                         <div className="font-bold tabular-nums text-brand-700">{o.totalPrice.toLocaleString('en-US')}</div>
-                        <div className="text-xs text-ink-400">IQD</div>
-                        <div className="mt-1 sm:hidden">
+                        <div className="text-xs text-ink-400">
+                          IQD<span className="hidden sm:inline 2xl:hidden">{o.platform ? ` · ${o.platform}` : ''}</span>
+                        </div>
+                        <div className="mt-1">
                           <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
                         </div>
                       </td>
-                      <td className={cn(cell, 'hidden sm:table-cell')}>
-                        <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
-                      </td>
                       <td className={cn(cell, 'whitespace-nowrap text-right')}>
                         {o.canChange ? (
-                          <div className="inline-flex flex-col gap-1 sm:flex-row">
+                          <div className="inline-flex flex-col gap-1">
                             <button
                               type="button"
                               title="Edit order"
@@ -989,9 +997,12 @@ function MyOrders({
                             </button>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-ink-400" title={lockReason(o)}>
-                            <Clock width={14} height={14} />
-                            <span className="hidden sm:inline">Locked</span>
+                          <span
+                            className="inline-grid size-9 place-items-center rounded-xl text-ink-400"
+                            title={lockReason(o)}
+                            aria-label={lockReason(o)}
+                          >
+                            <Clock width={16} height={16} />
                           </span>
                         )}
                       </td>
