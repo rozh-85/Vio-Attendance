@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/Logo';
-import { CalendarDays, Check, CheckCircle, Clock, FileText, Logout, Pencil, Plus, Trash, X } from '@/components/icons';
+import { CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Pencil, Plus, Trash, X } from '@/components/icons';
 import {
   CATEGORIES,
   CITIES,
@@ -1041,6 +1041,20 @@ function OrderForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [otherCity, setOtherCity] = useState(() => !!draft.city && !(CITIES as readonly string[]).includes(draft.city));
+  const [reviewing, setReviewing] = useState(false);
+
+  // The review sheet covers the page: hold the page still behind it, and let
+  // Escape close it.
+  useEffect(() => {
+    if (!reviewing) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setReviewing(false);
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [reviewing]);
 
   // A new order keeps what is typed, so a reload or a call coming in loses nothing.
   useEffect(() => {
@@ -1072,6 +1086,7 @@ function OrderForm({
   }
 
   const saveLabel = mode === 'new' ? 'Save order' : 'Save changes';
+  const summaryTitle = mode === 'new' ? 'Order summary' : `Order #${initial?.orderNo}`;
 
   return (
     <form onSubmit={submit} noValidate className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -1317,68 +1332,12 @@ function OrderForm({
       {/* ── Live summary (wide screens) ───────────────────────────────────── */}
       <aside className="hidden self-stretch xl:block">
         <div className="sticky top-10 space-y-4">
-          <Card className="overflow-hidden">
-            <div className="bg-brand-600 px-5 py-4 text-white">
-              <div className="text-xs font-bold uppercase tracking-wide text-white/70">
-                {mode === 'new' ? 'Order summary' : `Order #${initial?.orderNo}`}
-              </div>
-              <div className="mt-1 text-3xl font-bold tabular-nums">
-                {price ? price.toLocaleString('en-US') : '0'}
-                <span className="ml-1 text-sm font-semibold text-white/70">IQD</span>
-              </div>
-            </div>
-            <dl className="space-y-3 px-5 py-4 text-sm">
-              <SummaryRow
-                label="Date"
-                value={
-                  !draft.orderDay || draft.orderDay === todayKey()
-                    ? 'Today'
-                    : format(parseISO(draft.orderDay), 'EEE, d MMM yyyy')
-                }
-                sub={draft.orderDay && draft.orderDay !== todayKey() ? 'Added later' : undefined}
-              />
-              <SummaryRow label="Customer" value={draft.customerName} sub={draft.customerPhone} />
-              <SummaryRow label="Deliver to" value={draft.city} sub={draft.address} />
-              <SummaryRow
-                label="Item"
-                value={[draft.itemModel, draft.itemCategory].filter(Boolean).join(' · ')}
-              />
-              <SummaryRow
-                label="Sold on"
-                value={draft.platform}
-                sub={[draft.shift && SHIFT_LABEL[draft.shift].en, purchaseText(timesNumber(draft.timesBought), '')]
-                  .filter(Boolean)
-                  .join(' · ')}
-              />
-              <SummaryRow label="Seller" value={sellerName} />
-            </dl>
-            <div className="border-t border-slate-100 px-5 py-4">
-              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-ink-500">
-                <span>Required details</span>
-                <span className="tabular-nums">
-                  {done} / {CHECKS.length}
-                </span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(done / CHECKS.length) * 100}%` }} />
-              </div>
-              <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                {CHECKS.map((c) => {
-                  const ok = !missing[c.key];
-                  return (
-                    <li key={c.key} className={cn('flex items-center gap-1.5', ok ? 'text-emerald-700' : 'text-ink-400')}>
-                      {ok ? (
-                        <Check width={13} height={13} />
-                      ) : (
-                        <span className="inline-block size-[13px] rounded-full border border-current" />
-                      )}
-                      {c.label}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </Card>
+          <OrderSummary
+            draft={draft}
+            title={summaryTitle}
+            sellerName={sellerName}
+            missing={missing}
+          />
           {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
           <Button type="submit" size="lg" fullWidth loading={saving} leftIcon={<Check />}>
             {saveLabel}
@@ -1397,31 +1356,208 @@ function OrderForm({
           {error && <div className="mb-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>}
           <div className="flex gap-2">
             {onCancel && (
-              <Button type="button" variant="outline" size="lg" onClick={onCancel}>
+              <Button type="button" variant="outline" size="lg" className="px-4" onClick={onCancel}>
                 Cancel
               </Button>
             )}
+            <button
+              type="button"
+              onClick={() => setReviewing(true)}
+              className="flex h-14 shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-ink-700 transition hover:bg-slate-50 active:scale-[0.98]"
+            >
+              <Eye width={18} height={18} />
+              Review
+              <span
+                className={cn(
+                  'rounded-full px-1.5 py-0.5 text-xs tabular-nums',
+                  done === CHECKS.length ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-ink-500',
+                )}
+              >
+                {done}/{CHECKS.length}
+              </span>
+            </button>
             <Button type="submit" size="lg" fullWidth loading={saving} leftIcon={<Check />}>
               {saveLabel}
-              {price > 0 ? ` · ${formatIqd(price)}` : ''}
+              {price > 0 && !onCancel ? ` · ${formatIqd(price)}` : ''}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* ── Review sheet (phone, tablet and laptop) ────────────────────────── */}
+      {reviewing && (
+        <div className="fixed inset-0 z-40 xl:hidden" role="dialog" aria-modal="true" aria-label="Review the order">
+          <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" onClick={() => setReviewing(false)} />
+          <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] animate-[sheet-up_0.22s_ease-out] flex-col rounded-t-3xl bg-card shadow-2xl lg:left-72">
+            <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-slate-200" />
+            <div className="flex items-center gap-3 px-5 pb-2 pt-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="flex flex-wrap items-baseline gap-x-2 text-lg font-bold text-ink-900">
+                  Review the order
+                  <span dir="rtl" className="text-sm font-medium text-ink-400">
+                    پێداچوونەوە
+                  </span>
+                </h2>
+                <p className="text-sm text-ink-500">Check everything before you save.</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setReviewing(false)}
+                className="grid size-10 place-items-center rounded-full text-ink-400 hover:bg-slate-100 hover:text-ink-700"
+              >
+                <X width={18} height={18} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+              <OrderSummary draft={draft} title={summaryTitle} sellerName={sellerName} missing={missing} full />
+            </div>
+            <div className="mx-auto flex w-full max-w-3xl gap-2 border-t border-slate-100 px-4 py-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="whitespace-nowrap px-4"
+                leftIcon={<Pencil width={16} height={16} />}
+                onClick={() => setReviewing(false)}
+              >
+                Edit
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                fullWidth
+                loading={saving}
+                leftIcon={<Check />}
+                onClick={() => {
+                  setReviewing(false);
+                  void submit();
+                }}
+              >
+                {saveLabel}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
 
-function SummaryRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
+/**
+ * What the order will be saved as. The side panel shows it short; the review
+ * sheet (`full`) shows every detail, long address and note included.
+ */
+function OrderSummary({
+  draft,
+  title,
+  sellerName,
+  missing,
+  full = false,
+}: {
+  draft: Draft;
+  title: string;
+  sellerName: string;
+  missing: Errors;
+  full?: boolean;
+}) {
+  const price = priceNumber(draft.price);
+  const done = CHECKS.filter((c) => !missing[c.key]).length;
+  const later = !!draft.orderDay && draft.orderDay !== todayKey();
+  const times = timesNumber(draft.timesBought);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="bg-brand-600 px-5 py-4 text-white">
+        <div className="text-xs font-bold uppercase tracking-wide text-white/70">{title}</div>
+        <div className="mt-1 text-3xl font-bold tabular-nums">
+          {price ? price.toLocaleString('en-US') : '0'}
+          <span className="ml-1 text-sm font-semibold text-white/70">IQD</span>
+        </div>
+      </div>
+      <dl className="space-y-3 px-5 py-4 text-sm">
+        <SummaryRow
+          full={full}
+          label="Date"
+          value={later ? format(parseISO(draft.orderDay), 'EEE, d MMM yyyy') : 'Today'}
+          sub={later ? 'Added later' : undefined}
+        />
+        <SummaryRow
+          full={full}
+          label="Customer"
+          value={draft.customerName}
+          sub={[draft.customerPhone, full && draft.secondPhone].filter(Boolean).join(' · ')}
+        />
+        {full && <SummaryRow full label="Gender" value={draft.gender ? GENDER_LABEL[draft.gender].en : ''} />}
+        <SummaryRow full={full} label="Deliver to" value={draft.city} sub={draft.address} />
+        <SummaryRow full={full} label="Item" value={[draft.itemModel, draft.itemCategory].filter(Boolean).join(' · ')} />
+        <SummaryRow
+          full={full}
+          label="Sold on"
+          value={draft.platform}
+          sub={[draft.shift && SHIFT_LABEL[draft.shift].en, purchaseText(times, '')].filter(Boolean).join(' · ')}
+        />
+        {full && draft.note.trim() && <SummaryRow full label="Note" value={draft.note.trim()} />}
+        <SummaryRow full={full} label="Seller" value={sellerName} />
+      </dl>
+      <div className="border-t border-slate-100 px-5 py-4">
+        <div className="mb-2 flex items-center justify-between text-xs font-semibold text-ink-500">
+          <span>Required details</span>
+          <span className="tabular-nums">
+            {done} / {CHECKS.length}
+          </span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-all"
+            style={{ width: `${(done / CHECKS.length) * 100}%` }}
+          />
+        </div>
+        <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          {CHECKS.map((c) => {
+            const ok = !missing[c.key];
+            return (
+              <li
+                key={c.key}
+                className={cn('flex items-center gap-1.5', ok ? 'text-emerald-700' : full ? 'text-rose-600' : 'text-ink-400')}
+              >
+                {ok ? (
+                  <Check width={13} height={13} />
+                ) : (
+                  <span className="inline-block size-[13px] rounded-full border border-current" />
+                )}
+                {c.label}
+              </li>
+            );
+          })}
+        </ul>
+        {full && done < CHECKS.length && (
+          <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            Fill in the red ones before saving.
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function SummaryRow({ label, value, sub, full }: { label: string; value: string; sub?: string; full?: boolean }) {
   return (
     <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2">
       <dt className="text-ink-400">{label}</dt>
       <dd className="min-w-0">
-        <div dir="auto" className={cn('truncate text-left font-semibold', value ? 'text-ink-900' : 'text-slate-300')}>
+        <div
+          dir="auto"
+          className={cn(
+            'text-left font-semibold',
+            full ? 'whitespace-pre-line break-words' : 'truncate',
+            value ? 'text-ink-900' : 'text-slate-300',
+          )}
+        >
           {value || '—'}
         </div>
         {sub && (
-          <div dir="auto" className="truncate text-left text-xs text-ink-500">
+          <div dir="auto" className={cn('text-left text-xs text-ink-500', full ? 'break-words' : 'truncate')}>
             {sub}
           </div>
         )}
