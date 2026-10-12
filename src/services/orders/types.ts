@@ -26,6 +26,8 @@ export interface SalesOrder {
   gender: CustomerGender | '';
   platform: string;
   purchase: OrderPurchase | '';
+  /** How many times the customer has bought, as typed; null when not known. */
+  purchaseCount: number | null;
   shift: OrderShift | '';
   note: string;
   status: OrderStatus;
@@ -48,6 +50,7 @@ export type NewSalesOrder = Pick<
   | 'gender'
   | 'platform'
   | 'purchase'
+  | 'purchaseCount'
   | 'shift'
   | 'note'
 >;

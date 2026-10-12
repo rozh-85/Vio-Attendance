@@ -2,9 +2,9 @@ import { format } from 'date-fns';
 import { downloadBlob, escapeXml, zipStore } from './excel';
 import {
   GENDER_LABEL,
-  PURCHASE_LABEL,
   SHIFT_LABEL,
   STATUS_LABEL,
+  purchaseText,
 } from '@/services/orders/options';
 import { sellerOf, type OrderSummary } from '@/services/orders/report';
 import type { SalesOrder } from '@/services/orders/types';
@@ -202,7 +202,7 @@ const ORDER_COLUMNS: { title: string; width: number; cell: (o: SalesOrder) => Ce
   { title: 'Category', width: 20, cell: (o) => text(o.itemCategory) },
   { title: 'Price (IQD)', width: 14, cell: (o) => num(o.totalPrice) },
   { title: 'Platform', width: 12, cell: (o) => text(o.platform) },
-  { title: 'Customer type', width: 15, cell: (o) => text(o.purchase ? PURCHASE_LABEL[o.purchase].en : '') },
+  { title: 'Times bought', width: 13, cell: (o) => (o.purchaseCount ? num(o.purchaseCount, S.number) : text(purchaseText(null, o.purchase))) },
   { title: 'Shift', width: 11, cell: (o) => text(o.shift ? SHIFT_LABEL[o.shift].en : '') },
   { title: 'Gender', width: 9, cell: (o) => text(o.gender ? GENDER_LABEL[o.gender].en : '') },
   { title: 'Status', width: 11, cell: (o) => text(STATUS_LABEL[o.status]) },

@@ -12,10 +12,12 @@ import {
   CITIES,
   GENDER_LABEL,
   PLATFORMS,
-  PURCHASE_LABEL,
   SHIFT_LABEL,
   STATUS_LABEL,
   formatIqd,
+  purchaseFromCount,
+  purchaseText,
+  purchaseTextKu,
   shiftAt,
 } from '@/services/orders/options';
 import { OrdersError, getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
@@ -25,9 +27,13 @@ import { cn } from '@/utils/cn';
 const SESSION_KEY = 'vio.sellerSession';
 const DRAFT_KEY = 'vio.sellerOrderDraft';
 
-/** The form keeps the price as typed text so "95,000" can show commas. */
-interface Draft extends Omit<NewSalesOrder, 'totalPrice'> {
+/**
+ * The form keeps the price and the times bought as typed text, so "95,000"
+ * can show commas and the count can be cleared while typing.
+ */
+interface Draft extends Omit<NewSalesOrder, 'totalPrice' | 'purchase' | 'purchaseCount'> {
   price: string;
+  timesBought: string;
 }
 
 function emptyDraft(keep?: Pick<Draft, 'platform' | 'shift'>): Draft {
@@ -42,7 +48,7 @@ function emptyDraft(keep?: Pick<Draft, 'platform' | 'shift'>): Draft {
     price: '',
     gender: '',
     platform: keep?.platform ?? '',
-    purchase: 'first',
+    timesBought: '1',
     shift: keep?.shift ?? shiftAt(),
     note: '',
   };
@@ -60,20 +66,34 @@ function draftFrom(order: SellerOrder): Draft {
     price: order.totalPrice ? order.totalPrice.toLocaleString('en-US') : '',
     gender: order.gender,
     platform: order.platform,
-    purchase: order.purchase,
+    timesBought: order.purchaseCount
+      ? String(order.purchaseCount)
+      : order.purchase === 'first'
+        ? '1'
+        : order.purchase === 'second'
+          ? '2'
+          : '',
     shift: order.shift,
     note: order.note,
   };
 }
 
+const timesNumber = (times: string | undefined) => {
+  const n = Number((times ?? '').replace(/\D/g, ''));
+  return n >= 1 && n <= 1000 ? n : null;
+};
+
 function orderFrom(draft: Draft): NewSalesOrder {
-  const { price, ...rest } = draft;
+  const { price, timesBought, ...rest } = draft;
+  const purchaseCount = timesNumber(timesBought);
   return {
     ...rest,
     customerName: rest.customerName.trim(),
     customerPhone: rest.customerPhone.trim(),
     secondPhone: rest.secondPhone.trim(),
     totalPrice: priceNumber(price),
+    purchaseCount,
+    purchase: purchaseFromCount(purchaseCount),
   };
 }
 
@@ -1017,19 +1037,30 @@ function OrderForm({
             </div>
             <FieldError message={errors.platform} />
           </div>
-          <div>
+          <label className="block">
             <Label en="How many times has this customer bought?" ku="جاری چەندەمە کڕین دەکات؟" />
-            <div className="grid gap-2 sm:grid-cols-3">
-              {(Object.keys(PURCHASE_LABEL) as (keyof typeof PURCHASE_LABEL)[]).map((p) => (
-                <button key={p} type="button" className={chipClass(draft.purchase === p)} onClick={() => set('purchase', p)}>
-                  {PURCHASE_LABEL[p].en}
-                  <span dir="rtl" className="block text-xs font-medium opacity-75">
-                    {PURCHASE_LABEL[p].ku}
-                  </span>
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <div className="w-28 shrink-0">
+                <input
+                  className={cn(inputClass, 'border-slate-200 text-center text-lg font-bold tabular-nums')}
+                  inputMode="numeric"
+                  placeholder="1"
+                  value={draft.timesBought ?? ''}
+                  onChange={(e) => {
+                    const digits = westernDigits(e.target.value).replace(/\D/g, '').slice(0, 4);
+                    set('timesBought', digits.replace(/^0+/, ''));
+                  }}
+                />
+              </div>
+              {timesNumber(draft.timesBought) && (
+                <span className="text-sm text-ink-500">
+                  {purchaseText(timesNumber(draft.timesBought), '')} ·{' '}
+                  <span dir="rtl">{purchaseTextKu(timesNumber(draft.timesBought) ?? 1)}</span>
+                </span>
+              )}
             </div>
-          </div>
+            <span className="mt-1.5 block text-sm text-ink-500">Type 1 for a new customer.</span>
+          </label>
           <div>
             <Label en="Shift" ku="لە چ کاتێکدا ئەم ئۆردەرە کراوە؟" />
             <div className="grid grid-cols-3 gap-2">
@@ -1090,7 +1121,7 @@ function OrderForm({
               <SummaryRow
                 label="Sold on"
                 value={draft.platform}
-                sub={[draft.shift && SHIFT_LABEL[draft.shift].en, draft.purchase && PURCHASE_LABEL[draft.purchase].en]
+                sub={[draft.shift && SHIFT_LABEL[draft.shift].en, purchaseText(timesNumber(draft.timesBought), '')]
                   .filter(Boolean)
                   .join(' · ')}
               />

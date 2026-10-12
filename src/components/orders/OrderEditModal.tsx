@@ -12,6 +12,8 @@ import {
   SHIFT_LABEL,
   STATUS_LABEL,
   UNKNOWN_SELLER,
+  purchaseFromCount,
+  purchaseText,
 } from '@/services/orders/options';
 import { sellerOf } from '@/services/orders/report';
 import { getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
@@ -85,7 +87,8 @@ export function OrderEditModal({
         totalPrice: Math.max(0, Math.round(form.totalPrice)),
         gender: form.gender,
         platform: form.platform,
-        purchase: form.purchase,
+        purchaseCount: form.purchaseCount,
+        purchase: form.purchaseCount ? purchaseFromCount(form.purchaseCount) : form.purchase,
         shift: form.shift,
         note: form.note,
         status: form.status,
@@ -149,12 +152,17 @@ export function OrderEditModal({
               <option key={p} value={p}>{p}</option>
             ))}
           </Select>
-          <Select label="Customer" value={form.purchase} onChange={(v) => set('purchase', v as SalesOrder['purchase'])}>
-            <option value="">Not set</option>
-            {(Object.keys(PURCHASE_LABEL) as (keyof typeof PURCHASE_LABEL)[]).map((p) => (
-              <option key={p} value={p}>{PURCHASE_LABEL[p].en}</option>
-            ))}
-          </Select>
+          <Input
+            label="Times the customer has bought"
+            inputMode="numeric"
+            placeholder={form.purchase ? PURCHASE_LABEL[form.purchase].en : 'Not set'}
+            hint={form.purchaseCount ? purchaseText(form.purchaseCount, '') : undefined}
+            value={form.purchaseCount ?? ''}
+            onChange={(e) => {
+              const n = Number(e.target.value.replace(/\D/g, '').slice(0, 4));
+              set('purchaseCount', n >= 1 && n <= 1000 ? n : null);
+            }}
+          />
           <Select label="Shift" value={form.shift} onChange={(v) => set('shift', v as SalesOrder['shift'])}>
             <option value="">Not set</option>
             {(Object.keys(SHIFT_LABEL) as (keyof typeof SHIFT_LABEL)[]).map((s) => (

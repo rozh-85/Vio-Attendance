@@ -58,6 +58,35 @@ export const PURCHASE_LABEL: Record<OrderPurchase, { en: string; ku: string }> =
   repeat: { en: 'More than twice', ku: 'زیاتر لە چەند جارێکە' },
 };
 
+/** 1 → first, 2 → second, 3 or more → repeat, so the report can group them. */
+export function purchaseFromCount(count: number | null): OrderPurchase | '' {
+  if (!count || count < 1) return '';
+  return count === 1 ? 'first' : count === 2 ? 'second' : 'repeat';
+}
+
+function ordinal(n: number): string {
+  const v = n % 100;
+  const suffix = v >= 11 && v <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  return `${n}${suffix}`;
+}
+
+/** "First time", "Second time", "5th time" — the typed number when there is one. */
+export function purchaseText(count: number | null | undefined, purchase: OrderPurchase | ''): string {
+  if (count && count > 0) {
+    if (count === 1) return 'First time';
+    if (count === 2) return 'Second time';
+    return `${ordinal(count)} time`;
+  }
+  return purchase ? PURCHASE_LABEL[purchase].en : '';
+}
+
+/** The same in Kurdish, under the field on the seller's form. */
+export function purchaseTextKu(count: number): string {
+  if (count === 1) return 'یەکەم جارە';
+  if (count === 2) return 'دووەم جارە';
+  return `جاری ${count}ەم`;
+}
+
 export const SHIFT_LABEL: Record<OrderShift, { en: string; ku: string; hours: string }> = {
   morning: { en: 'Morning', ku: 'بەیانی', hours: '8–12' },
   afternoon: { en: 'Afternoon', ku: 'ئێوارە', hours: '12–5' },

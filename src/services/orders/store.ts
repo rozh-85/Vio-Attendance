@@ -71,6 +71,7 @@ interface OrderRow {
   gender: SalesOrder['gender'];
   platform: string;
   purchase: SalesOrder['purchase'];
+  purchase_count?: number | null;
   shift: SalesOrder['shift'];
   note: string;
   status: SalesOrder['status'];
@@ -108,6 +109,7 @@ function toOrder(row: OrderRow): SalesOrder {
     gender: row.gender,
     platform: row.platform,
     purchase: row.purchase,
+    purchaseCount: row.purchase_count ?? null,
     shift: row.shift,
     note: row.note,
     status: row.status,
@@ -142,6 +144,7 @@ function orderColumns(order: SalesOrderPatch): Record<string, unknown> {
     gender: 'gender',
     platform: 'platform',
     purchase: 'purchase',
+    purchaseCount: 'purchase_count',
     shift: 'shift',
     note: 'note',
     status: 'status',
@@ -152,6 +155,17 @@ function orderColumns(order: SalesOrderPatch): Record<string, unknown> {
     if (value !== undefined && map[key]) row[map[key]] = value;
   }
   return row;
+}
+
+/**
+ * A database that has not re-run social-orders.sql since purchase_count was
+ * added rejects that column; the write is then repeated without it.
+ */
+function lacksPurchaseCount(error: { code?: string; message?: string }): boolean {
+  return (
+    (error.code === 'PGRST204' || error.code === '42703') &&
+    (error.message ?? '').includes('purchase_count')
+  );
 }
 
 /**
@@ -212,7 +226,11 @@ class SupabaseOrdersStore implements OrdersStore {
   async listMyOrders(token: string): Promise<SellerOrder[]> {
     const { data, error } = await this.client.rpc('social_my_orders', { p_token: token });
     if (error) throw translate(error);
-    return ((data ?? []) as SellerOrder[]).map((o) => ({ ...o, totalPrice: Number(o.totalPrice) || 0 }));
+    return ((data ?? []) as SellerOrder[]).map((o) => ({
+      ...o,
+      totalPrice: Number(o.totalPrice) || 0,
+      purchaseCount: o.purchaseCount ?? null,
+    }));
   }
 
   async updateMyOrder(token: string, id: string, order: NewSalesOrder): Promise<void> {
@@ -250,7 +268,12 @@ class SupabaseOrdersStore implements OrdersStore {
   }
 
   async updateOrder(id: string, patch: SalesOrderPatch): Promise<void> {
-    const { error } = await this.client.from('social_orders').update(orderColumns(patch)).eq('id', id);
+    const row = orderColumns(patch);
+    let { error } = await this.client.from('social_orders').update(row).eq('id', id);
+    if (error && lacksPurchaseCount(error)) {
+      delete row.purchase_count;
+      ({ error } = await this.client.from('social_orders').update(row).eq('id', id));
+    }
     if (error) throw translate(error);
   }
 
@@ -264,7 +287,7 @@ class SupabaseOrdersStore implements OrdersStore {
     // Oldest first, so order numbers follow the dates.
     const sorted = [...rows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     for (let i = 0; i < sorted.length; i += 200) {
-      const batch = sorted.slice(i, i + 200).map((row) => ({
+      const batch: Record<string, unknown>[] = sorted.slice(i, i + 200).map((row) => ({
         ...orderColumns(row),
         seller_name: row.sellerName,
         account_id: row.accountId,
@@ -272,10 +295,15 @@ class SupabaseOrdersStore implements OrdersStore {
         source: 'import',
         import_key: row.importKey,
       }));
-      const { data, error } = await this.client
-        .from('social_orders')
-        .upsert(batch, { onConflict: 'import_key', ignoreDuplicates: true })
-        .select('id');
+      const upsert = (rows: Record<string, unknown>[]) =>
+        this.client
+          .from('social_orders')
+          .upsert(rows, { onConflict: 'import_key', ignoreDuplicates: true })
+          .select('id');
+      let { data, error } = await upsert(batch);
+      if (error && lacksPurchaseCount(error)) {
+        ({ data, error } = await upsert(batch.map(({ purchase_count: _count, ...rest }) => rest)));
+      }
       if (error) throw translate(error);
       added += data?.length ?? 0;
     }

@@ -229,6 +229,7 @@ export function readOrderSheet(text: string): SheetImport {
       gender: gender(cell(row, 'gender')),
       platform: platform(cell(row, 'platform')),
       purchase: purchase(cell(row, 'purchase')),
+      purchaseCount: ({ first: 1, second: 2 } as Record<string, number>)[purchase(cell(row, 'purchase'))] ?? null,
       shift: shift(cell(row, 'shift')),
       note: [
         cell(row, 'note'),

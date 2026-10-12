@@ -64,11 +64,16 @@ create table if not exists public.social_orders (
   -- file twice adds nothing the second time.
   import_key     text unique,
   -- Set when the seller changed the order after saving it.
-  edited_at      timestamptz
+  edited_at      timestamptz,
+  -- How many times the customer has bought, as the seller typed it.
+  -- `purchase` above is the same number sorted into first / second / repeat.
+  purchase_count integer check (purchase_count between 1 and 1000)
 );
 
--- Databases set up before sellers could fix their orders.
+-- Databases set up before these columns existed.
 alter table public.social_orders add column if not exists edited_at timestamptz;
+alter table public.social_orders add column if not exists purchase_count integer
+  check (purchase_count between 1 and 1000);
 
 create index if not exists social_orders_created_idx
   on public.social_orders (created_at desc);
@@ -217,11 +222,20 @@ as $$
 declare
   v_row   public.social_orders;
   v_price numeric;
+  v_count integer;
 begin
   v_price := case
     when coalesce(p_order ->> 'totalPrice', '') ~ '^[0-9]+(\.[0-9]+)?$'
       then round((p_order ->> 'totalPrice')::numeric)
   end;
+  -- Digits are checked before the cast, so anything else is ignored, not an error.
+  v_count := case
+    when coalesce(p_order ->> 'purchaseCount', '') ~ '^[0-9]{1,4}$'
+      then (p_order ->> 'purchaseCount')::integer
+  end;
+  if v_count not between 1 and 1000 then
+    v_count := null;
+  end if;
 
   if nullif(btrim(p_order ->> 'customerName'), '') is null
      or nullif(btrim(p_order ->> 'customerPhone'), '') is null
@@ -242,8 +256,14 @@ begin
   v_row.gender         := case when p_order ->> 'gender' in ('female', 'male')
                                then p_order ->> 'gender' else '' end;
   v_row.platform       := left(btrim(p_order ->> 'platform'), 50);
-  v_row.purchase       := case when p_order ->> 'purchase' in ('first', 'second', 'repeat')
-                               then p_order ->> 'purchase' else '' end;
+  v_row.purchase_count := v_count;
+  v_row.purchase       := case
+                            when v_count = 1 then 'first'
+                            when v_count = 2 then 'second'
+                            when v_count >= 3 then 'repeat'
+                            when p_order ->> 'purchase' in ('first', 'second', 'repeat')
+                              then p_order ->> 'purchase'
+                            else '' end;
   v_row.shift          := case when p_order ->> 'shift' in ('morning', 'afternoon', 'night')
                                then p_order ->> 'shift' else '' end;
   v_row.note           := left(btrim(coalesce(p_order ->> 'note', '')), 1000);
@@ -275,12 +295,13 @@ begin
   insert into public.social_orders (
     account_id, seller_name, customer_name, customer_phone, second_phone,
     city, address, item_model, item_category, total_price, gender, platform,
-    purchase, shift, note)
+    purchase, purchase_count, shift, note)
   values (
     v_account.id, v_account.display_name, v_clean.customer_name,
     v_clean.customer_phone, v_clean.second_phone, v_clean.city, v_clean.address,
     v_clean.item_model, v_clean.item_category, v_clean.total_price,
-    v_clean.gender, v_clean.platform, v_clean.purchase, v_clean.shift, v_clean.note)
+    v_clean.gender, v_clean.platform, v_clean.purchase, v_clean.purchase_count,
+    v_clean.shift, v_clean.note)
   returning * into v_row;
 
   return jsonb_build_object('orderNo', v_row.order_no, 'createdAt', v_row.created_at);
@@ -323,6 +344,7 @@ begin
              'gender', o.gender,
              'platform', o.platform,
              'purchase', o.purchase,
+             'purchaseCount', o.purchase_count,
              'shift', o.shift,
              'note', o.note,
              'status', o.status,
@@ -364,6 +386,7 @@ begin
          gender         = v_clean.gender,
          platform       = v_clean.platform,
          purchase       = v_clean.purchase,
+         purchase_count = v_clean.purchase_count,
          shift          = v_clean.shift,
          note           = v_clean.note,
          edited_at      = now()

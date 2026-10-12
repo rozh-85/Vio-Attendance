@@ -12,6 +12,7 @@ import {
   countsAsSale,
   formatIqd,
   formatIqdShort,
+  purchaseText,
 } from '@/services/orders/options';
 import {
   EMPTY_FILTERS,
@@ -768,8 +769,10 @@ export function OrdersReport({
                         {o.customerPhone}
                         {o.secondPhone && ` · ${o.secondPhone}`}
                       </div>
-                      {o.purchase && o.purchase !== 'first' && (
-                        <Badge tone="note" className="mt-1 whitespace-nowrap">{PURCHASE_LABEL[o.purchase].en}</Badge>
+                      {((o.purchaseCount ?? 0) > 1 || (!o.purchaseCount && o.purchase && o.purchase !== 'first')) && (
+                        <Badge tone="note" className="mt-1 whitespace-nowrap">
+                          {purchaseText(o.purchaseCount, o.purchase)}
+                        </Badge>
                       )}
                     </td>
                     <td className="px-3 py-3">
