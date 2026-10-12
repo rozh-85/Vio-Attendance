@@ -147,29 +147,33 @@ function Kpi({
   unit,
   sub,
   tone,
+  className,
 }: {
   label: string;
   value: string;
   unit?: string;
   sub?: string;
   tone?: 'brand';
+  className?: string;
 }) {
   return (
     <div
       className={cn(
-        'rounded-2xl border p-4 sm:p-5',
+        'min-w-0 rounded-2xl border p-4 sm:p-5',
         tone === 'brand' ? 'border-brand-100 bg-brand-50/70' : 'border-slate-200 bg-white',
+        className,
       )}
     >
       <div className="text-xs font-bold uppercase tracking-wide text-ink-400">{label}</div>
+      {/* Long amounts drop the unit to the next line rather than spill out. */}
       <div
         className={cn(
-          'mt-1 text-2xl font-bold tabular-nums sm:text-3xl',
+          'mt-1 flex flex-wrap items-baseline gap-x-1 text-2xl font-bold tabular-nums [overflow-wrap:anywhere] sm:text-3xl lg:text-2xl xl:text-3xl',
           tone === 'brand' ? 'text-brand-700' : 'text-ink-900',
         )}
       >
-        {value}
-        {unit && <span className="ml-1 text-sm font-semibold opacity-60">{unit}</span>}
+        <span className="min-w-0">{value}</span>
+        {unit && <span className="text-sm font-semibold opacity-60">{unit}</span>}
       </div>
       {sub && <div className="mt-0.5 text-sm text-ink-500">{sub}</div>}
     </div>
@@ -822,6 +826,8 @@ export function OrdersReport({
         </div>
       </div>
 
+      {/* On phones the two money cards lead, each on its own row, so the
+          amounts have room; the four counts follow two by two. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Kpi
           label="Orders"
@@ -834,8 +840,14 @@ export function OrdersReport({
           value={Math.round(summary.sales).toLocaleString('en-US')}
           unit="IQD"
           sub={`from ${summary.saleOrders} sales`}
+          className="max-sm:order-first max-sm:col-span-2"
         />
-        <Kpi label="Average order" value={Math.round(summary.average).toLocaleString('en-US')} unit="IQD" />
+        <Kpi
+          label="Average order"
+          value={Math.round(summary.average).toLocaleString('en-US')}
+          unit="IQD"
+          className="max-sm:order-first max-sm:col-span-2"
+        />
         <Kpi label="Delivered" value={String(summary.byStatus.delivered)} sub={pct(summary.byStatus.delivered)} />
         <Kpi
           label="Cancelled · returned"
