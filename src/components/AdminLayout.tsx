@@ -48,6 +48,7 @@ const ownerLinks = [
     icon: MapPin,
     end: false,
   },
+  { to: paths.socialOrders, label: 'Social media orders', icon: Wallet, end: false },
 ];
 
 const hrIcons: Record<HrTab, typeof Users> = {

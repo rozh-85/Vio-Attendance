@@ -543,7 +543,7 @@ function createXlsx(entries: ZipEntry[]): Blob {
   return new Blob([buffer], { type: MIME_XLSX });
 }
 
-function downloadBlob(blob: Blob, filename: string): void {
+export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -554,7 +554,7 @@ function downloadBlob(blob: Blob, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function zipStore(entries: { path: string; data: Uint8Array }[]): Uint8Array {
+export function zipStore(entries: { path: string; data: Uint8Array }[]): Uint8Array {
   const chunks: Uint8Array[] = [];
   const centralDirectory: Uint8Array[] = [];
   let offset = 0;
@@ -655,7 +655,7 @@ function xml(parts: string[]): string {
   )}`;
 }
 
-function escapeXml(value: string): string {
+export function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

@@ -7,6 +7,8 @@ import { SupervisorDashboard } from '@/pages/SupervisorDashboard';
 import { EmployeeReportPage } from '@/pages/EmployeeReportPage';
 import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
 import { CheckInLocationsPage } from '@/pages/CheckInLocationsPage';
+import { SocialOrdersPage } from '@/pages/SocialOrdersPage';
+import { SellerOrderPage } from '@/pages/SellerOrderPage';
 import { OwnerGate } from '@/components/OwnerGate';
 import { SessionView } from '@/pages/SessionView';
 import { CheckInPage } from '@/pages/CheckInPage';
@@ -97,6 +99,17 @@ export default function App() {
                 </RequireAuth>
               }
             />
+            {/* Same owner password: the social media sellers' orders. */}
+            <Route
+              path={routePatterns.socialOrders}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="Social media orders">
+                    <SocialOrdersPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
             <Route
               path={routePatterns.session}
               element={
@@ -114,6 +127,8 @@ export default function App() {
             <Route path={routePatterns.checkIn} element={<CheckInPage />} />
             <Route path={routePatterns.checkOut} element={<CheckOutPage />} />
             <Route path={routePatterns.publicFeedback} element={<PublicFeedbackPage />} />
+            {/* Social media sellers: their own sign-in, add-only. */}
+            <Route path={routePatterns.sellerOrders} element={<SellerOrderPage />} />
 
             {/* Everything else — /login, /register, and any unknown URL — shows
                 the neutral employee page. It never reveals the admin login. */}
