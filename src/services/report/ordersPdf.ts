@@ -46,6 +46,8 @@ export function buildOrdersPdfHtml({
   sellerColors,
 }: OrdersExportInput & { sellerColors: Map<string, string> }): string {
   const colorOf = (key: string) => sellerColors.get(key) ?? BRAND.red;
+  // The print window has no address of its own, so the font needs the full URL.
+  const fontUrl = `${window.location.origin}/fonts/Rabar_013.ttf`;
   const shiftNames = summary.byShift.map((s) => ({
     ...s,
     key: s.key in SHIFT_LABEL ? SHIFT_LABEL[s.key as keyof typeof SHIFT_LABEL].en : 'Not set',
@@ -69,8 +71,9 @@ export function buildOrdersPdfHtml({
 <style>
 @page{size:A4 landscape;margin:10mm}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@font-face{font-family:'Rabar 013';src:url('${fontUrl}') format('truetype');font-display:block;unicode-range:U+0600-06FF,U+0750-077F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF,U+200C-200F}
 html{color-scheme:light;background:#fff}
-body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#1f2937;background:#fff;font-size:11px;margin:0}
+body{font-family:'Rabar 013','Segoe UI',Tahoma,Arial,sans-serif;color:#1f2937;background:#fff;font-size:11px;margin:0}
 .band{display:flex;align-items:center;gap:16px;background:${BRAND.red};color:#fff;border-radius:12px;padding:16px 20px}
 .brand{font-size:22px;font-weight:800}.sub{font-size:9px;letter-spacing:2px;text-transform:uppercase;opacity:.8}
 .divider{width:1px;height:40px;background:#ffffff55}.title{font-size:19px;font-weight:700}.period{font-size:11px;opacity:.9;margin-top:3px}
@@ -119,7 +122,7 @@ thead{display:table-header-group}tr{break-inside:avoid}
 <tbody>${orderRows || '<tr><td colspan="10" class="empty">No orders match these filters.</td></tr>'}</tbody>
 <tfoot><tr><td colspan="7">Total — ${summary.saleOrders} sales of ${summary.orders} orders</td><td class="num nowrap">${esc(formatIqd(summary.sales))}</td><td colspan="2"></td></tr></tfoot></table>
 <div class="foot"><span>${logoSvgMarkup(14, 3)} ${esc(APP_NAME)} · Private owner report</span><span>${esc(period)}</span></div>
-<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),300));</script>
+<script>window.addEventListener('load',()=>(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>setTimeout(()=>window.print(),300)));</script>
 </body></html>`;
 }
 
