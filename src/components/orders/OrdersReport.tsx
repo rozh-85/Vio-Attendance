@@ -56,7 +56,7 @@ const chip = (selected: boolean) =>
     'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition',
     selected
       ? 'border-brand-600 bg-brand-50 text-brand-700'
-      : 'border-slate-200 bg-white text-ink-600 hover:border-slate-300 hover:bg-slate-50',
+      : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
   );
 
 const selectClass =
@@ -752,6 +752,11 @@ export function OrdersReport({
                       <div className="font-mono text-xs text-ink-400">#{o.orderNo}</div>
                       <div className="font-medium">{format(new Date(o.createdAt), 'd MMM yyyy')}</div>
                       <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
+                      {o.editedAt && (
+                        <span title={`The seller changed this order on ${format(new Date(o.editedAt), 'd MMM yyyy, hh:mm a')}`}>
+                          <Badge tone="warning" className="mt-1">Edited</Badge>
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
                       <span className="mr-2 inline-block size-2.5 rounded-full" style={{ background: colorOf(sellerOf(o)) }} />
@@ -775,7 +780,7 @@ export function OrdersReport({
                     </td>
                     <td className="px-3 py-3">
                       <div className="font-mono text-xs font-semibold">{o.itemModel}</div>
-                      <div dir="auto" className="text-ink-600">{o.itemCategory}</div>
+                      <div dir="auto" className="text-ink-700">{o.itemCategory}</div>
                       {o.note && (
                         <div dir="auto" className="mt-0.5 max-w-[14rem] truncate text-xs text-ink-400" title={o.note}>
                           {o.note}

@@ -132,7 +132,7 @@ export function SocialOrdersPage() {
             onClick={() => setTab(t.id)}
             className={cn(
               'whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold transition',
-              tab === t.id ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-800',
+              tab === t.id ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
             )}
           >
             {t.label}

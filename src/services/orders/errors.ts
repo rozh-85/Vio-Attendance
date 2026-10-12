@@ -3,6 +3,7 @@ export type OrdersErrorCode =
   | 'ACCOUNT_LOCKED'
   | 'SESSION_EXPIRED'
   | 'ORDER_INCOMPLETE'
+  | 'ORDER_LOCKED'
   | 'USERNAME_TAKEN'
   | 'ACCOUNT_INVALID'
   | 'PASSWORD_TOO_SHORT'
@@ -14,6 +15,8 @@ export const MESSAGES: Record<OrdersErrorCode, string> = {
   ACCOUNT_LOCKED: 'Too many wrong passwords. Try again in 15 minutes.',
   SESSION_EXPIRED: 'You were signed out. Please sign in again.',
   ORDER_INCOMPLETE: 'Fill in the customer, phone, city, platform and price.',
+  ORDER_LOCKED:
+    'This order can no longer be changed here — it is over 24 hours old or your manager has already handled it. Ask your manager to fix it.',
   USERNAME_TAKEN: 'That username is already used by another account.',
   ACCOUNT_INVALID:
     'Give the account a name, and a username of 3–32 letters, numbers, dots, dashes or underscores.',

@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { format } from 'date-fns';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/Logo';
-import { Check, Logout, Plus } from '@/components/icons';
+import { Check, CheckCircle, Clock, FileText, Logout, Pencil, Plus, Trash, X } from '@/components/icons';
 import {
   CATEGORIES,
   CITIES,
@@ -12,11 +14,12 @@ import {
   PLATFORMS,
   PURCHASE_LABEL,
   SHIFT_LABEL,
+  STATUS_LABEL,
   formatIqd,
   shiftAt,
 } from '@/services/orders/options';
 import { OrdersError, getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
-import type { NewSalesOrder, SellerSession } from '@/services/orders/types';
+import type { NewSalesOrder, OrderStatus, SellerOrder, SellerSession } from '@/services/orders/types';
 import { cn } from '@/utils/cn';
 
 const SESSION_KEY = 'vio.sellerSession';
@@ -42,6 +45,35 @@ function emptyDraft(keep?: Pick<Draft, 'platform' | 'shift'>): Draft {
     purchase: 'first',
     shift: keep?.shift ?? shiftAt(),
     note: '',
+  };
+}
+
+function draftFrom(order: SellerOrder): Draft {
+  return {
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    secondPhone: order.secondPhone,
+    city: order.city,
+    address: order.address,
+    itemModel: order.itemModel,
+    itemCategory: order.itemCategory,
+    price: order.totalPrice ? order.totalPrice.toLocaleString('en-US') : '',
+    gender: order.gender,
+    platform: order.platform,
+    purchase: order.purchase,
+    shift: order.shift,
+    note: order.note,
+  };
+}
+
+function orderFrom(draft: Draft): NewSalesOrder {
+  const { price, ...rest } = draft;
+  return {
+    ...rest,
+    customerName: rest.customerName.trim(),
+    customerPhone: rest.customerPhone.trim(),
+    secondPhone: rest.secondPhone.trim(),
+    totalPrice: priceNumber(price),
   };
 }
 
@@ -77,6 +109,16 @@ const chipClass = (selected: boolean) =>
       ? 'border-brand-600 bg-brand-600 text-white shadow-sm'
       : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
   );
+
+const inputClass =
+  'h-12 w-full rounded-xl border bg-white px-4 text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
+
+const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'> = {
+  new: 'info',
+  delivered: 'success',
+  cancelled: 'danger',
+  returned: 'warning',
+};
 
 /** A label in English with the Kurdish the sellers know from the old form. */
 function Label({ en, ku, required }: { en: string; ku: string; required?: boolean }) {
@@ -116,13 +158,10 @@ function Section({ step, title, ku, children }: { step: number; title: string; k
   );
 }
 
-const inputClass =
-  'h-12 w-full rounded-xl border bg-white px-4 text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
-
 /**
- * The page social media sellers use to log an order. It can only add: once
- * saved, an order goes to the owner's report and is never shown here — not
- * to the seller who took it, not to anyone else.
+ * The page social media sellers use to log orders. A seller sees only their
+ * own orders of the last 24 hours, to fix or delete one while it is still new
+ * — never anyone else's. Everything else is in the owner's report.
  */
 export function SellerOrderPage() {
   const store = getOrdersStore();
@@ -185,7 +224,7 @@ export function SellerOrderPage() {
   }
 
   return (
-    <OrderForm
+    <SellerWorkspace
       session={session}
       onSignOut={() => {
         void store.signOut(session.token).catch(() => undefined);
@@ -226,9 +265,7 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
         </p>
         <p className="mt-2 text-center text-ink-500">Sign in with the account your manager gave you.</p>
 
-        {notice && (
-          <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div>
-        )}
+        {notice && <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div>}
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <Input
@@ -259,6 +296,469 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
   );
 }
 
+type View = { kind: 'new' } | { kind: 'mine' } | { kind: 'edit'; order: SellerOrder };
+
+/** A short message at the top of the page after a save, edit or delete. */
+interface Flash {
+  tone: 'success' | 'info';
+  text: string;
+  order?: SellerOrder;
+}
+
+function SellerWorkspace({
+  session,
+  onSignOut,
+  onExpired,
+}: {
+  session: SellerSession;
+  onSignOut: () => void;
+  onExpired: () => void;
+}) {
+  const [view, setView] = useState<View>({ kind: 'new' });
+  const [mine, setMine] = useState<SellerOrder[]>([]);
+  const [loadingMine, setLoadingMine] = useState(true);
+  const [mineError, setMineError] = useState<string | null>(null);
+  const [flash, setFlash] = useState<Flash | null>(null);
+  const [formKey, setFormKey] = useState(0);
+
+  const handleError = useCallback(
+    (err: unknown): string | null => {
+      if (err instanceof OrdersError && err.code === 'SESSION_EXPIRED') {
+        onExpired();
+        return null;
+      }
+      return ordersErrorMessage(err);
+    },
+    [onExpired],
+  );
+
+  const loadMine = useCallback(async () => {
+    try {
+      const orders = await getOrdersStore().listMyOrders(session.token);
+      setMine(orders);
+      setMineError(null);
+      return orders;
+    } catch (err) {
+      setMineError(handleError(err));
+      return [];
+    } finally {
+      setLoadingMine(false);
+    }
+  }, [session.token, handleError]);
+
+  useEffect(() => {
+    void loadMine();
+  }, [loadMine]);
+
+  const today = useMemo(() => {
+    const day = format(new Date(), 'yyyy-MM-dd');
+    const list = mine.filter((o) => format(new Date(o.createdAt), 'yyyy-MM-dd') === day);
+    return { orders: list.length, sales: list.reduce((sum, o) => sum + o.totalPrice, 0) };
+  }, [mine]);
+
+  const firstName = session.displayName.split(/\s+/)[0] || session.displayName;
+
+  const go = (next: View) => {
+    setView(next);
+    if (next.kind !== 'mine') setFlash(null);
+    window.scrollTo({ top: 0 });
+  };
+
+  async function saveNew(order: NewSalesOrder): Promise<string | null> {
+    try {
+      const { orderNo } = await getOrdersStore().submitOrder(session.token, order);
+      // The next order starts empty, keeping where it was sold and the shift.
+      saveJson(DRAFT_KEY, emptyDraft({ platform: order.platform, shift: order.shift }));
+      const orders = await loadMine();
+      setFlash({
+        tone: 'success',
+        text: `Order #${orderNo} saved`,
+        order: orders.find((o) => o.orderNo === orderNo),
+      });
+      setFormKey((k) => k + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return null;
+    } catch (err) {
+      return handleError(err);
+    }
+  }
+
+  async function saveEdit(id: string, orderNo: number, order: NewSalesOrder): Promise<string | null> {
+    try {
+      await getOrdersStore().updateMyOrder(session.token, id, order);
+      await loadMine();
+      setView({ kind: 'mine' });
+      setFlash({ tone: 'success', text: `Order #${orderNo} updated` });
+      window.scrollTo({ top: 0 });
+      return null;
+    } catch (err) {
+      return handleError(err);
+    }
+  }
+
+  async function remove(order: SellerOrder) {
+    if (
+      !window.confirm(
+        `Delete order #${order.orderNo} for ${order.customerName}? It is removed for good — your manager will not see it.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await getOrdersStore().deleteMyOrder(session.token, order.id);
+      await loadMine();
+      setFlash({ tone: 'info', text: `Order #${order.orderNo} deleted` });
+      if (view.kind === 'edit') setView({ kind: 'mine' });
+    } catch (err) {
+      const message = handleError(err);
+      if (message) setFlash({ tone: 'info', text: message });
+      void loadMine();
+    }
+  }
+
+  const navItems = [
+    { kind: 'new' as const, label: 'New order', ku: 'ئۆردەری نوێ', icon: Plus },
+    { kind: 'mine' as const, label: 'My orders', ku: 'ئۆردەرەکانم', icon: FileText, count: mine.length },
+  ];
+  const activeNav = view.kind === 'edit' ? 'mine' : view.kind;
+
+  const title =
+    view.kind === 'new'
+      ? { en: 'New order', ku: 'ئۆردەری نوێ', sub: 'Fill in the order as the customer gave it.' }
+      : view.kind === 'mine'
+        ? { en: 'My orders', ku: 'ئۆردەرەکانم', sub: 'Your orders of the last 24 hours. Fix or delete one while it is still new.' }
+        : { en: `Edit order #${view.order.orderNo}`, ku: 'دەستکاریکردن', sub: 'Change what was wrong, then save.' };
+
+  return (
+    <div className="min-h-screen w-full lg:flex">
+      {/* ── Sidebar (laptop) ─────────────────────────────────────────────── */}
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-slate-200 bg-card px-5 py-6 lg:flex">
+        <div className="flex items-center gap-2.5 px-1">
+          <Logo size={36} />
+          <div className="leading-tight">
+            <div className="text-sm font-bold text-ink-900">Vio Orders</div>
+            <div className="text-xs text-ink-400">Social media sales</div>
+          </div>
+        </div>
+
+        <div className="mt-8 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-600 text-lg font-bold text-white">
+            {firstName.charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <div className="truncate font-bold text-ink-900">{session.displayName}</div>
+            <div className="text-xs text-ink-400">Seller</div>
+          </div>
+        </div>
+
+        <nav className="mt-6 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = activeNav === item.kind;
+            return (
+              <button
+                key={item.kind}
+                type="button"
+                onClick={() => go({ kind: item.kind })}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition',
+                  active ? 'bg-brand-600 text-white shadow-sm' : 'text-ink-700 hover:bg-slate-100 hover:text-ink-900',
+                )}
+              >
+                <Icon width={18} height={18} className="shrink-0" />
+                <span className="flex-1">
+                  {item.label}
+                  <span dir="rtl" className={cn('block text-xs font-medium', active ? 'text-white/75' : 'text-ink-400')}>
+                    {item.ku}
+                  </span>
+                </span>
+                {item.count !== undefined && item.count > 0 && (
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-xs tabular-nums',
+                      active ? 'bg-white/20 text-white' : 'bg-slate-100 text-ink-500',
+                    )}
+                  >
+                    {item.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="mt-6 rounded-2xl border border-slate-200 p-4">
+          <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Today</div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div>
+              <div className="text-2xl font-bold tabular-nums text-ink-900">{today.orders}</div>
+              <div className="text-xs text-ink-500">orders</div>
+            </div>
+            <div>
+              <div className="truncate text-lg font-bold tabular-nums text-brand-700" title={formatIqd(today.sales)}>
+                {today.sales.toLocaleString('en-US')}
+              </div>
+              <div className="text-xs text-ink-500">IQD</div>
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-auto flex gap-2 text-xs leading-5 text-ink-400">
+          <Clock width={14} height={14} className="mt-0.5 shrink-0" />
+          You can fix or delete an order for 24 hours, while it is still new.
+        </p>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+        >
+          <Logout width={18} height={18} /> Sign out
+        </button>
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        {/* ── Top bar (phone and tablet) ─────────────────────────────────── */}
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur lg:hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Logo size={34} />
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="truncate font-bold text-ink-900">Hi, {firstName}</div>
+              <div className="text-xs text-ink-500">
+                Today: {today.orders} orders · {formatIqd(today.sales)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onSignOut}
+              aria-label="Sign out"
+              className="grid size-10 place-items-center rounded-xl text-ink-500 hover:bg-slate-100"
+            >
+              <Logout width={20} height={20} />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-1 px-4 pb-3">
+            {navItems.map((item) => (
+              <button
+                key={item.kind}
+                type="button"
+                onClick={() => go({ kind: item.kind })}
+                className={cn(
+                  'rounded-xl py-2 text-sm font-semibold transition',
+                  activeNav === item.kind ? 'bg-brand-600 text-white' : 'bg-slate-100 text-ink-700',
+                )}
+              >
+                {item.label}
+                {item.count ? ` (${item.count})` : ''}
+              </button>
+            ))}
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="flex flex-wrap items-baseline gap-x-3 text-2xl font-bold text-ink-900 sm:text-3xl">
+                {title.en}
+                <span dir="rtl" className="text-lg font-semibold text-ink-400">
+                  {title.ku}
+                </span>
+              </h1>
+              <p className="mt-1 text-ink-500">{title.sub}</p>
+            </div>
+            {view.kind === 'mine' && (
+              <Button leftIcon={<Plus />} onClick={() => go({ kind: 'new' })}>
+                New order
+              </Button>
+            )}
+          </div>
+
+          {flash && (
+            <div
+              className={cn(
+                'mb-6 flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4',
+                flash.tone === 'success'
+                  ? 'border-emerald-100 bg-emerald-50 text-emerald-800'
+                  : 'border-slate-200 bg-white text-ink-700',
+              )}
+            >
+              <CheckCircle width={22} height={22} className="shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-bold">{flash.text}</div>
+                {flash.order && (
+                  <div className="truncate text-sm opacity-80">
+                    <span dir="auto">{flash.order.customerName}</span> ·{' '}
+                    <span dir="auto">{flash.order.itemModel || flash.order.itemCategory}</span> ·{' '}
+                    {formatIqd(flash.order.totalPrice)}
+                  </div>
+                )}
+              </div>
+              {flash.order && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<Pencil width={15} height={15} />}
+                  onClick={() => flash.order && go({ kind: 'edit', order: flash.order })}
+                >
+                  Fix it
+                </Button>
+              )}
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setFlash(null)}
+                className="grid size-8 place-items-center rounded-lg opacity-60 hover:opacity-100"
+              >
+                <X width={16} height={16} />
+              </button>
+            </div>
+          )}
+
+          {view.kind === 'new' && (
+            <OrderForm key={`new-${formKey}`} mode="new" sellerName={session.displayName} onSubmit={saveNew} />
+          )}
+          {view.kind === 'edit' && (
+            <OrderForm
+              key={`edit-${view.order.id}`}
+              mode="edit"
+              sellerName={session.displayName}
+              initial={view.order}
+              onSubmit={(order) => saveEdit(view.order.id, view.order.orderNo, order)}
+              onCancel={() => go({ kind: 'mine' })}
+              onDelete={() => void remove(view.order)}
+            />
+          )}
+          {view.kind === 'mine' && mineError && (
+            <div className="mb-6 rounded-2xl bg-amber-50 px-5 py-4 text-sm text-amber-800">{mineError}</div>
+          )}
+          {view.kind === 'mine' && !mineError && (
+            <MyOrders
+              orders={mine}
+              loading={loadingMine}
+              onEdit={(order) => go({ kind: 'edit', order })}
+              onDelete={(order) => void remove(order)}
+            />
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function MyOrders({
+  orders,
+  loading,
+  onEdit,
+  onDelete,
+}: {
+  orders: SellerOrder[];
+  loading: boolean;
+  onEdit: (order: SellerOrder) => void;
+  onDelete: (order: SellerOrder) => void;
+}) {
+  if (loading) return <p className="py-10 text-center text-ink-400">Loading…</p>;
+
+  if (orders.length === 0) {
+    return (
+      <Card className="p-10 text-center">
+        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
+          <FileText width={26} height={26} />
+        </div>
+        <h2 className="mt-4 text-lg font-bold">No orders in the last 24 hours</h2>
+        <p className="mt-1 text-ink-500">Orders you save show here for a day, so you can fix a mistake.</p>
+      </Card>
+    );
+  }
+
+  const total = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-500">
+        {orders.length} {orders.length === 1 ? 'order' : 'orders'} · {formatIqd(total)}
+      </p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {orders.map((o) => (
+          <Card key={o.id} className="flex flex-col p-5">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm font-bold text-ink-900">#{o.orderNo}</span>
+              <span className="text-sm text-ink-400">{format(new Date(o.createdAt), 'd MMM, hh:mm a')}</span>
+              <span className="ml-auto flex gap-1">
+                {o.editedAt && <Badge tone="note">Edited</Badge>}
+                <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
+              </span>
+            </div>
+            <div className="mt-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div dir="auto" className="truncate text-left text-lg font-bold text-ink-900">
+                  {o.customerName}
+                </div>
+                <div className="font-mono text-sm text-ink-500">
+                  {o.customerPhone}
+                  {o.secondPhone && ` · ${o.secondPhone}`}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-lg font-bold tabular-nums text-brand-700">{o.totalPrice.toLocaleString('en-US')}</div>
+                <div className="text-xs text-ink-400">IQD</div>
+              </div>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-slate-50 p-3 text-sm">
+              <div className="min-w-0">
+                <dt className="text-xs text-ink-400">Item</dt>
+                <dd dir="auto" className="truncate text-left font-medium text-ink-900">
+                  {[o.itemModel, o.itemCategory].filter(Boolean).join(' · ') || '—'}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-ink-400">City</dt>
+                <dd dir="auto" className="truncate text-left font-medium text-ink-900">
+                  {o.city}
+                </dd>
+              </div>
+              <div className="col-span-2 min-w-0">
+                <dt className="text-xs text-ink-400">Address</dt>
+                <dd dir="auto" className="truncate text-left font-medium text-ink-900" title={o.address}>
+                  {o.address || '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-ink-400">Sold on</dt>
+                <dd className="font-medium text-ink-900">{o.platform}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-ink-400">Shift</dt>
+                <dd className="font-medium text-ink-900">{o.shift ? SHIFT_LABEL[o.shift].en : '—'}</dd>
+              </div>
+            </dl>
+            <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4">
+              {o.canChange ? (
+                <>
+                  <Button size="sm" variant="outline" leftIcon={<Pencil width={15} height={15} />} onClick={() => onEdit(o)}>
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-rose-600 hover:bg-rose-50"
+                    leftIcon={<Trash width={15} height={15} />}
+                    onClick={() => onDelete(o)}
+                  >
+                    Delete
+                  </Button>
+                </>
+              ) : (
+                <span className="text-sm text-ink-400">
+                  {STATUS_LABEL[o.status]} by your manager — ask them to change it.
+                </span>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type Errors = Partial<Record<'customerName' | 'customerPhone' | 'city' | 'address' | 'item' | 'price' | 'platform', string>>;
 
 function validate(draft: Draft): Errors {
@@ -273,24 +773,45 @@ function validate(draft: Draft): Errors {
   return errors;
 }
 
+/** The required details, in form order, for the summary's checklist. */
+const CHECKS: { key: keyof Errors; label: string }[] = [
+  { key: 'customerName', label: 'Customer name' },
+  { key: 'customerPhone', label: 'Phone' },
+  { key: 'city', label: 'City' },
+  { key: 'address', label: 'Address' },
+  { key: 'item', label: 'Item' },
+  { key: 'price', label: 'Price' },
+  { key: 'platform', label: 'Sold on' },
+];
+
 function OrderForm({
-  session,
-  onSignOut,
-  onExpired,
+  mode,
+  sellerName,
+  initial,
+  onSubmit,
+  onCancel,
+  onDelete,
 }: {
-  session: SellerSession;
-  onSignOut: () => void;
-  onExpired: () => void;
+  mode: 'new' | 'edit';
+  sellerName: string;
+  initial?: SellerOrder;
+  /** Resolves to an error message, or null when saved. */
+  onSubmit: (order: NewSalesOrder) => Promise<string | null>;
+  onCancel?: () => void;
+  onDelete?: () => void;
 }) {
-  const [draft, setDraft] = useState<Draft>(() => loadJson<Draft>(DRAFT_KEY) ?? emptyDraft());
+  const [draft, setDraft] = useState<Draft>(() =>
+    initial ? draftFrom(initial) : (loadJson<Draft>(DRAFT_KEY) ?? emptyDraft()),
+  );
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<{ orderNo: number; draft: Draft } | null>(null);
   const [otherCity, setOtherCity] = useState(() => !!draft.city && !(CITIES as readonly string[]).includes(draft.city));
 
-  // Keep what is typed, so a reload or a call coming in loses nothing.
-  useEffect(() => saveJson(DRAFT_KEY, draft), [draft]);
+  // A new order keeps what is typed, so a reload or a call coming in loses nothing.
+  useEffect(() => {
+    if (mode === 'new') saveJson(DRAFT_KEY, draft);
+  }, [draft, mode]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -298,10 +819,11 @@ function OrderForm({
   };
 
   const price = priceNumber(draft.price);
-  const firstName = useMemo(() => session.displayName.split(/\s+/)[0], [session.displayName]);
+  const missing = validate(draft);
+  const done = CHECKS.filter((c) => !missing[c.key]).length;
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     const found = validate(draft);
     setErrors(found);
     setError(null);
@@ -310,72 +832,16 @@ function OrderForm({
       return;
     }
     setSaving(true);
-    try {
-      const { price: _typed, ...rest } = draft;
-      const order: NewSalesOrder = {
-        ...rest,
-        customerName: rest.customerName.trim(),
-        customerPhone: rest.customerPhone.trim(),
-        secondPhone: rest.secondPhone.trim(),
-        totalPrice: price,
-      };
-      const { orderNo } = await getOrdersStore().submitOrder(session.token, order);
-      setSaved({ orderNo, draft });
-      const next = emptyDraft({ platform: draft.platform, shift: draft.shift });
-      setDraft(next);
-      setOtherCity(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      if (err instanceof OrdersError && err.code === 'SESSION_EXPIRED') onExpired();
-      else setError(ordersErrorMessage(err));
-    } finally {
-      setSaving(false);
-    }
+    const message = await onSubmit(orderFrom(draft));
+    setSaving(false);
+    if (message) setError(message);
   }
 
-  if (saved) {
-    return (
-      <Screen width="sm">
-        <Card className="p-8 text-center">
-          <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
-            <Check width={32} height={32} />
-          </div>
-          <h1 className="mt-5 text-2xl font-bold">Order saved</h1>
-          <p dir="rtl" className="text-ink-400">ئۆردەرەکە تۆمارکرا</p>
-          <div className="mt-5 rounded-2xl bg-slate-50 px-5 py-4 text-left">
-            <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Order number</div>
-            <div className="text-3xl font-bold tabular-nums text-ink-900">#{saved.orderNo}</div>
-            <div className="mt-2 text-sm text-ink-600">
-              <span dir="auto">{saved.draft.customerName}</span> ·{' '}
-              <span dir="auto">{saved.draft.itemModel || saved.draft.itemCategory}</span> ·{' '}
-              {formatIqd(priceNumber(saved.draft.price))}
-            </div>
-          </div>
-          <p className="mt-4 text-sm text-ink-500">
-            Made a mistake? Tell your manager the order number to fix it.
-          </p>
-          <Button className="mt-6" size="lg" fullWidth leftIcon={<Plus />} onClick={() => setSaved(null)}>
-            Add another order
-          </Button>
-        </Card>
-      </Screen>
-    );
-  }
+  const saveLabel = mode === 'new' ? 'Save order' : 'Save changes';
 
   return (
-    <Screen width="md">
-      <div className="mb-5 flex items-center gap-3">
-        <Logo size={40} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-lg font-bold">Hi, {firstName}</div>
-          <div className="text-sm text-ink-500">New order · ئۆردەری نوێ</div>
-        </div>
-        <Button variant="ghost" size="sm" leftIcon={<Logout width={16} height={16} />} onClick={onSignOut}>
-          Sign out
-        </Button>
-      </div>
-
-      <form onSubmit={onSubmit} className="space-y-4 pb-28" noValidate>
+    <form onSubmit={submit} noValidate className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="space-y-4 pb-28 xl:pb-0">
         <Section step={1} title="Customer" ku="کڕیار">
           <label className="block">
             <Label en="Customer name" ku="ناوی کڕیار" required />
@@ -429,7 +895,7 @@ function OrderForm({
         <Section step={2} title="Delivery" ku="گەیاندن">
           <div>
             <Label en="City" ku="شار" required />
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 2xl:grid-cols-6">
               {CITIES.map((city) => (
                 <button
                   key={city}
@@ -470,11 +936,7 @@ function OrderForm({
           <label className="block">
             <Label en="Full address" ku="ناونیشانی تەواوەتی" required />
             <textarea
-              className={cn(
-                inputClass,
-                'h-auto min-h-20 py-3',
-                errors.address ? 'border-rose-400' : 'border-slate-200',
-              )}
+              className={cn(inputClass, 'h-auto min-h-20 py-3', errors.address ? 'border-rose-400' : 'border-slate-200')}
               dir="auto"
               value={draft.address}
               onChange={(e) => set('address', e.target.value)}
@@ -516,11 +978,7 @@ function OrderForm({
           <label className="block">
             <Label en="Total price (IQD)" ku="نرخی گشتی" required />
             <input
-              className={cn(
-                inputClass,
-                'text-lg font-bold tabular-nums',
-                errors.price ? 'border-rose-400' : 'border-slate-200',
-              )}
+              className={cn(inputClass, 'text-lg font-bold tabular-nums', errors.price ? 'border-rose-400' : 'border-slate-200')}
               inputMode="numeric"
               placeholder="95,000"
               value={draft.price}
@@ -550,7 +1008,7 @@ function OrderForm({
         <Section step={4} title="Sale" ku="فرۆشتن">
           <div>
             <Label en="Sold on" ku="لە کام پلاتفۆرم فرۆشرا" required />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 2xl:grid-cols-6">
               {PLATFORMS.map((p) => (
                 <button key={p} type="button" className={chipClass(draft.platform === p)} onClick={() => set('platform', p)}>
                   {p}
@@ -596,16 +1054,122 @@ function OrderForm({
           </label>
         </Section>
 
-        {/* Stays in reach of the thumb on a phone, under the last field on a laptop. */}
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0">
-          <div className="mx-auto max-w-xl">
-            {error && <div className="mb-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>}
+        {mode === 'edit' && onDelete && (
+          <Card className="flex flex-wrap items-center gap-3 border-rose-100 p-5">
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-ink-900">Delete this order</div>
+              <div className="text-sm text-ink-500">Only if it should not have been saved at all.</div>
+            </div>
+            <Button type="button" variant="ghost" className="text-rose-600 hover:bg-rose-50" leftIcon={<Trash width={16} height={16} />} onClick={onDelete}>
+              Delete order
+            </Button>
+          </Card>
+        )}
+      </div>
+
+      {/* ── Live summary (wide screens) ───────────────────────────────────── */}
+      <aside className="hidden self-stretch xl:block">
+        <div className="sticky top-10 space-y-4">
+          <Card className="overflow-hidden">
+            <div className="bg-brand-600 px-5 py-4 text-white">
+              <div className="text-xs font-bold uppercase tracking-wide text-white/70">
+                {mode === 'new' ? 'Order summary' : `Order #${initial?.orderNo}`}
+              </div>
+              <div className="mt-1 text-3xl font-bold tabular-nums">
+                {price ? price.toLocaleString('en-US') : '0'}
+                <span className="ml-1 text-sm font-semibold text-white/70">IQD</span>
+              </div>
+            </div>
+            <dl className="space-y-3 px-5 py-4 text-sm">
+              <SummaryRow label="Customer" value={draft.customerName} sub={draft.customerPhone} />
+              <SummaryRow label="Deliver to" value={draft.city} sub={draft.address} />
+              <SummaryRow
+                label="Item"
+                value={[draft.itemModel, draft.itemCategory].filter(Boolean).join(' · ')}
+              />
+              <SummaryRow
+                label="Sold on"
+                value={draft.platform}
+                sub={[draft.shift && SHIFT_LABEL[draft.shift].en, draft.purchase && PURCHASE_LABEL[draft.purchase].en]
+                  .filter(Boolean)
+                  .join(' · ')}
+              />
+              <SummaryRow label="Seller" value={sellerName} />
+            </dl>
+            <div className="border-t border-slate-100 px-5 py-4">
+              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-ink-500">
+                <span>Required details</span>
+                <span className="tabular-nums">
+                  {done} / {CHECKS.length}
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(done / CHECKS.length) * 100}%` }} />
+              </div>
+              <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                {CHECKS.map((c) => {
+                  const ok = !missing[c.key];
+                  return (
+                    <li key={c.key} className={cn('flex items-center gap-1.5', ok ? 'text-emerald-700' : 'text-ink-400')}>
+                      {ok ? (
+                        <Check width={13} height={13} />
+                      ) : (
+                        <span className="inline-block size-[13px] rounded-full border border-current" />
+                      )}
+                      {c.label}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </Card>
+          {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+          <Button type="submit" size="lg" fullWidth loading={saving} leftIcon={<Check />}>
+            {saveLabel}
+          </Button>
+          {onCancel && (
+            <Button type="button" variant="ghost" fullWidth onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Save bar (phone, tablet and laptop) ────────────────────────────── */}
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:left-72 xl:hidden">
+        <div className="mx-auto max-w-3xl">
+          {error && <div className="mb-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>}
+          <div className="flex gap-2">
+            {onCancel && (
+              <Button type="button" variant="outline" size="lg" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
             <Button type="submit" size="lg" fullWidth loading={saving} leftIcon={<Check />}>
-              Save order{price > 0 ? ` · ${formatIqd(price)}` : ''}
+              {saveLabel}
+              {price > 0 ? ` · ${formatIqd(price)}` : ''}
             </Button>
           </div>
         </div>
-      </form>
-    </Screen>
+      </div>
+    </form>
+  );
+}
+
+function SummaryRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2">
+      <dt className="text-ink-400">{label}</dt>
+      <dd className="min-w-0">
+        <div dir="auto" className={cn('truncate text-left font-semibold', value ? 'text-ink-900' : 'text-slate-300')}>
+          {value || '—'}
+        </div>
+        {sub && (
+          <div dir="auto" className="truncate text-left text-xs text-ink-500">
+            {sub}
+          </div>
+        )}
+      </dd>
+    </div>
   );
 }

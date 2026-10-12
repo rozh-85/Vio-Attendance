@@ -44,7 +44,7 @@ function LoginDetails({ username, password }: { username: string; password: stri
   return (
     <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
       <div className="text-sm font-bold text-emerald-800">Send these to the seller</div>
-      <pre className="mt-2 whitespace-pre-wrap break-all font-mono text-sm text-ink-800">{loginText(username, password)}</pre>
+      <pre className="mt-2 whitespace-pre-wrap break-all font-mono text-sm text-ink-900">{loginText(username, password)}</pre>
       <Button
         className="mt-3"
         size="sm"

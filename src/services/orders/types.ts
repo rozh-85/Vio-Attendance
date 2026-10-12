@@ -30,6 +30,8 @@ export interface SalesOrder {
   note: string;
   status: OrderStatus;
   source: 'app' | 'import';
+  /** When the seller changed it after saving, if they did. */
+  editedAt?: string | null;
 }
 
 /** What a seller fills in. Seller, time and number are set by the server. */
@@ -78,6 +80,20 @@ export interface NewSocialAccount {
   username: string;
   password: string;
   employeeId: string | null;
+}
+
+/**
+ * One of the seller's own orders, as their order page shows it. Only orders
+ * of the last 24 hours come back, and only the seller's own.
+ */
+export interface SellerOrder extends NewSalesOrder {
+  id: string;
+  orderNo: number;
+  createdAt: string;
+  editedAt: string | null;
+  status: OrderStatus;
+  /** Still new, so the seller may fix or delete it. */
+  canChange: boolean;
 }
 
 /** Kept on the seller's phone after signing in. */

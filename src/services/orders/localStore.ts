@@ -6,6 +6,7 @@ import type {
   NewSocialAccount,
   SalesOrder,
   SalesOrderPatch,
+  SellerOrder,
   SellerSession,
   SocialAccount,
 } from './types';
@@ -124,6 +125,50 @@ export class LocalOrdersStore implements OrdersStore {
       },
     ]);
     return { orderNo };
+  }
+
+  /** The seller's own app orders of the last 24 hours. */
+  private async mine(token: string): Promise<{ accountId: string; orders: SalesOrder[] }> {
+    const account = await this.accountFor(token);
+    if (!account) throw new OrdersError('SESSION_EXPIRED');
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    return {
+      accountId: account.id,
+      orders: read<SalesOrder>(KEYS.orders).filter(
+        (o) => o.accountId === account.id && o.source === 'app' && o.createdAt > since,
+      ),
+    };
+  }
+
+  async listMyOrders(token: string): Promise<SellerOrder[]> {
+    const { orders } = await this.mine(token);
+    return orders
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(({ accountId: _a, sellerName: _s, source: _src, ...o }) => ({
+        ...o,
+        editedAt: o.editedAt ?? null,
+        canChange: o.status === 'new',
+      }));
+  }
+
+  async updateMyOrder(token: string, id: string, order: NewSalesOrder): Promise<void> {
+    const { orders } = await this.mine(token);
+    if (!orders.some((o) => o.id === id && o.status === 'new')) throw new OrdersError('ORDER_LOCKED');
+    if (!order.customerName.trim() || !order.customerPhone.trim() || !order.city.trim() || !(order.totalPrice > 0)) {
+      throw new OrdersError('ORDER_INCOMPLETE');
+    }
+    write(
+      KEYS.orders,
+      read<SalesOrder>(KEYS.orders).map((o) =>
+        o.id === id ? { ...o, ...order, editedAt: new Date().toISOString() } : o,
+      ),
+    );
+  }
+
+  async deleteMyOrder(token: string, id: string): Promise<void> {
+    const { orders } = await this.mine(token);
+    if (!orders.some((o) => o.id === id && o.status === 'new')) throw new OrdersError('ORDER_LOCKED');
+    write(KEYS.orders, read<SalesOrder>(KEYS.orders).filter((o) => o.id !== id));
   }
 
   async listOrders(): Promise<SalesOrder[]> {

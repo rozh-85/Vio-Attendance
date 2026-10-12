@@ -8,6 +8,7 @@ import type {
   NewSocialAccount,
   SalesOrder,
   SalesOrderPatch,
+  SellerOrder,
   SellerSession,
   SocialAccount,
 } from './types';
@@ -21,6 +22,11 @@ export interface OrdersStore {
   whoAmI(token: string): Promise<string | null>;
   signOut(token: string): Promise<void>;
   submitOrder(token: string, order: NewSalesOrder): Promise<{ orderNo: number }>;
+  /** The seller's own orders of the last 24 hours, newest first. */
+  listMyOrders(token: string): Promise<SellerOrder[]>;
+  /** Fix one of those while it is still new. */
+  updateMyOrder(token: string, id: string, order: NewSalesOrder): Promise<void>;
+  deleteMyOrder(token: string, id: string): Promise<void>;
 
   // Owner report.
   listOrders(): Promise<SalesOrder[]>;
@@ -69,6 +75,7 @@ interface OrderRow {
   note: string;
   status: SalesOrder['status'];
   source: SalesOrder['source'];
+  edited_at?: string | null;
 }
 
 interface AccountRow {
@@ -105,6 +112,7 @@ function toOrder(row: OrderRow): SalesOrder {
     note: row.note,
     status: row.status,
     source: row.source,
+    editedAt: row.edited_at ?? null,
   };
 }
 
@@ -199,6 +207,29 @@ class SupabaseOrdersStore implements OrdersStore {
     });
     if (error) throw translate(error);
     return { orderNo: Number((data as { orderNo: number }).orderNo) };
+  }
+
+  async listMyOrders(token: string): Promise<SellerOrder[]> {
+    const { data, error } = await this.client.rpc('social_my_orders', { p_token: token });
+    if (error) throw translate(error);
+    return ((data ?? []) as SellerOrder[]).map((o) => ({ ...o, totalPrice: Number(o.totalPrice) || 0 }));
+  }
+
+  async updateMyOrder(token: string, id: string, order: NewSalesOrder): Promise<void> {
+    const { error } = await this.client.rpc('update_my_social_order', {
+      p_token: token,
+      p_order_id: id,
+      p_order: order,
+    });
+    if (error) throw translate(error);
+  }
+
+  async deleteMyOrder(token: string, id: string): Promise<void> {
+    const { error } = await this.client.rpc('delete_my_social_order', {
+      p_token: token,
+      p_order_id: id,
+    });
+    if (error) throw translate(error);
   }
 
   async listOrders(): Promise<SalesOrder[]> {

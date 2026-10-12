@@ -72,7 +72,7 @@ export function OrderImport({ accounts, onImported }: { accounts: SocialAccount[
     <div className="space-y-6">
       <Card className="p-6">
         <h2 className="text-xl font-bold text-ink-900">Import the old order sheet</h2>
-        <ol className="mt-3 list-decimal space-y-1 pl-5 text-ink-600">
+        <ol className="mt-3 list-decimal space-y-1 pl-5 text-ink-700">
           <li>Open the Google Sheet with the order form answers.</li>
           <li>
             <b>File → Download → Comma-separated values (.csv)</b> while the <b>Form Responses 1</b> tab is open.
@@ -113,7 +113,7 @@ export function OrderImport({ accounts, onImported }: { accounts: SocialAccount[
             </div>
           </div>
 
-          <ul className="space-y-1 text-sm text-ink-600">
+          <ul className="space-y-1 text-sm text-ink-700">
             {sheet.scaledPrices > 0 && (
               <li>
                 • {sheet.scaledPrices === 1 ? '1 price was' : `${sheet.scaledPrices} prices were`} typed in thousands
