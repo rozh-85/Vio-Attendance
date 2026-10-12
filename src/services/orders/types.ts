@@ -94,8 +94,8 @@ export interface NewSocialAccount {
 }
 
 /**
- * One of the seller's own orders, as their order page shows it. Only orders
- * of the last 24 hours come back, and only the seller's own.
+ * One of the seller's own orders, as their My orders page shows it — never
+ * anyone else's. Includes the ones imported from the old sheet.
  */
 export interface SellerOrder extends NewSalesOrder {
   id: string;
@@ -105,7 +105,8 @@ export interface SellerOrder extends NewSalesOrder {
   enteredAt: string;
   editedAt: string | null;
   status: OrderStatus;
-  /** Still new, so the seller may fix or delete it. */
+  source: 'app' | 'import';
+  /** Saved in the app in the last 24 hours and still new: the seller may fix or delete it. */
   canChange: boolean;
 }
 

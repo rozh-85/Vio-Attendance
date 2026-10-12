@@ -1,10 +1,10 @@
 -- Social media orders
 --
 -- Social media sellers sign in at /orders with an account the owner makes in
--- /rozhadmin/orders. A seller adds orders, and sees only their OWN orders of
--- the last 24 hours, to fix or delete one while it is still new. They never
--- see anyone else's orders, or their own older ones. All orders are read only
--- by signed-in supervisors and are shown only in the owner report.
+-- /rozhadmin/orders. A seller adds orders and sees only their OWN orders —
+-- never anyone else's — and can fix or delete one for 24 hours after saving
+-- it, while it is still new. All orders are read only by signed-in
+-- supervisors and are shown in full only in the owner report.
 --
 -- Run once in the Supabase SQL editor, after schema.sql. Safe to run again —
 -- run the whole file again after it changes.
@@ -332,10 +332,11 @@ begin
 end;
 $$;
 
--- ── Seller: their own orders of the last 24 hours ───────────────────────────
--- An order can be fixed or deleted by its seller for 24 hours after saving
--- it, and only while it is still new — once the owner marks it delivered, cancelled or returned
--- it is the owner's to change.
+-- ── Seller: My orders — every order of their own ────────────────────────────
+-- Includes the ones imported from the old sheet under their account. An
+-- order can be fixed or deleted by its seller only if they saved it in the
+-- app, within the last 24 hours, and it is still new — once the owner marks
+-- it delivered, cancelled or returned it is the owner's to change.
 create or replace function public.social_my_orders(p_token text)
 returns jsonb
 language plpgsql
@@ -373,12 +374,13 @@ begin
              'shift', o.shift,
              'note', o.note,
              'status', o.status,
-             'canChange', o.status = 'new')
-           order by coalesce(o.entered_at, o.created_at) desc)
+             'source', o.source,
+             'canChange', o.source = 'app'
+                          and o.status = 'new'
+                          and coalesce(o.entered_at, o.created_at) > now() - interval '24 hours')
+           order by o.created_at desc)
       from public.social_orders as o
      where o.account_id = v_account.id
-       and o.source = 'app'
-       and coalesce(o.entered_at, o.created_at) > now() - interval '24 hours'
   ), '[]'::jsonb);
 end;
 $$;

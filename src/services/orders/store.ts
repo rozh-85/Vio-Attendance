@@ -22,7 +22,7 @@ export interface OrdersStore {
   whoAmI(token: string): Promise<string | null>;
   signOut(token: string): Promise<void>;
   submitOrder(token: string, order: NewSalesOrder): Promise<{ orderNo: number }>;
-  /** The seller's own orders of the last 24 hours, newest first. */
+  /** Every order of the seller's own, newest first. */
   listMyOrders(token: string): Promise<SellerOrder[]>;
   /** Fix one of those while it is still new. */
   updateMyOrder(token: string, id: string, order: NewSalesOrder): Promise<void>;
@@ -234,6 +234,7 @@ class SupabaseOrdersStore implements OrdersStore {
       totalPrice: Number(o.totalPrice) || 0,
       purchaseCount: o.purchaseCount ?? null,
       enteredAt: o.enteredAt ?? o.createdAt,
+      source: o.source ?? 'app',
     }));
   }
 

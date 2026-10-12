@@ -159,14 +159,16 @@ export class LocalOrdersStore implements OrdersStore {
   }
 
   async listMyOrders(token: string): Promise<SellerOrder[]> {
-    const { orders } = await this.mine(token);
-    return orders
-      .sort((a, b) => (b.enteredAt ?? b.createdAt).localeCompare(a.enteredAt ?? a.createdAt))
-      .map(({ accountId: _a, sellerName: _s, source: _src, ...o }) => ({
+    const { accountId, orders: fixable } = await this.mine(token);
+    const canFix = new Set(fixable.map((o) => o.id));
+    return read<SalesOrder>(KEYS.orders)
+      .filter((o) => o.accountId === accountId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(({ accountId: _a, sellerName: _s, ...o }) => ({
         ...o,
         enteredAt: o.enteredAt ?? o.createdAt,
         editedAt: o.editedAt ?? null,
-        canChange: o.status === 'new',
+        canChange: canFix.has(o.id) && o.status === 'new',
       }));
   }
 

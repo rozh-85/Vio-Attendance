@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/Logo';
-import { CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Pencil, Plus, Trash, X } from '@/components/icons';
+import { CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Pencil, Plus, Search, Trash, X } from '@/components/icons';
 import {
   CATEGORIES,
   CITIES,
@@ -15,6 +15,7 @@ import {
   PLATFORMS,
   SHIFT_LABEL,
   STATUS_LABEL,
+  countsAsSale,
   formatIqd,
   formatIqdShort,
   purchaseFromCount,
@@ -406,6 +407,16 @@ function SellerWorkspace({
     return { orders: list.length, sales: list.reduce((sum, o) => sum + o.totalPrice, 0) };
   }, [mine]);
 
+  // Every order of the seller's own, old sheet included. Sales leave out
+  // cancelled and returned orders, the same as the owner's report.
+  const allTime = useMemo(
+    () => ({
+      orders: mine.length,
+      sales: mine.filter((o) => countsAsSale(o.status)).reduce((sum, o) => sum + o.totalPrice, 0),
+    }),
+    [mine],
+  );
+
   const firstName = session.displayName.split(/\s+/)[0] || session.displayName;
 
   const go = (next: View) => {
@@ -478,7 +489,11 @@ function SellerWorkspace({
     view.kind === 'new'
       ? { en: 'New order', ku: 'ئۆردەری نوێ', sub: 'Fill in the order as the customer gave it.' }
       : view.kind === 'mine'
-        ? { en: 'My orders', ku: 'ئۆردەرەکانم', sub: 'Your orders of the last 24 hours. Fix or delete one while it is still new.' }
+        ? {
+            en: 'My orders',
+            ku: 'ئۆردەرەکانم',
+            sub: 'All your orders. You can fix or delete one for 24 hours after saving it, while it is still new.',
+          }
         : { en: `Edit order #${view.order.orderNo}`, ku: 'دەستکاریکردن', sub: 'Change what was wrong, then save.' };
 
   return (
@@ -539,18 +554,30 @@ function SellerWorkspace({
           })}
         </nav>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Saved today</div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <div>
-              <div className="text-2xl font-bold tabular-nums text-ink-900">{today.orders}</div>
-              <div className="text-xs text-ink-500">{today.orders === 1 ? 'order' : 'orders'}</div>
+        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+          <div className="bg-brand-600 px-4 py-3 text-white">
+            <div className="text-xs font-bold uppercase tracking-wide text-white/75">All my orders</div>
+            <div className="mt-0.5 flex items-baseline gap-2">
+              <span className="text-3xl font-bold tabular-nums">{allTime.orders.toLocaleString('en-US')}</span>
+              <span className="text-sm text-white/80">{allTime.orders === 1 ? 'order' : 'orders'}</span>
             </div>
-            <div>
-              <div className="truncate text-lg font-bold tabular-nums text-brand-700" title={formatIqd(today.sales)}>
-                {today.sales.toLocaleString('en-US')}
+            <div className="truncate text-sm font-semibold tabular-nums text-white/90" title={formatIqd(allTime.sales)}>
+              {formatIqd(allTime.sales)}
+            </div>
+          </div>
+          <div className="px-4 py-3">
+            <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Saved today</div>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xl font-bold tabular-nums text-ink-900">{today.orders}</div>
+                <div className="text-xs text-ink-500">{today.orders === 1 ? 'order' : 'orders'}</div>
               </div>
-              <div className="text-xs text-ink-500">IQD</div>
+              <div>
+                <div className="truncate text-base font-bold tabular-nums text-brand-700" title={formatIqd(today.sales)}>
+                  {today.sales.toLocaleString('en-US')}
+                </div>
+                <div className="text-xs text-ink-500">IQD</div>
+              </div>
             </div>
           </div>
         </div>
@@ -575,8 +602,9 @@ function SellerWorkspace({
             <Logo size={34} />
             <div className="min-w-0 flex-1 leading-tight">
               <div className="truncate font-bold text-ink-900">Hi, {firstName}</div>
-              <div className="text-xs text-ink-500">
-                Saved today: {today.orders} · {formatIqd(today.sales)}
+              <div className="truncate text-xs text-ink-500">
+                <b className="text-ink-900">{allTime.orders.toLocaleString('en-US')}</b>{' '}
+                {allTime.orders === 1 ? 'order' : 'orders'} in total · {today.orders} today
               </div>
             </div>
             <button
@@ -709,10 +737,27 @@ function MiniStat({ label, value, unit }: { label: string; value: ReactNode; uni
   );
 }
 
+const MY_RANGES = [
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: '7 days' },
+  { id: 'month', label: 'Month' },
+  { id: 'all', label: 'All' },
+] as const;
+type MyRange = (typeof MY_RANGES)[number]['id'];
+
+const MY_PAGE = 20;
+
+/** Why the seller cannot change an order, for the lock's tooltip. */
+function lockReason(o: SellerOrder): string {
+  if (o.status !== 'new') return `${STATUS_LABEL[o.status]} by your manager — ask them to change it.`;
+  if (o.source === 'import') return 'From the old order sheet — ask your manager to change it.';
+  return 'Saved over 24 hours ago — ask your manager to change it.';
+}
+
 /**
- * The seller's own orders of the last 24 hours as a table. On a phone it
- * keeps order, customer, price and the buttons; the other columns join in as
- * the screen gets wider.
+ * Every order of the seller's own, as a table they can narrow by period or
+ * search. On a phone it keeps order, customer, price and the buttons; the
+ * other columns join in as the screen gets wider.
  */
 function MyOrders({
   orders,
@@ -725,6 +770,38 @@ function MyOrders({
   onEdit: (order: SellerOrder) => void;
   onDelete: (order: SellerOrder) => void;
 }) {
+  const [range, setRange] = useState<MyRange>('all');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+
+  const shown = useMemo(() => {
+    const today = todayKey();
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const month = today.slice(0, 7);
+    const q = query.trim().toLowerCase();
+    const qDigits = q.replace(/\D/g, '');
+    return orders.filter((o) => {
+      const day = dayKey(new Date(o.createdAt));
+      if (range === 'today' && day !== today) return false;
+      if (range === 'week' && new Date(o.createdAt).getTime() < weekAgo) return false;
+      if (range === 'month' && !day.startsWith(month)) return false;
+      if (!q) return true;
+      if (q.startsWith('#') && qDigits) return String(o.orderNo) === qDigits;
+      const hay = [o.customerName, o.city, o.address, o.itemModel, o.itemCategory, o.platform, o.note]
+        .join(' ')
+        .toLowerCase();
+      const phoneHit =
+        qDigits.length >= 4 &&
+        (o.customerPhone.replace(/\D/g, '').includes(qDigits) || o.secondPhone.replace(/\D/g, '').includes(qDigits));
+      return hay.includes(q) || phoneHit;
+    });
+  }, [orders, range, query]);
+
+  const pages = Math.max(1, Math.ceil(shown.length / MY_PAGE));
+  useEffect(() => {
+    if (page >= pages) setPage(pages - 1);
+  }, [page, pages]);
+
   if (loading) return <p className="py-10 text-center text-ink-400">Loading…</p>;
 
   if (orders.length === 0) {
@@ -733,20 +810,58 @@ function MyOrders({
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
           <FileText width={26} height={26} />
         </div>
-        <h2 className="mt-4 text-lg font-bold">No orders in the last 24 hours</h2>
-        <p className="mt-1 text-ink-500">Orders you save show here for a day, so you can fix a mistake.</p>
+        <h2 className="mt-4 text-lg font-bold">No orders yet</h2>
+        <p className="mt-1 text-ink-500">Every order you save shows here.</p>
       </Card>
     );
   }
 
-  const total = orders.reduce((sum, o) => sum + o.totalPrice, 0);
-  const fixable = orders.filter((o) => o.canChange).length;
+  const total = shown.reduce((sum, o) => sum + o.totalPrice, 0);
+  const fixable = shown.filter((o) => o.canChange).length;
+  const rows = shown.slice(page * MY_PAGE, page * MY_PAGE + MY_PAGE);
   const cell = 'px-2 py-3 sm:px-4';
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="grid grid-cols-4 gap-1 rounded-2xl bg-slate-100 p-1 md:w-auto">
+          {MY_RANGES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => {
+                setRange(r.id);
+                setPage(0);
+              }}
+              className={cn(
+                'whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold transition',
+                range === r.id ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
+              )}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <label className="relative min-w-0 flex-1">
+          <Search
+            width={16}
+            height={16}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
+          />
+          <input
+            className={cn(inputClass, 'h-11 border-slate-200 pl-10 text-sm')}
+            placeholder="Search customer, phone, item or #order…"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }}
+          />
+        </label>
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
-        <MiniStat label="Orders" value={String(orders.length)} />
+        <MiniStat label="Orders" value={String(shown.length)} />
         <MiniStat
           label="Total"
           unit="IQD"
@@ -761,134 +876,157 @@ function MyOrders({
       </div>
 
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50/70 text-xs uppercase tracking-wide text-ink-400">
-              <tr>
-                <th className={cell}>Order</th>
-                <th className={cell}>Customer</th>
-                <th className={cn(cell, 'hidden md:table-cell')}>Delivery</th>
-                <th className={cn(cell, 'hidden lg:table-cell')}>Item</th>
-                <th className={cn(cell, 'hidden md:table-cell')}>Sold on</th>
-                <th className={cn(cell, 'text-right')}>Price</th>
-                <th className={cn(cell, 'hidden sm:table-cell')}>Status</th>
-                <th className={cn(cell, 'text-right')}>
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => {
-                const later = dayKey(new Date(o.createdAt)) !== dayKey(new Date(o.enteredAt));
-                return (
-                  <tr key={o.id} className="border-b border-slate-100 align-top last:border-0 hover:bg-slate-50/60">
-                    <td className={cell}>
-                      <div className="font-mono font-bold text-ink-900">#{o.orderNo}</div>
-                      <div className="text-xs text-ink-500">{format(new Date(o.createdAt), 'd MMM')}</div>
-                      <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
-                      {(later || o.editedAt) && (
-                        <div className="mt-1 flex flex-col items-start gap-1">
-                          {later && (
-                            <span title={`Saved ${format(new Date(o.enteredAt), 'd MMM, hh:mm a')}`}>
-                              <Badge tone="warning">Added later</Badge>
-                            </span>
-                          )}
-                          {o.editedAt && <Badge tone="note">Edited</Badge>}
+        {rows.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-ink-500">No orders match.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-100 bg-slate-50/70 text-xs uppercase tracking-wide text-ink-400">
+                <tr>
+                  <th className={cell}>Order</th>
+                  <th className={cell}>Customer</th>
+                  <th className={cn(cell, 'hidden md:table-cell')}>Delivery</th>
+                  <th className={cn(cell, 'hidden lg:table-cell')}>Item</th>
+                  <th className={cn(cell, 'hidden md:table-cell')}>Sold on</th>
+                  <th className={cn(cell, 'text-right')}>Price</th>
+                  <th className={cn(cell, 'hidden sm:table-cell')}>Status</th>
+                  <th className={cn(cell, 'text-right')}>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((o) => {
+                  const later = o.source === 'app' && dayKey(new Date(o.createdAt)) !== dayKey(new Date(o.enteredAt));
+                  return (
+                    <tr key={o.id} className="border-b border-slate-100 align-top last:border-0 hover:bg-slate-50/60">
+                      <td className={cell}>
+                        <div className="font-mono font-bold text-ink-900">#{o.orderNo}</div>
+                        <div className="whitespace-nowrap text-xs text-ink-500">
+                          {format(new Date(o.createdAt), 'd MMM yy')}
                         </div>
-                      )}
-                    </td>
-                    <td className={cn(cell, 'min-w-0')}>
-                      <div dir="auto" className="max-w-[7.5rem] truncate text-left font-semibold text-ink-900 sm:max-w-[14rem]">
-                        {o.customerName}
-                      </div>
-                      <div className="font-mono text-xs text-ink-500">{o.customerPhone}</div>
-                      {o.secondPhone && <div className="font-mono text-xs text-ink-400">{o.secondPhone}</div>}
-                      <div dir="auto" className="text-left text-xs text-ink-400 md:hidden">
-                        {o.city}
-                      </div>
-                    </td>
-                    <td className={cn(cell, 'hidden md:table-cell')}>
-                      <div dir="auto" className="text-left font-medium text-ink-900">
-                        {o.city}
-                      </div>
-                      <div dir="auto" className="max-w-[12rem] truncate text-left text-xs text-ink-500" title={o.address}>
-                        {o.address || '—'}
-                      </div>
-                    </td>
-                    <td className={cn(cell, 'hidden lg:table-cell')}>
-                      <div className="font-mono text-xs font-semibold text-ink-900">{o.itemModel || '—'}</div>
-                      <div dir="auto" className="max-w-[10rem] truncate text-left text-xs text-ink-500">
-                        {o.itemCategory}
-                      </div>
-                    </td>
-                    <td className={cn(cell, 'hidden whitespace-nowrap md:table-cell')}>
-                      <div className="font-medium text-ink-900">{o.platform}</div>
-                      <div className="text-xs text-ink-500">
-                        {[o.shift && SHIFT_LABEL[o.shift].en, purchaseText(o.purchaseCount, o.purchase)]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </div>
-                    </td>
-                    <td className={cn(cell, 'whitespace-nowrap text-right')}>
-                      <div className="font-bold tabular-nums text-brand-700">{o.totalPrice.toLocaleString('en-US')}</div>
-                      <div className="text-xs text-ink-400">IQD</div>
-                      <div className="mt-1 sm:hidden">
+                        <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
+                        {(later || o.editedAt || o.source === 'import') && (
+                          <div className="mt-1 flex flex-col items-start gap-1">
+                            {o.source === 'import' && (
+                              <span title="Brought in from the old Google order sheet">
+                                <Badge>Old sheet</Badge>
+                              </span>
+                            )}
+                            {later && (
+                              <span title={`Saved ${format(new Date(o.enteredAt), 'd MMM, hh:mm a')}`}>
+                                <Badge tone="warning">Added later</Badge>
+                              </span>
+                            )}
+                            {o.editedAt && <Badge tone="note">Edited</Badge>}
+                          </div>
+                        )}
+                      </td>
+                      <td className={cn(cell, 'min-w-0')}>
+                        <div dir="auto" className="max-w-[7.5rem] truncate text-left font-semibold text-ink-900 sm:max-w-[14rem]">
+                          {o.customerName}
+                        </div>
+                        <div className="font-mono text-xs text-ink-500">{o.customerPhone}</div>
+                        {o.secondPhone && <div className="font-mono text-xs text-ink-400">{o.secondPhone}</div>}
+                        <div dir="auto" className="text-left text-xs text-ink-400 md:hidden">
+                          {o.city}
+                        </div>
+                      </td>
+                      <td className={cn(cell, 'hidden md:table-cell')}>
+                        <div dir="auto" className="text-left font-medium text-ink-900">
+                          {o.city}
+                        </div>
+                        <div dir="auto" className="max-w-[12rem] truncate text-left text-xs text-ink-500" title={o.address}>
+                          {o.address || '—'}
+                        </div>
+                      </td>
+                      <td className={cn(cell, 'hidden lg:table-cell')}>
+                        <div className="max-w-[10rem] truncate font-mono text-xs font-semibold text-ink-900" title={o.itemModel}>
+                          {o.itemModel || '—'}
+                        </div>
+                        <div dir="auto" className="max-w-[10rem] truncate text-left text-xs text-ink-500" title={o.itemCategory}>
+                          {o.itemCategory}
+                        </div>
+                      </td>
+                      <td className={cn(cell, 'hidden whitespace-nowrap md:table-cell')}>
+                        <div className="font-medium text-ink-900">{o.platform || '—'}</div>
+                        <div className="text-xs text-ink-500">
+                          {[o.shift && SHIFT_LABEL[o.shift].en, purchaseText(o.purchaseCount, o.purchase)]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
+                      </td>
+                      <td className={cn(cell, 'whitespace-nowrap text-right')}>
+                        <div className="font-bold tabular-nums text-brand-700">{o.totalPrice.toLocaleString('en-US')}</div>
+                        <div className="text-xs text-ink-400">IQD</div>
+                        <div className="mt-1 sm:hidden">
+                          <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
+                        </div>
+                      </td>
+                      <td className={cn(cell, 'hidden sm:table-cell')}>
                         <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
-                      </div>
-                    </td>
-                    <td className={cn(cell, 'hidden sm:table-cell')}>
-                      <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
-                    </td>
-                    <td className={cn(cell, 'whitespace-nowrap text-right')}>
-                      {o.canChange ? (
-                        <div className="inline-flex flex-col gap-1 sm:flex-row">
-                          <button
-                            type="button"
-                            title="Edit order"
-                            aria-label={`Edit order ${o.orderNo}`}
-                            onClick={() => onEdit(o)}
-                            className="grid size-9 place-items-center rounded-xl border border-slate-200 text-ink-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-                          >
-                            <Pencil width={16} height={16} />
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete order"
-                            aria-label={`Delete order ${o.orderNo}`}
-                            onClick={() => onDelete(o)}
-                            className="grid size-9 place-items-center rounded-xl border border-slate-200 text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
-                          >
-                            <Trash width={16} height={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <span
-                          className="inline-flex items-center gap-1 text-xs text-ink-400"
-                          title={`${STATUS_LABEL[o.status]} by your manager — ask them to change it.`}
-                        >
-                          <Clock width={14} height={14} />
-                          <span className="hidden sm:inline">Locked</span>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-brand-50/50 px-4 py-3 text-sm font-bold">
-          <span className="text-ink-700">
-            {orders.length} {orders.length === 1 ? 'order' : 'orders'}
+                      </td>
+                      <td className={cn(cell, 'whitespace-nowrap text-right')}>
+                        {o.canChange ? (
+                          <div className="inline-flex flex-col gap-1 sm:flex-row">
+                            <button
+                              type="button"
+                              title="Edit order"
+                              aria-label={`Edit order ${o.orderNo}`}
+                              onClick={() => onEdit(o)}
+                              className="grid size-9 place-items-center rounded-xl border border-slate-200 text-ink-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                            >
+                              <Pencil width={16} height={16} />
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete order"
+                              aria-label={`Delete order ${o.orderNo}`}
+                              onClick={() => onDelete(o)}
+                              className="grid size-9 place-items-center rounded-xl border border-slate-200 text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
+                            >
+                              <Trash width={16} height={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-ink-400" title={lockReason(o)}>
+                            <Clock width={14} height={14} />
+                            <span className="hidden sm:inline">Locked</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-brand-50/50 px-4 py-3 text-sm">
+          <span className="font-bold text-ink-700">
+            {shown.length} {shown.length === 1 ? 'order' : 'orders'}
+            <span className="ml-2 font-bold tabular-nums text-brand-700">{formatIqd(total)}</span>
           </span>
-          <span className="tabular-nums text-brand-700">{formatIqd(total)}</span>
+          {pages > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-ink-500">
+                Page {page + 1} of {pages}
+              </span>
+              <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </Button>
+              <Button size="sm" variant="outline" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>
+                Next
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
 
       <p className="flex items-start gap-2 text-xs leading-5 text-ink-400">
         <Clock width={14} height={14} className="mt-0.5 shrink-0" />
-        Orders stay here for 24 hours after you save them. You can edit or delete one while it is New; once your manager
-        marks it, it is locked.
+        You can edit or delete an order for 24 hours after you save it, while it is New. Older orders, orders from
+        the old sheet and orders your manager has marked are locked.
       </p>
     </div>
   );
