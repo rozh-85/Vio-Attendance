@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Download, FileText, Pencil, Search, Trash, X } from '@/components/icons';
+import { ChevronDown, ChevronUp, Download, FileText, Pencil, Search, Trash, X } from '@/components/icons';
 import {
   GENDER_LABEL,
   PURCHASE_LABEL,
@@ -38,7 +38,58 @@ import { cn } from '@/utils/cn';
 import { MultiSelect, type MultiSelectOption } from './MultiSelect';
 import { OrderEditModal } from './OrderEditModal';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZES = [25, 50, 100] as const;
+
+/** Orders table or charts, as last picked in this browser; the table the first time. */
+const VIEW_KEY = 'vio.ordersReport.view';
+type ReportView = 'table' | 'charts';
+
+function loadView(): ReportView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'charts' ? 'charts' : 'table';
+  } catch {
+    return 'table';
+  }
+}
+
+type SortKey = 'date' | 'seller' | 'customer' | 'city' | 'price' | 'status';
+const STATUS_ORDER: Record<OrderStatus, number> = { new: 0, delivered: 1, returned: 2, cancelled: 3 };
+
+/** A column heading that sorts the table; a second click turns the order round. */
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: 'asc' | 'desc' };
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort.key === sortKey;
+  const Arrow = active && sort.dir === 'asc' ? ChevronUp : ChevronDown;
+  return (
+    <th
+      className={cn('px-3 py-3', className)}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          'inline-flex items-center gap-1 uppercase tracking-wide transition hover:text-ink-700',
+          active && 'text-ink-900',
+        )}
+      >
+        {label}
+        <Arrow width={13} height={13} className={active ? '' : 'opacity-30'} />
+      </button>
+    </th>
+  );
+}
 
 /** The period the owner last looked at, kept in this browser only. */
 const PERIOD_KEY = 'vio.ordersReport.period';
@@ -62,14 +113,6 @@ function loadPeriod(): SavedPeriod {
   }
   return { period: 'all', ...periodRange('all') };
 }
-
-const SORTS = [
-  { id: 'newest', label: 'Newest first' },
-  { id: 'oldest', label: 'Oldest first' },
-  { id: 'priceHigh', label: 'Highest price' },
-  { id: 'priceLow', label: 'Lowest price' },
-] as const;
-type SortId = (typeof SORTS)[number]['id'];
 
 /** Saved more than half a day after the order's own date (by a seller, or a dated note on the old sheet). */
 function addedLater(order: SalesOrder): boolean {
@@ -344,8 +387,11 @@ export function OrdersReport({
     from: initialPeriod.from,
     to: initialPeriod.to,
   }));
-  const [sort, setSort] = useState<SortId>('newest');
+  const [view, setView] = useState<ReportView>(loadView);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
   const [page, setPage] = useState(0);
+  const tableRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -429,20 +475,87 @@ export function OrdersReport({
     setFacet(facet, list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_KEY, view);
+    } catch {
+      // Not remembered this time.
+    }
+  }, [view]);
+
   const sorted = useMemo(() => {
-    const list = [...filtered];
-    if (sort === 'oldest') list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    else if (sort === 'priceHigh') list.sort((a, b) => b.totalPrice - a.totalPrice);
-    else if (sort === 'priceLow') list.sort((a, b) => a.totalPrice - b.totalPrice);
-    else list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return list;
+    const value = (o: SalesOrder): string | number => {
+      switch (sort.key) {
+        case 'date':
+          return o.createdAt;
+        case 'seller':
+          return sellerOf(o).toLowerCase();
+        case 'customer':
+          return o.customerName.trim().toLowerCase();
+        case 'city':
+          return o.city;
+        case 'price':
+          return o.totalPrice;
+        case 'status':
+          return STATUS_ORDER[o.status];
+      }
+    };
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const x = value(a);
+      const y = value(b);
+      const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+      // Ties fall back to newest first.
+      return c !== 0 ? c * dir : b.createdAt.localeCompare(a.createdAt);
+    });
   }, [filtered, sort]);
 
-  const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(sorted.length / pageSize));
   useEffect(() => {
     if (page >= pages) setPage(pages - 1);
   }, [page, pages]);
-  const pageRows = sorted.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const pageRows = sorted.slice(page * pageSize, page * pageSize + pageSize);
+
+  const sortBy = (key: SortKey) => {
+    setSort((s) =>
+      s.key === key
+        ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: key === 'date' || key === 'price' ? 'desc' : 'asc' },
+    );
+    setPage(0);
+  };
+
+  /** Just this seller's orders, in the table. */
+  const showSeller = (name: string) => {
+    update({ sellers: [name] });
+    setView('table');
+    requestAnimationFrame(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  const statusSelect = (o: SalesOrder) => (
+    <select
+      aria-label={`Status of order ${o.orderNo}`}
+      disabled={busyId === o.id}
+      value={o.status}
+      onChange={(e) => void changeStatus(o, e.target.value as OrderStatus)}
+      className={cn(
+        'rounded-full border-0 py-1 pl-3 pr-7 text-xs font-semibold focus:ring-2 focus:ring-brand-500/40',
+        {
+          info: 'bg-brand-50 text-brand-700',
+          success: 'bg-emerald-50 text-emerald-700',
+          danger: 'bg-rose-50 text-rose-700',
+          warning: 'bg-amber-50 text-amber-700',
+        }[STATUS_TONE[o.status]],
+      )}
+    >
+      {(Object.keys(STATUS_LABEL) as OrderStatus[]).map((st) => (
+        <option key={st} value={st}>
+          {STATUS_LABEL[st]}
+        </option>
+      ))}
+    </select>
+  );
+  const onlySeller = filters.sellers.length === 1 ? filters.sellers[0] : null;
 
   const days =
     filters.from && filters.to
@@ -700,272 +813,443 @@ export function OrdersReport({
         />
       </div>
 
-      {/* ── Seller comparison ───────────────────────────────────────────── */}
-      <Card className="p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-bold text-ink-900">Sellers</h3>
-          <span className="text-xs text-ink-400">Share of sales · cancelled and returned not counted</span>
+      {/* ── Table or charts ─────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-2xl bg-slate-100 p-1">
+          {(
+            [
+              { id: 'table', label: 'Orders table', count: sorted.length },
+              { id: 'charts', label: 'Charts' },
+            ] as { id: ReportView; label: string; count?: number }[]
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setView(t.id)}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition',
+                view === t.id ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
+              )}
+            >
+              {t.label}
+              {t.count !== undefined && (
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-xs tabular-nums',
+                    view === t.id ? 'bg-brand-50 text-brand-700' : 'bg-white/70 text-ink-500',
+                  )}
+                >
+                  {t.count.toLocaleString('en-US')}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-        {summary.bySeller.length === 0 ? (
-          <p className="py-4 text-sm text-ink-400">No orders in this period.</p>
-        ) : (
-          <>
-            <div className="mb-5 flex h-3 overflow-hidden rounded-full bg-slate-100">
-              {summary.bySeller.map((s) => (
-                <div
-                  key={s.key}
-                  title={`${s.key}: ${formatIqd(s.sales)}`}
-                  style={{
-                    width: `${summary.sales ? (s.sales / summary.sales) * 100 : 100 / summary.bySeller.length}%`,
-                    background: colorOf(s.key),
-                  }}
-                />
-              ))}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {summary.bySeller.map((s) => {
-                const share = summary.sales ? Math.round((s.sales / summary.sales) * 100) : 0;
-                const on = filters.sellers.length === 1 && filters.sellers[0] === s.key;
-                return (
-                  <button
-                    key={s.key}
-                    type="button"
-                    onClick={() => update({ sellers: on ? [] : [s.key] })}
-                    className={cn(
-                      'rounded-2xl border p-4 text-left transition hover:border-slate-300',
-                      on ? 'border-brand-300 bg-brand-50/50' : 'border-slate-200',
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="grid size-9 place-items-center rounded-full text-sm font-bold text-white"
-                        style={{ background: colorOf(s.key) }}
-                      >
-                        {s.key.trim().charAt(0).toUpperCase()}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div dir="auto" className="truncate font-bold text-ink-900">{s.key}</div>
-                        <div className="text-xs text-ink-400">{share}% of sales</div>
-                      </div>
-                      {topSeller?.key === s.key && <Badge tone="success">Top seller</Badge>}
-                    </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-                      <div>
-                        <div className="text-xs text-ink-400">Orders</div>
-                        <div className="font-bold tabular-nums">{s.orders}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-ink-400">Sales</div>
-                        <div className="font-bold tabular-nums">{formatIqdShort(s.sales)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-ink-400">Per order</div>
-                        <div className="font-bold tabular-nums">{formatIqdShort(s.orders ? s.sales / s.orders : 0)}</div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
+        {onlySeller && (
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-3 pr-1.5 text-sm">
+            <span className="size-2.5 rounded-full" style={{ background: colorOf(onlySeller) }} />
+            <span className="text-ink-500">Showing</span>
+            <b dir="auto" className="text-ink-900">
+              {onlySeller}
+            </b>
+            <span className="text-ink-500">only</span>
+            <button
+              type="button"
+              onClick={() => update({ sellers: [] })}
+              className="rounded-full px-2.5 py-1 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
+            >
+              Show all sellers
+            </button>
+          </div>
         )}
-      </Card>
-
-      <TrendChart summary={summary} sellers={sellers} colorOf={colorOf} />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BreakdownCard
-          title="Platform"
-          items={summary.byPlatform}
-          picked={filters.platforms}
-          onPick={(v) => toggleFacet('platforms', v)}
-        />
-        <BreakdownCard
-          title="City"
-          items={summary.byCity}
-          picked={filters.cities}
-          onPick={(v) => toggleFacet('cities', v)}
-        />
-        <BreakdownCard
-          title="Category"
-          items={summary.byCategory}
-          picked={filters.categories}
-          onPick={(v) => toggleFacet('categories', v)}
-        />
-        <BreakdownCard
-          title="Shift"
-          items={summary.byShift}
-          label={(key) => (key in SHIFT_LABEL ? `${SHIFT_LABEL[key as keyof typeof SHIFT_LABEL].en} ${SHIFT_LABEL[key as keyof typeof SHIFT_LABEL].hours}` : key)}
-          picked={filters.shifts}
-          onPick={(v) => toggleFacet('shifts', v)}
-        />
       </div>
 
-      {/* ── Orders ──────────────────────────────────────────────────────── */}
-      <Card className="overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-          <h3 className="font-bold text-ink-900">
-            Orders <span className="font-normal text-ink-400">({sorted.length})</span>
-          </h3>
-          <select className={cn(selectClass, 'w-auto')} value={sort} onChange={(e) => setSort(e.target.value as SortId)}>
-            {SORTS.map((s) => (
-              <option key={s.id} value={s.id}>{s.label}</option>
-            ))}
-          </select>
-        </div>
-        {actionError && <p className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">{actionError}</p>}
-        {pageRows.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-ink-500">No orders match these filters.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50/70 text-xs uppercase tracking-wide text-ink-400">
-                <tr>
-                  <th className="px-3 py-3">Order</th>
-                  <th className="px-3 py-3">Seller</th>
-                  <th className="px-3 py-3">Customer</th>
-                  <th className="px-3 py-3">City</th>
-                  <th className="px-3 py-3">Item</th>
-                  <th className="px-3 py-3 text-right">Price</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3" />
-                </tr>
-              </thead>
-              <tbody>
+      {view === 'charts' ? (
+        <>
+          {/* ── Seller comparison ─────────────────────────────────────── */}
+          <Card className="p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-bold text-ink-900">Sellers</h3>
+              <span className="text-xs text-ink-400">
+                Click a seller to see their orders · share of sales, cancelled and returned not counted
+              </span>
+            </div>
+            {summary.bySeller.length === 0 ? (
+              <p className="py-4 text-sm text-ink-400">No orders in this period.</p>
+            ) : (
+              <>
+                <div className="mb-5 flex h-3 overflow-hidden rounded-full bg-slate-100">
+                  {summary.bySeller.map((sl) => (
+                    <div
+                      key={sl.key}
+                      title={`${sl.key}: ${formatIqd(sl.sales)}`}
+                      style={{
+                        width: `${summary.sales ? (sl.sales / summary.sales) * 100 : 100 / summary.bySeller.length}%`,
+                        background: colorOf(sl.key),
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {summary.bySeller.map((sl) => {
+                    const share = summary.sales ? Math.round((sl.sales / summary.sales) * 100) : 0;
+                    return (
+                      <button
+                        key={sl.key}
+                        type="button"
+                        onClick={() => showSeller(sl.key)}
+                        className="rounded-2xl border border-slate-200 p-4 text-left transition hover:border-brand-300 hover:bg-brand-50/40"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="grid size-9 place-items-center rounded-full text-sm font-bold text-white"
+                            style={{ background: colorOf(sl.key) }}
+                          >
+                            {sl.key.trim().charAt(0).toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div dir="auto" className="truncate text-left font-bold text-ink-900">
+                              {sl.key}
+                            </div>
+                            <div className="text-xs text-ink-400">{share}% of sales</div>
+                          </div>
+                          {topSeller?.key === sl.key && <Badge tone="success">Top seller</Badge>}
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <div className="text-xs text-ink-400">Orders</div>
+                            <div className="font-bold tabular-nums">{sl.orders}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-ink-400">Sales</div>
+                            <div className="font-bold tabular-nums">{formatIqdShort(sl.sales)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-ink-400">Per order</div>
+                            <div className="font-bold tabular-nums">
+                              {formatIqdShort(sl.orders ? sl.sales / sl.orders : 0)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 text-xs font-semibold text-brand-700">See orders →</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </Card>
+
+          <TrendChart summary={summary} sellers={sellers} colorOf={colorOf} />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <BreakdownCard
+              title="Platform"
+              items={summary.byPlatform}
+              picked={filters.platforms}
+              onPick={(v) => toggleFacet('platforms', v)}
+            />
+            <BreakdownCard title="City" items={summary.byCity} picked={filters.cities} onPick={(v) => toggleFacet('cities', v)} />
+            <BreakdownCard
+              title="Category"
+              items={summary.byCategory}
+              picked={filters.categories}
+              onPick={(v) => toggleFacet('categories', v)}
+            />
+            <BreakdownCard
+              title="Shift"
+              items={summary.byShift}
+              label={(key) =>
+                key in SHIFT_LABEL
+                  ? `${SHIFT_LABEL[key as keyof typeof SHIFT_LABEL].en} ${SHIFT_LABEL[key as keyof typeof SHIFT_LABEL].hours}`
+                  : key
+              }
+              picked={filters.shifts}
+              onPick={(v) => toggleFacet('shifts', v)}
+            />
+          </div>
+        </>
+      ) : (
+        /* ── Orders table ─────────────────────────────────────────────── */
+        <div ref={tableRef} className="scroll-mt-6">
+          <Card className="overflow-hidden">
+            <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+              <div className="min-w-0 flex-1 basis-48">
+                <h3 className="font-bold text-ink-900">
+                  {onlySeller ? (
+                    <>
+                      <span dir="auto">{onlySeller}</span>’s orders
+                    </>
+                  ) : (
+                    'All orders'
+                  )}
+                </h3>
+                <p className="text-sm text-ink-500">
+                  {sorted.length.toLocaleString('en-US')} {sorted.length === 1 ? 'order' : 'orders'} ·{' '}
+                  {formatIqd(summary.sales)} in sales
+                </p>
+              </div>
+              <label className="relative min-w-0 flex-1 basis-56">
+                <Search
+                  width={15}
+                  height={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
+                />
+                <input
+                  className={cn(selectClass, 'h-10 pl-9')}
+                  placeholder="Search in these orders…"
+                  value={filters.query}
+                  onChange={(e) => update({ query: e.target.value })}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-ink-500">
+                Show
+                <select
+                  className={cn(selectClass, 'h-10 w-auto')}
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(0);
+                  }}
+                >
+                  {PAGE_SIZES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {actionError && (
+              <p className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm text-rose-700">{actionError}</p>
+            )}
+            {pageRows.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-ink-500">No orders match these filters.</p>
+            ) : (
+              <>
+              <ul className="divide-y divide-slate-100 sm:hidden">
                 {pageRows.map((o) => (
-                  <tr
-                    key={o.id}
-                    className={cn('border-b border-slate-100 align-top last:border-0', !countsAsSale(o.status) && 'bg-slate-50/60 text-ink-400')}
-                  >
-                    <td className="whitespace-nowrap px-3 py-3">
-                      <div className="font-mono text-xs text-ink-400">#{o.orderNo}</div>
-                      <div className="font-medium">{format(new Date(o.createdAt), 'd MMM yyyy')}</div>
-                      <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
-                      {(o.editedAt || addedLater(o)) && (
-                        <div className="mt-1 flex flex-col items-start gap-1">
-                          {o.editedAt && (
-                            <span title={`The seller changed this order on ${format(new Date(o.editedAt), 'd MMM yyyy, hh:mm a')}`}>
-                              <Badge tone="warning">Edited</Badge>
-                            </span>
-                          )}
-                          {addedLater(o) && (
-                            <span title={`Saved on ${format(new Date(o.enteredAt as string), 'd MMM yyyy, hh:mm a')}`}>
-                              <Badge tone="note">Added later</Badge>
-                            </span>
-                          )}
+                  <li key={o.id} className={cn('px-4 py-3', !countsAsSale(o.status) && 'bg-slate-50/60 text-ink-400')}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs text-ink-500">
+                          <span className="font-mono text-ink-400">#{o.orderNo}</span>
+                          <span>·</span>
+                          <span>{format(new Date(o.createdAt), 'd MMM yy')}</span>
+                          <span>·</span>
+                          <span className="size-2 shrink-0 rounded-full" style={{ background: colorOf(sellerOf(o)) }} />
+                          <span dir="auto" className="truncate">
+                            {sellerOf(o)}
+                          </span>
                         </div>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      <span className="mr-2 inline-block size-2.5 rounded-full" style={{ background: colorOf(sellerOf(o)) }} />
-                      <span dir="auto">{sellerOf(o)}</span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div dir="auto" className="font-semibold text-ink-900">{o.customerName}</div>
-                      <div className="font-mono text-xs text-ink-500">
-                        {o.customerPhone}
-                        {o.secondPhone && ` · ${o.secondPhone}`}
-                      </div>
-                      {((o.purchaseCount ?? 0) > 1 || (!o.purchaseCount && o.purchase && o.purchase !== 'first')) && (
-                        <Badge tone="note" className="mt-1 whitespace-nowrap">
-                          {purchaseText(o.purchaseCount, o.purchase)}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <div dir="auto">{o.city}</div>
-                      <div dir="auto" className="max-w-[14rem] truncate text-xs text-ink-400" title={o.address}>
-                        {o.address}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="font-mono text-xs font-semibold">{o.itemModel}</div>
-                      <div dir="auto" className="text-ink-700">{o.itemCategory}</div>
-                      {o.note && (
-                        <div dir="auto" className="mt-0.5 max-w-[14rem] truncate text-xs text-ink-400" title={o.note}>
-                          {o.note}
+                        <div dir="auto" className="mt-1 truncate text-left font-semibold text-ink-900">
+                          {o.customerName}
                         </div>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right">
-                      <div className={cn('font-bold tabular-nums', !countsAsSale(o.status) && 'line-through')}>
-                        {formatIqd(o.totalPrice)}
+                        <div className="font-mono text-xs text-ink-500">{o.customerPhone}</div>
+                        <div className="truncate text-xs text-ink-400">
+                          <span dir="auto">{o.city}</span>
+                          {o.itemModel && <span className="font-mono"> · {o.itemModel}</span>}
+                        </div>
                       </div>
-                      <div className="text-xs text-ink-400">{o.platform || '—'}</div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <select
-                        aria-label={`Status of order ${o.orderNo}`}
-                        disabled={busyId === o.id}
-                        value={o.status}
-                        onChange={(e) => void changeStatus(o, e.target.value as OrderStatus)}
+                      <div className="shrink-0 text-right">
+                        <div className={cn('font-bold tabular-nums text-ink-900', !countsAsSale(o.status) && 'line-through')}>
+                          {o.totalPrice.toLocaleString('en-US')}
+                        </div>
+                        <div className="text-xs text-ink-400">IQD · {o.platform || '—'}</div>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1">
+                        {statusSelect(o)}
+                        {o.editedAt && <Badge tone="warning">Edited</Badge>}
+                        {addedLater(o) && <Badge tone="note">Added later</Badge>}
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-slate-100 hover:text-ink-700"
+                          aria-label={`Edit order ${o.orderNo}`}
+                          onClick={() => setEditing(o)}
+                        >
+                          <Pencil width={16} height={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-rose-50 hover:text-rose-600"
+                          aria-label={`Delete order ${o.orderNo}`}
+                          disabled={busyId === o.id}
+                          onClick={() => void remove(o)}
+                        >
+                          <Trash width={16} height={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-slate-100 bg-slate-50/70 text-xs text-ink-400">
+                    <tr>
+                      <SortHeader label="Order" sortKey="date" sort={sort} onSort={sortBy} />
+                      <SortHeader label="Seller" sortKey="seller" sort={sort} onSort={sortBy} className="hidden xl:table-cell" />
+                      <SortHeader label="Customer" sortKey="customer" sort={sort} onSort={sortBy} />
+                      <SortHeader label="City" sortKey="city" sort={sort} onSort={sortBy} className="hidden 2xl:table-cell" />
+                      <SortHeader label="Price" sortKey="price" sort={sort} onSort={sortBy} className="text-right" />
+                      <SortHeader label="Status" sortKey="status" sort={sort} onSort={sortBy} className="hidden md:table-cell" />
+                      <th className="px-3 py-3">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageRows.map((o) => (
+                      <tr
+                        key={o.id}
                         className={cn(
-                          'rounded-full border-0 py-1 pl-3 pr-7 text-xs font-semibold focus:ring-2 focus:ring-brand-500/40',
-                          {
-                            info: 'bg-brand-50 text-brand-700',
-                            success: 'bg-emerald-50 text-emerald-700',
-                            danger: 'bg-rose-50 text-rose-700',
-                            warning: 'bg-amber-50 text-amber-700',
-                          }[STATUS_TONE[o.status]],
+                          'border-b border-slate-100 align-top last:border-0 hover:bg-slate-50/60',
+                          !countsAsSale(o.status) && 'bg-slate-50/60 text-ink-400',
                         )}
                       >
-                        {(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => (
-                          <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right">
-                      <button
-                        type="button"
-                        className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-slate-100 hover:text-ink-700"
-                        style={{ display: 'inline-grid' }}
-                        title="Edit order"
-                        onClick={() => setEditing(o)}
-                      >
-                        <Pencil width={16} height={16} />
-                      </button>
-                      <button
-                        type="button"
-                        className="ml-1 grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-rose-50 hover:text-rose-600"
-                        style={{ display: 'inline-grid' }}
-                        title="Delete order"
-                        disabled={busyId === o.id}
-                        onClick={() => void remove(o)}
-                      >
-                        <Trash width={16} height={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-brand-50/60 font-bold">
-                  <td className="px-3 py-3" colSpan={5}>
-                    Total · {summary.saleOrders} sales of {summary.orders} orders
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-brand-700">{formatIqd(summary.sales)}</td>
-                  <td colSpan={2} />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-        {pages > 1 && (
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 text-sm">
-            <span className="text-ink-500">
-              {page * PAGE_SIZE + 1}–{Math.min(sorted.length, (page + 1) * PAGE_SIZE)} of {sorted.length}
-            </span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                Previous
-              </Button>
-              <Button size="sm" variant="outline" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>
-                Next
-              </Button>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          <div className="font-mono text-xs text-ink-400">#{o.orderNo}</div>
+                          <div className="font-medium">{format(new Date(o.createdAt), 'd MMM yyyy')}</div>
+                          <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
+                          <div className="mt-1 flex items-center gap-1.5 text-xs xl:hidden">
+                            <span className="size-2 shrink-0 rounded-full" style={{ background: colorOf(sellerOf(o)) }} />
+                            <span dir="auto" className="max-w-[6rem] truncate">
+                              {sellerOf(o)}
+                            </span>
+                          </div>
+                          {(o.editedAt || addedLater(o)) && (
+                            <div className="mt-1 flex flex-col items-start gap-1">
+                              {o.editedAt && (
+                                <span title={`The seller changed this order on ${format(new Date(o.editedAt), 'd MMM yyyy, hh:mm a')}`}>
+                                  <Badge tone="warning">Edited</Badge>
+                                </span>
+                              )}
+                              {addedLater(o) && (
+                                <span title={`Saved on ${format(new Date(o.enteredAt as string), 'd MMM yyyy, hh:mm a')}`}>
+                                  <Badge tone="note">Added later</Badge>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="hidden whitespace-nowrap px-3 py-3 xl:table-cell">
+                          <span className="mr-2 inline-block size-2.5 rounded-full" style={{ background: colorOf(sellerOf(o)) }} />
+                          <span dir="auto">{sellerOf(o)}</span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div dir="auto" className="max-w-[11rem] truncate text-left font-semibold text-ink-900 xl:max-w-[14rem]">
+                            {o.customerName}
+                          </div>
+                          <div className="font-mono text-xs text-ink-500">
+                            {o.customerPhone}
+                            {o.secondPhone && <span className="hidden sm:inline"> · {o.secondPhone}</span>}
+                          </div>
+                          <div dir="auto" className="max-w-[11rem] truncate text-left text-xs text-ink-500 xl:max-w-[14rem] 2xl:hidden">
+                            {o.city}
+                          </div>
+                          <div
+                            className="max-w-[11rem] truncate text-xs text-ink-400 xl:max-w-[14rem]"
+                            title={[o.itemModel, o.itemCategory, o.note].filter(Boolean).join(' · ')}
+                          >
+                            <span className="font-mono">{o.itemModel}</span>
+                            {o.itemCategory && <> · <bdi>{o.itemCategory}</bdi></>}
+                          </div>
+                          {((o.purchaseCount ?? 0) > 1 || (!o.purchaseCount && o.purchase && o.purchase !== 'first')) && (
+                            <Badge tone="note" className="mt-1 whitespace-nowrap">
+                              {purchaseText(o.purchaseCount, o.purchase)}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="hidden px-3 py-3 2xl:table-cell">
+                          <div dir="auto" className="text-left">
+                            {o.city}
+                          </div>
+                          <div dir="auto" className="max-w-[12rem] truncate text-left text-xs text-ink-400" title={o.address}>
+                            {o.address}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right">
+                          <div className={cn('font-bold tabular-nums', !countsAsSale(o.status) && 'line-through')}>
+                            {formatIqd(o.totalPrice)}
+                          </div>
+                          <div className="text-xs text-ink-400">{o.platform || '—'}</div>
+                          <div className="mt-1 md:hidden">{statusSelect(o)}</div>
+                        </td>
+                        <td className="hidden px-3 py-3 md:table-cell">{statusSelect(o)}</td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right">
+                          <div className="inline-flex gap-1">
+                            <button
+                              type="button"
+                              className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-slate-100 hover:text-ink-700"
+                              title="Edit order"
+                              aria-label={`Edit order ${o.orderNo}`}
+                              onClick={() => setEditing(o)}
+                            >
+                              <Pencil width={16} height={16} />
+                            </button>
+                            <button
+                              type="button"
+                              className="grid size-8 place-items-center rounded-lg text-ink-400 hover:bg-rose-50 hover:text-rose-600"
+                              title="Delete order"
+                              aria-label={`Delete order ${o.orderNo}`}
+                              disabled={busyId === o.id}
+                              onClick={() => void remove(o)}
+                            >
+                              <Trash width={16} height={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-brand-50/50 px-4 py-3 text-sm sm:px-5">
+              <span className="text-ink-700">
+                {sorted.length > 0 && (
+                  <>
+                    {(page * pageSize + 1).toLocaleString('en-US')}–
+                    {Math.min(sorted.length, (page + 1) * pageSize).toLocaleString('en-US')} of{' '}
+                  </>
+                )}
+                <b>{sorted.length.toLocaleString('en-US')}</b> · Total{' '}
+                <b className="tabular-nums text-brand-700">{formatIqd(summary.sales)}</b>
+              </span>
+              {pages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage(0)} aria-label="First page">
+                    «
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((pg) => pg - 1)}>
+                    Previous
+                  </Button>
+                  <span className="px-1 text-xs tabular-nums text-ink-500">
+                    {page + 1} / {pages}
+                  </span>
+                  <Button size="sm" variant="outline" disabled={page >= pages - 1} onClick={() => setPage((pg) => pg + 1)}>
+                    Next
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page >= pages - 1}
+                    onClick={() => setPage(pages - 1)}
+                    aria-label="Last page"
+                  >
+                    »
+                  </Button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
-      </Card>
+          </Card>
+        </div>
+      )}
 
       <p className="text-sm text-ink-400">
         Days are counted in this computer’s time zone. First day of the week is Saturday.
