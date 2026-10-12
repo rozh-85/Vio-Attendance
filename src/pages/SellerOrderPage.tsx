@@ -16,6 +16,7 @@ import {
   SHIFT_LABEL,
   STATUS_LABEL,
   formatIqd,
+  formatIqdShort,
   purchaseFromCount,
   purchaseText,
   purchaseTextKu,
@@ -695,6 +696,24 @@ function SellerWorkspace({
   );
 }
 
+/** A small figure above the My orders table. */
+function MiniStat({ label, value, unit }: { label: string; value: ReactNode; unit?: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+      <div className="text-xs font-bold uppercase tracking-wide text-ink-400">{label}</div>
+      <div className="mt-0.5 truncate text-xl font-bold tabular-nums text-ink-900 sm:text-2xl">
+        {value}
+        {unit && <span className="ml-1 hidden text-xs font-semibold text-ink-400 sm:inline">{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The seller's own orders of the last 24 hours as a table. On a phone it
+ * keeps order, customer, price and the buttons; the other columns join in as
+ * the screen gets wider.
+ */
 function MyOrders({
   orders,
   loading,
@@ -721,94 +740,156 @@ function MyOrders({
   }
 
   const total = orders.reduce((sum, o) => sum + o.totalPrice, 0);
+  const fixable = orders.filter((o) => o.canChange).length;
+  const cell = 'px-2 py-3 sm:px-4';
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-ink-500">
-        {orders.length} {orders.length === 1 ? 'order' : 'orders'} · {formatIqd(total)}
-      </p>
-      <div className="grid gap-4 md:grid-cols-2">
-        {orders.map((o) => (
-          <Card key={o.id} className="flex flex-col p-5">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-bold text-ink-900">#{o.orderNo}</span>
-              <span className="text-sm text-ink-400">{format(new Date(o.createdAt), 'd MMM, hh:mm a')}</span>
-              <span className="ml-auto flex flex-wrap justify-end gap-1">
-                {dayKey(new Date(o.createdAt)) !== dayKey(new Date(o.enteredAt)) && (
-                  <Badge tone="warning">Added later</Badge>
-                )}
-                {o.editedAt && <Badge tone="note">Edited</Badge>}
-                <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
-              </span>
-            </div>
-            <div className="mt-3 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div dir="auto" className="truncate text-left text-lg font-bold text-ink-900">
-                  {o.customerName}
-                </div>
-                <div className="font-mono text-sm text-ink-500">
-                  {o.customerPhone}
-                  {o.secondPhone && ` · ${o.secondPhone}`}
-                </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-lg font-bold tabular-nums text-brand-700">{o.totalPrice.toLocaleString('en-US')}</div>
-                <div className="text-xs text-ink-400">IQD</div>
-              </div>
-            </div>
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-slate-50 p-3 text-sm">
-              <div className="min-w-0">
-                <dt className="text-xs text-ink-400">Item</dt>
-                <dd dir="auto" className="truncate text-left font-medium text-ink-900">
-                  {[o.itemModel, o.itemCategory].filter(Boolean).join(' · ') || '—'}
-                </dd>
-              </div>
-              <div className="min-w-0">
-                <dt className="text-xs text-ink-400">City</dt>
-                <dd dir="auto" className="truncate text-left font-medium text-ink-900">
-                  {o.city}
-                </dd>
-              </div>
-              <div className="col-span-2 min-w-0">
-                <dt className="text-xs text-ink-400">Address</dt>
-                <dd dir="auto" className="truncate text-left font-medium text-ink-900" title={o.address}>
-                  {o.address || '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-ink-400">Sold on</dt>
-                <dd className="font-medium text-ink-900">{o.platform}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-ink-400">Shift</dt>
-                <dd className="font-medium text-ink-900">{o.shift ? SHIFT_LABEL[o.shift].en : '—'}</dd>
-              </div>
-            </dl>
-            <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4">
-              {o.canChange ? (
-                <>
-                  <Button size="sm" variant="outline" leftIcon={<Pencil width={15} height={15} />} onClick={() => onEdit(o)}>
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-rose-600 hover:bg-rose-50"
-                    leftIcon={<Trash width={15} height={15} />}
-                    onClick={() => onDelete(o)}
-                  >
-                    Delete
-                  </Button>
-                </>
-              ) : (
-                <span className="text-sm text-ink-400">
-                  {STATUS_LABEL[o.status]} by your manager — ask them to change it.
-                </span>
-              )}
-            </div>
-          </Card>
-        ))}
+      <div className="grid grid-cols-3 gap-3">
+        <MiniStat label="Orders" value={String(orders.length)} />
+        <MiniStat
+          label="Total"
+          unit="IQD"
+          value={
+            <>
+              <span className="sm:hidden">{formatIqdShort(total)}</span>
+              <span className="hidden sm:inline">{total.toLocaleString('en-US')}</span>
+            </>
+          }
+        />
+        <MiniStat label="Can fix" value={String(fixable)} />
       </div>
+
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-slate-100 bg-slate-50/70 text-xs uppercase tracking-wide text-ink-400">
+              <tr>
+                <th className={cell}>Order</th>
+                <th className={cell}>Customer</th>
+                <th className={cn(cell, 'hidden md:table-cell')}>Delivery</th>
+                <th className={cn(cell, 'hidden lg:table-cell')}>Item</th>
+                <th className={cn(cell, 'hidden md:table-cell')}>Sold on</th>
+                <th className={cn(cell, 'text-right')}>Price</th>
+                <th className={cn(cell, 'hidden sm:table-cell')}>Status</th>
+                <th className={cn(cell, 'text-right')}>
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => {
+                const later = dayKey(new Date(o.createdAt)) !== dayKey(new Date(o.enteredAt));
+                return (
+                  <tr key={o.id} className="border-b border-slate-100 align-top last:border-0 hover:bg-slate-50/60">
+                    <td className={cell}>
+                      <div className="font-mono font-bold text-ink-900">#{o.orderNo}</div>
+                      <div className="text-xs text-ink-500">{format(new Date(o.createdAt), 'd MMM')}</div>
+                      <div className="text-xs text-ink-400">{format(new Date(o.createdAt), 'hh:mm a')}</div>
+                      {(later || o.editedAt) && (
+                        <div className="mt-1 flex flex-col items-start gap-1">
+                          {later && (
+                            <span title={`Saved ${format(new Date(o.enteredAt), 'd MMM, hh:mm a')}`}>
+                              <Badge tone="warning">Added later</Badge>
+                            </span>
+                          )}
+                          {o.editedAt && <Badge tone="note">Edited</Badge>}
+                        </div>
+                      )}
+                    </td>
+                    <td className={cn(cell, 'min-w-0')}>
+                      <div dir="auto" className="max-w-[7.5rem] truncate text-left font-semibold text-ink-900 sm:max-w-[14rem]">
+                        {o.customerName}
+                      </div>
+                      <div className="font-mono text-xs text-ink-500">{o.customerPhone}</div>
+                      {o.secondPhone && <div className="font-mono text-xs text-ink-400">{o.secondPhone}</div>}
+                      <div dir="auto" className="text-left text-xs text-ink-400 md:hidden">
+                        {o.city}
+                      </div>
+                    </td>
+                    <td className={cn(cell, 'hidden md:table-cell')}>
+                      <div dir="auto" className="text-left font-medium text-ink-900">
+                        {o.city}
+                      </div>
+                      <div dir="auto" className="max-w-[12rem] truncate text-left text-xs text-ink-500" title={o.address}>
+                        {o.address || '—'}
+                      </div>
+                    </td>
+                    <td className={cn(cell, 'hidden lg:table-cell')}>
+                      <div className="font-mono text-xs font-semibold text-ink-900">{o.itemModel || '—'}</div>
+                      <div dir="auto" className="max-w-[10rem] truncate text-left text-xs text-ink-500">
+                        {o.itemCategory}
+                      </div>
+                    </td>
+                    <td className={cn(cell, 'hidden whitespace-nowrap md:table-cell')}>
+                      <div className="font-medium text-ink-900">{o.platform}</div>
+                      <div className="text-xs text-ink-500">
+                        {[o.shift && SHIFT_LABEL[o.shift].en, purchaseText(o.purchaseCount, o.purchase)]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </td>
+                    <td className={cn(cell, 'whitespace-nowrap text-right')}>
+                      <div className="font-bold tabular-nums text-brand-700">{o.totalPrice.toLocaleString('en-US')}</div>
+                      <div className="text-xs text-ink-400">IQD</div>
+                      <div className="mt-1 sm:hidden">
+                        <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
+                      </div>
+                    </td>
+                    <td className={cn(cell, 'hidden sm:table-cell')}>
+                      <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
+                    </td>
+                    <td className={cn(cell, 'whitespace-nowrap text-right')}>
+                      {o.canChange ? (
+                        <div className="inline-flex flex-col gap-1 sm:flex-row">
+                          <button
+                            type="button"
+                            title="Edit order"
+                            aria-label={`Edit order ${o.orderNo}`}
+                            onClick={() => onEdit(o)}
+                            className="grid size-9 place-items-center rounded-xl border border-slate-200 text-ink-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                          >
+                            <Pencil width={16} height={16} />
+                          </button>
+                          <button
+                            type="button"
+                            title="Delete order"
+                            aria-label={`Delete order ${o.orderNo}`}
+                            onClick={() => onDelete(o)}
+                            className="grid size-9 place-items-center rounded-xl border border-slate-200 text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
+                          >
+                            <Trash width={16} height={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs text-ink-400"
+                          title={`${STATUS_LABEL[o.status]} by your manager — ask them to change it.`}
+                        >
+                          <Clock width={14} height={14} />
+                          <span className="hidden sm:inline">Locked</span>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-brand-50/50 px-4 py-3 text-sm font-bold">
+          <span className="text-ink-700">
+            {orders.length} {orders.length === 1 ? 'order' : 'orders'}
+          </span>
+          <span className="tabular-nums text-brand-700">{formatIqd(total)}</span>
+        </div>
+      </Card>
+
+      <p className="flex items-start gap-2 text-xs leading-5 text-ink-400">
+        <Clock width={14} height={14} className="mt-0.5 shrink-0" />
+        Orders stay here for 24 hours after you save them. You can edit or delete one while it is New; once your manager
+        marks it, it is locked.
+      </p>
     </div>
   );
 }
