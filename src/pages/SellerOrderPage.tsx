@@ -15,9 +15,7 @@ import {
   PLATFORMS,
   SHIFT_LABEL,
   STATUS_LABEL,
-  countsAsSale,
   formatIqd,
-  formatIqdShort,
   purchaseFromCount,
   purchaseText,
   purchaseTextKu,
@@ -401,21 +399,13 @@ function SellerWorkspace({
     void loadMine();
   }, [loadMine]);
 
+  // Sellers see how many orders they have, old sheet included; money totals
+  // are for the owner's report only.
   const today = useMemo(() => {
     const day = todayKey();
-    const list = mine.filter((o) => dayKey(new Date(o.enteredAt)) === day);
-    return { orders: list.length, sales: list.reduce((sum, o) => sum + o.totalPrice, 0) };
+    return { orders: mine.filter((o) => dayKey(new Date(o.enteredAt)) === day).length };
   }, [mine]);
-
-  // Every order of the seller's own, old sheet included. Sales leave out
-  // cancelled and returned orders, the same as the owner's report.
-  const allTime = useMemo(
-    () => ({
-      orders: mine.length,
-      sales: mine.filter((o) => countsAsSale(o.status)).reduce((sum, o) => sum + o.totalPrice, 0),
-    }),
-    [mine],
-  );
+  const allTime = { orders: mine.length };
 
   const firstName = session.displayName.split(/\s+/)[0] || session.displayName;
 
@@ -576,23 +566,12 @@ function SellerWorkspace({
               <span className="text-3xl font-bold tabular-nums">{allTime.orders.toLocaleString('en-US')}</span>
               <span className="text-sm text-white/80">{allTime.orders === 1 ? 'order' : 'orders'}</span>
             </div>
-            <div className="truncate text-sm font-semibold tabular-nums text-white/90" title={formatIqd(allTime.sales)}>
-              {formatIqd(allTime.sales)}
-            </div>
           </div>
           <div className="px-4 py-3">
             <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Saved today</div>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-xl font-bold tabular-nums text-ink-900">{today.orders}</div>
-                <div className="text-xs text-ink-500">{today.orders === 1 ? 'order' : 'orders'}</div>
-              </div>
-              <div>
-                <div className="truncate text-base font-bold tabular-nums text-brand-700" title={formatIqd(today.sales)}>
-                  {today.sales.toLocaleString('en-US')}
-                </div>
-                <div className="text-xs text-ink-500">IQD</div>
-              </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-bold tabular-nums text-ink-900">{today.orders}</span>
+              <span className="text-xs text-ink-500">{today.orders === 1 ? 'order' : 'orders'}</span>
             </div>
           </div>
         </div>
@@ -753,24 +732,22 @@ function SellerWorkspace({
   );
 }
 
-/** A small figure above the My orders table. */
-function MiniStat({ label, value, unit }: { label: string; value: ReactNode; unit?: string }) {
+/** A small figure above the My orders table, with a line saying what it counts. */
+function MiniStat({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3">
       <div className="text-xs font-bold uppercase tracking-wide text-ink-400">{label}</div>
-      <div className="mt-0.5 truncate text-xl font-bold tabular-nums text-ink-900 sm:text-2xl">
-        {value}
-        {unit && <span className="ml-1 hidden text-xs font-semibold text-ink-400 sm:inline">{unit}</span>}
-      </div>
+      <div className="mt-0.5 text-xl font-bold tabular-nums text-ink-900 sm:text-2xl">{value}</div>
+      <div className="mt-0.5 text-xs text-ink-500">{hint}</div>
     </div>
   );
 }
 
 const MY_RANGES = [
-  { id: 'today', label: 'Today' },
-  { id: 'week', label: '7 days' },
-  { id: 'month', label: 'Month' },
-  { id: 'all', label: 'All' },
+  { id: 'today', label: 'Today', long: 'Today' },
+  { id: 'week', label: '7 days', long: 'Last 7 days' },
+  { id: 'month', label: 'Month', long: 'This month' },
+  { id: 'all', label: 'All', long: 'All time' },
 ] as const;
 type MyRange = (typeof MY_RANGES)[number]['id'];
 
@@ -845,7 +822,6 @@ function MyOrders({
     );
   }
 
-  const total = shown.reduce((sum, o) => sum + o.totalPrice, 0);
   const fixable = shown.filter((o) => o.canChange).length;
   const rows = shown.slice(page * MY_PAGE, page * MY_PAGE + MY_PAGE);
   const cell = 'px-2 py-3 sm:px-4';
@@ -889,19 +865,13 @@ function MyOrders({
         </label>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <MiniStat label="Orders" value={String(shown.length)} />
+      <div className="grid grid-cols-2 gap-3 sm:max-w-xl">
         <MiniStat
-          label="Total"
-          unit="IQD"
-          value={
-            <>
-              <span className="sm:hidden">{formatIqdShort(total)}</span>
-              <span className="hidden sm:inline">{total.toLocaleString('en-US')}</span>
-            </>
-          }
+          label="Orders"
+          value={shown.length.toLocaleString('en-US')}
+          hint={MY_RANGES.find((r) => r.id === range)?.long ?? ''}
         />
-        <MiniStat label="Can fix" value={String(fixable)} />
+        <MiniStat label="Can fix" value={String(fixable)} hint="Edit or delete, first 24 hours" />
       </div>
 
       <Card className="overflow-hidden">
@@ -1040,7 +1010,6 @@ function MyOrders({
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-brand-50/50 px-4 py-3 text-sm">
           <span className="font-bold text-ink-700">
             {shown.length} {shown.length === 1 ? 'order' : 'orders'}
-            <span className="ml-2 font-bold tabular-nums text-brand-700">{formatIqd(total)}</span>
           </span>
           {pages > 1 && (
             <div className="flex items-center gap-2">
