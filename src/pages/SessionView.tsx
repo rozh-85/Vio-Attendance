@@ -3,11 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Toggle } from '@/components/ui/Toggle';
-import { StatCard } from '@/components/ui/StatCard';
-import { Input } from '@/components/ui/Input';
 import { RotatingQRPanel } from '@/components/RotatingQRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
 import { SharedDevicesCard } from '@/components/SharedDevicesCard';
@@ -18,22 +15,28 @@ import {
 } from '@/components/EditAttendeeModal';
 import {
   ArrowLeft,
-  ArrowRight,
+  CalendarDays,
+  CheckCircle,
+  Clock,
   Download,
-  Login,
   Logout,
   QrIcon,
+  Search,
   Stop,
   Trash,
+  User,
   UserPlus,
+  Users,
+  X,
 } from '@/components/icons';
 import { useSessionDetail } from '@/hooks/useSessionDetail';
 import { useDataService } from '@/services/data/context';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
 import { isDataError } from '@/services/data';
-import { STATUS_LABEL, sessionIsOver } from '@/services/attendance/status';
+import { STATUS_LABEL, isExcused, sessionIsOver } from '@/services/attendance/status';
 import { exportSessionAttendanceToExcel } from '@/services/report/sessionTemplateExcel';
 import { formatDate, formatClock } from '@/utils/time';
+import { cn } from '@/utils/cn';
 import { paths } from '@/routes';
 import type {
   AttendanceStatus,
@@ -123,13 +126,14 @@ export function SessionView() {
       result = result.filter((attendee) => attendee.status === statusFilter);
     }
 
-    // Filter by search query (name or code)
+    // Filter by search query (name, code or position)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter(
         (attendee) =>
           attendee.employee.fullName.toLowerCase().includes(query) ||
-          attendee.employee.code.toLowerCase().includes(query),
+          attendee.employee.code.toLowerCase().includes(query) ||
+          attendee.employee.position.toLowerCase().includes(query),
       );
     }
 
@@ -194,6 +198,26 @@ export function SessionView() {
           ? err.message
           : `Could not save the mark for ${attendee.employee.fullName}. Please try again.`,
       );
+    }
+  }
+
+  async function onBulkMark(employeeIds: string[], mark: AttendanceMark | null) {
+    setMarkError(null);
+    const failed: string[] = [];
+    for (const employeeId of employeeIds) {
+      try {
+        applyRecord(await data.setAttendanceMark(session!.id, employeeId, mark));
+      } catch (err) {
+        // A database that does not know the mark yet fails them all alike.
+        if (isDataError(err) && err.code === 'DATABASE_OUTDATED') {
+          setMarkError(err.message);
+          return;
+        }
+        failed.push(attendees.find((a) => a.employee.id === employeeId)?.employee.fullName ?? 'an employee');
+      }
+    }
+    if (failed.length > 0) {
+      setMarkError(`Could not save the mark for ${failed.join(', ')}. Please try again.`);
     }
   }
 
@@ -301,142 +325,227 @@ export function SessionView() {
     }
   }
 
-  return (
-    <Screen width="xl">
-      <Link
-        to={paths.dashboard}
-        className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-ink-500 hover:text-ink-700"
-      >
-        <ArrowLeft width={18} height={18} /> Dashboard
-      </Link>
+  const over = sessionIsOver(session);
+  const pct = (n: number) => (stats.registered > 0 ? Math.round((n / stats.registered) * 100) : 0);
+  const notPresent = stats.registered - stats.present;
+  const excused = attendees.filter((a) => isExcused(a.record)).length;
+  const filters: { id: AttendanceStatus | 'all'; label: string; count: number }[] = [
+    { id: 'all', label: 'All', count: attendees.length },
+    // Nobody is still checked in once a session has ended.
+    ...(over ? [] : [{ id: 'checked-in' as const, label: STATUS_LABEL['checked-in'], count: stats.checkedIn }]),
+    { id: 'checked-out', label: STATUS_LABEL['checked-out'], count: stats.checkedOut },
+    ...(stats.notCheckedOut > 0
+      ? [{ id: 'not-checked-out' as const, label: 'No check-out', count: stats.notCheckedOut }]
+      : []),
+    { id: 'absent', label: 'Absent', count: attendees.filter((a) => a.status === 'absent').length },
+  ];
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">{session.title}</h1>
-            <Badge tone={isActive ? 'success' : 'neutral'}>
-              {isActive ? 'Active' : 'Closed'}
-            </Badge>
-          </div>
-          <p className="mt-1 text-ink-500">
-            {formatDate(session.startedAt)} · {formatClock(session.startedAt)}
-            {session.closedAt && ` – ${formatClock(session.closedAt)}`}
-            {session.location && ` · ${session.location}`}
-          </p>
-          <p className="text-ink-500">{session.supervisorName}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+  return (
+    <div className="min-h-full w-full px-4 py-5 sm:px-6 sm:py-6 lg:px-8 2xl:px-10">
+      {/* ── Top bar ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Link
+          to={paths.dashboard}
+          className="inline-flex h-10 w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-ink-700 transition hover:bg-slate-50"
+        >
+          <ArrowLeft width={17} height={17} /> Back to Dashboard
+        </Link>
+        <div className={cn('grid gap-2 sm:flex', isActive ? 'grid-cols-3' : 'grid-cols-2')}>
           <Button
-            variant="secondary"
-            leftIcon={<Download width={18} height={18} />}
+            variant="outline"
+            className="px-3 text-brand-700 sm:px-5"
+            leftIcon={<Download width={17} height={17} />}
             loading={exporting}
             onClick={onExport}
           >
-            Export Excel
+            <span className="sm:hidden">Export</span>
+            <span className="hidden sm:inline">Export Excel</span>
           </Button>
           {isActive && (
             <Button
-              variant="danger"
-              leftIcon={<Stop width={18} height={18} />}
+              className="px-3 sm:px-5"
+              leftIcon={<Stop width={17} height={17} />}
               onClick={() => setConfirmClose(true)}
             >
-              Close session
+              <span className="sm:hidden">Close</span>
+              <span className="hidden sm:inline">Close Session</span>
             </Button>
           )}
           <Button
             variant="outline"
-            leftIcon={<Trash width={18} height={18} />}
+            className="px-3 sm:px-5"
+            leftIcon={<Trash width={17} height={17} />}
             onClick={() => {
               setDeleteSessionError(null);
               setConfirmDeleteSession(true);
             }}
           >
-            Delete session
+            <span className="sm:hidden">Delete</span>
+            <span className="hidden sm:inline">Delete Session</span>
           </Button>
         </div>
       </div>
 
-      {/* Stats. The amber card only exists once a session has ended: until then
-          a missing check-out simply means the employee is still here. */}
-      <div
-        className={
-          'mt-6 grid grid-cols-2 gap-4 ' +
-          (stats.notCheckedOut > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4')
-        }
-      >
-        <StatCard value={stats.registered} label="Registered" />
-        <StatCard value={stats.checkedIn} label="Checked in" tone="success" />
-        <StatCard value={stats.checkedOut} label="Checked out" tone="info" />
-        {stats.notCheckedOut > 0 && (
-          <StatCard
+      {/* ── Title ────────────────────────────────────────────────────────── */}
+      <div className="mt-5 flex items-start gap-4">
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600 sm:size-14">
+          <CalendarDays width={24} height={24} />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">{session.title}</h1>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-ink-500',
+              )}
+            >
+              <span className={cn('size-1.5 rounded-full', isActive ? 'animate-pulse bg-emerald-500' : 'bg-ink-400')} />
+              {isActive ? 'Active' : 'Closed'}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-ink-500 sm:text-base">
+            {formatDate(session.startedAt)} · {formatClock(session.startedAt)}
+            {session.closedAt && ` – ${formatClock(session.closedAt)}`}
+            {session.location && ` · ${session.location}`}
+          </p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-500 sm:text-base">
+            <User width={15} height={15} className="text-ink-400" />
+            {session.supervisorName}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Numbers. Once the session has ended, nobody is still checked in,
+          so that card turns into the amber "no check-out" count instead. ── */}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+        <SessionStat
+          icon={<Users width={20} height={20} />}
+          tone="slate"
+          label="Registered"
+          value={stats.registered}
+          sub="Total employees"
+        />
+        {over ? (
+          <SessionStat
+            icon={<Clock width={20} height={20} />}
+            tone="amber"
+            label="No check-out"
             value={stats.notCheckedOut}
-            label="Not checked out"
-            tone="warning"
+            sub={`${pct(stats.notCheckedOut)}% of registered`}
+            bar={pct(stats.notCheckedOut)}
+          />
+        ) : (
+          <SessionStat
+            icon={<CheckCircle width={20} height={20} />}
+            tone="green"
+            label="Checked in"
+            value={stats.checkedIn}
+            sub={`${pct(stats.checkedIn)}% still here`}
+            bar={pct(stats.checkedIn)}
           />
         )}
-        <StatCard
-          value={stats.registered - stats.present}
+        <SessionStat
+          icon={<Logout width={20} height={20} />}
+          tone="brand"
+          label="Checked out"
+          value={stats.checkedOut}
+          sub={`${pct(stats.checkedOut)}% of registered`}
+          bar={pct(stats.checkedOut)}
+        />
+        <SessionStat
+          icon={<User width={20} height={20} />}
+          tone="rose"
           label="Not present"
-          tone="danger"
+          value={notPresent}
+          sub={excused > 0 ? `${pct(notPresent)}% · ${excused} excused` : `${pct(notPresent)}% of registered`}
+          bar={pct(notPresent)}
+        />
+        <AttendanceRing
+          present={stats.present}
+          registered={stats.registered}
+          breakdown={[
+            { label: over ? 'no check-out' : 'checked in', count: over ? stats.notCheckedOut : stats.checkedIn, dot: over ? 'bg-amber-500' : 'bg-emerald-500' },
+            { label: 'checked out', count: stats.checkedOut, dot: 'bg-brand-600' },
+            { label: 'excused', count: excused, dot: 'bg-violet-500' },
+            { label: 'absent', count: notPresent - excused, dot: 'bg-ink-400' },
+          ]}
         />
       </div>
 
-      {/* Filters */}
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        {(
-          [
-            'all',
-            'checked-in',
-            'checked-out',
-            ...(stats.notCheckedOut > 0 ? (['not-checked-out'] as const) : []),
-            'absent',
-          ] as const
-        ).map(
-          (filter) => (
+      {/* ── Filters, search, add ─────────────────────────────────────────── */}
+      <div className="mt-6 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((f) => (
             <button
-              key={filter}
+              key={f.id}
               type="button"
-              className={
-                'rounded-full border px-4 py-2 text-sm font-semibold transition ' +
-                (statusFilter === filter
+              onClick={() => setStatusFilter(f.id)}
+              className={cn(
+                'whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold transition sm:px-4',
+                statusFilter === f.id
                   ? 'border-brand-600 bg-brand-50 text-brand-700'
-                  : 'border-slate-200 bg-white text-ink-600 hover:border-slate-300 hover:bg-slate-50')
-              }
-              onClick={() => setStatusFilter(filter)}
+                  : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
+              )}
             >
-              {filter === 'all' ? 'All' : STATUS_LABEL[filter]}
+              {f.label} <span className="tabular-nums opacity-70">({f.count})</span>
             </button>
-          ),
-        )}
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <label className="relative min-w-0 flex-1 xl:w-80 xl:flex-none">
+            <Search
+              width={16}
+              height={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
+            />
+            <input
+              type="search"
+              placeholder="Search by name, code or position…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 [&::-webkit-search-cancel-button]:hidden"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-ink-400 hover:bg-slate-100 hover:text-ink-700"
+              >
+                <X width={14} height={14} />
+              </button>
+            )}
+          </label>
+          <Button
+            variant="outline"
+            className="shrink-0 px-3 sm:px-5"
+            leftIcon={<UserPlus width={17} height={17} />}
+            onClick={openAddEmployee}
+          >
+            <span className="hidden sm:inline">Add employee</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </div>
       </div>
 
-      {/* QR actions */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <QrActionButton
-          icon={<UserPlus />}
-          circleIcon={<UserPlus />}
-          title="Add employee"
-          subtitle="Register an employee manually"
-          onClick={openAddEmployee}
-        />
-        <QrActionButton
-          icon={<Login />}
+      {/* ── QR codes ─────────────────────────────────────────────────────── */}
+      <Card className="mt-4 grid divide-y divide-slate-100 md:grid-cols-2 md:divide-x md:divide-y-0">
+        <QrRow
           title="Check-In QR"
-          subtitle={session.checkInOpen ? 'Accepting check-ins' : 'Tap to open'}
-          active={session.checkInOpen}
-          onClick={openCheckIn}
-          disabled={!isActive}
+          description="Display this QR code for employees to check in"
+          open={session.checkInOpen}
+          closed={!isActive}
+          onShow={openCheckIn}
         />
-        <QrActionButton
-          icon={<Logout />}
+        <QrRow
           title="Check-Out QR"
-          subtitle={session.checkOutOpen ? 'Accepting check-outs' : 'Tap to open'}
-          active={session.checkOutOpen}
-          onClick={openCheckOut}
-          disabled={!isActive}
+          description="Display this QR code for employees to check out"
+          open={session.checkOutOpen}
+          closed={!isActive}
+          onShow={openCheckOut}
         />
-      </div>
+      </Card>
 
       {/* One phone, several employees — owner's eyes only, like the report it
           belongs to. An ordinary supervisor sees no trace of it. */}
@@ -449,35 +558,29 @@ export function SessionView() {
         />
       )}
 
-      {/* Employees */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-lg font-bold">Employees</h2>
-        <div className="mb-4">
-          <Input
-            type="text"
-            placeholder="Search by employee name or code..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      {/* ── Employees ────────────────────────────────────────────────────── */}
+      <div className="mt-4">
         {markError && (
-          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mb-3 flex items-start justify-between gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <span>{markError}</span>
-            <button
-              type="button"
-              className="font-semibold underline"
-              onClick={() => setMarkError(null)}
-            >
+            <button type="button" className="font-semibold underline" onClick={() => setMarkError(null)}>
               Dismiss
             </button>
           </div>
         )}
         <AttendeeTable
+          session={session}
           attendees={filteredAttendees}
           sharedDeviceNames={ownerUnlocked ? sharedDeviceNames : undefined}
           onDeleteEmployee={onDeleteEmployeeClick}
           onEditEmployee={onEditEmployeeClick}
           onMarkChange={onMarkChange}
+          onBulkMark={onBulkMark}
+          emptyText={
+            attendees.length === 0
+              ? 'No employees registered yet. Use “Add employee” to register the first one — they get a code to check in and out with.'
+              : 'No employees match this filter.'
+          }
         />
       </div>
 
@@ -670,7 +773,7 @@ export function SessionView() {
           onSave={onSaveEdit}
         />
       )}
-    </Screen>
+    </div>
   );
 }
 
@@ -693,62 +796,150 @@ function GateToggle({
   );
 }
 
-function QrActionButton({
+const STAT_TONES = {
+  slate: { icon: 'bg-slate-100 text-ink-500', bar: 'bg-ink-400' },
+  green: { icon: 'bg-emerald-50 text-emerald-600', bar: 'bg-emerald-500' },
+  brand: { icon: 'bg-brand-50 text-brand-600', bar: 'bg-brand-600' },
+  rose: { icon: 'bg-rose-50 text-rose-500', bar: 'bg-slate-400' },
+  amber: { icon: 'bg-amber-50 text-amber-600', bar: 'bg-amber-500' },
+} as const;
+
+function SessionStat({
   icon,
-  circleIcon = <QrIcon />,
-  title,
-  subtitle,
-  onClick,
-  active = false,
-  disabled = false,
+  tone,
+  label,
+  value,
+  sub,
+  bar,
 }: {
   icon: ReactNode;
-  circleIcon?: ReactNode;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-  active?: boolean;
-  disabled?: boolean;
+  tone: keyof typeof STAT_TONES;
+  label: string;
+  value: number;
+  sub: string;
+  /** Percent of the registered employees, shown as a bar under the figure. */
+  bar?: number;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        'group flex items-center gap-4 rounded-2xl border p-5 text-left transition-all',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        active
-          ? 'border-brand-600 bg-brand-600 text-white shadow-md'
-          : 'border-slate-200 bg-white hover:border-brand-300 hover:shadow-sm',
-      ].join(' ')}
-    >
-      <span
-        className={[
-          'grid size-12 shrink-0 place-items-center rounded-xl',
-          active ? 'bg-white/20 text-white' : 'bg-brand-50 text-brand-600',
-        ].join(' ')}
+    <Card className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-start sm:p-5">
+      <span className={cn('grid size-10 shrink-0 place-items-center rounded-xl sm:size-11', STAT_TONES[tone].icon)}>
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-ink-500 sm:text-sm">{label}</div>
+        <div className="text-2xl font-bold tabular-nums text-ink-900 sm:text-3xl">{value}</div>
+        <div className="text-xs text-ink-500">{sub}</div>
+        {bar !== undefined && (
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className={cn('h-full rounded-full', STAT_TONES[tone].bar)} style={{ width: `${bar}%` }} />
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/** Everyone who checked in, against everyone registered, as a ring. */
+function AttendanceRing({
+  present,
+  registered,
+  breakdown,
+}: {
+  present: number;
+  registered: number;
+  /** Where everyone is; shown beside the ring when the card is a wide strip. */
+  breakdown: { label: string; count: number; dot: string }[];
+}) {
+  const pct = registered > 0 ? Math.round((present / registered) * 100) : 0;
+  const r = 42;
+  const length = 2 * Math.PI * r;
+  return (
+    <Card className="col-span-2 flex items-center gap-4 p-4 sm:p-5 lg:col-span-4 xl:col-span-1 xl:flex-col xl:justify-center xl:gap-2">
+      <div className="relative size-20 shrink-0 xl:size-24">
+        <svg viewBox="0 0 100 100" className="size-full -rotate-90">
+          <circle cx="50" cy="50" r={r} fill="none" strokeWidth="10" className="stroke-slate-100" />
+          <circle
+            cx="50"
+            cy="50"
+            r={r}
+            fill="none"
+            strokeWidth="10"
+            strokeLinecap="round"
+            className="stroke-brand-600 transition-[stroke-dashoffset] duration-700"
+            strokeDasharray={length}
+            strokeDashoffset={length * (1 - pct / 100)}
+          />
+        </svg>
+        <span className="absolute inset-0 grid place-items-center text-lg font-bold tabular-nums text-ink-900 xl:text-xl">
+          {pct}%
+        </span>
+      </div>
+      <div className="min-w-0 xl:text-center">
+        <div className="font-semibold text-ink-900">Attendance</div>
+        <div className="text-sm text-ink-500">
+          {present} of {registered} present
+        </div>
+      </div>
+      <ul className="ml-auto hidden flex-wrap justify-end gap-x-5 gap-y-1.5 text-sm text-ink-500 sm:flex xl:hidden">
+        {breakdown.map((b) => (
+          <li key={b.label} className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className={cn('size-2 rounded-full', b.dot)} />
+            <b className="font-semibold tabular-nums text-ink-900">{b.count}</b> {b.label}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function QrRow({
+  title,
+  description,
+  open,
+  closed,
+  onShow,
+}: {
+  title: string;
+  description: string;
+  /** Scans are being accepted. */
+  open: boolean;
+  /** The session has ended: no QR to show. */
+  closed: boolean;
+  onShow: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-4 p-4 sm:p-5">
+      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600">
+        <QrIcon width={22} height={22} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-bold text-ink-900">{title}</span>
+          <span
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+              closed
+                ? 'bg-slate-100 text-ink-500'
+                : open
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-amber-50 text-amber-700',
+            )}
+          >
+            {closed ? 'Session closed' : open ? 'Accepting' : 'Paused'}
+          </span>
+        </div>
+        <p className="mt-0.5 text-sm text-ink-500">{description}</p>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="shrink-0 disabled:opacity-40"
+        leftIcon={<QrIcon width={15} height={15} />}
+        disabled={closed}
+        onClick={onShow}
       >
-        {circleIcon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 font-bold">
-          {icon}
-          {title}
-        </span>
-        <span
-          className={[
-            'mt-0.5 block text-sm',
-            active ? 'text-white/80' : 'text-ink-500',
-          ].join(' ')}
-        >
-          {subtitle}
-        </span>
-      </span>
-      <ArrowRight
-        className={active ? 'text-white/80' : 'text-ink-400'}
-        width={18}
-        height={18}
-      />
-    </button>
+        Show QR
+      </Button>
+    </div>
   );
 }
