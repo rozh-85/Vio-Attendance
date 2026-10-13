@@ -140,7 +140,7 @@ export function AttendeeTable({
                         // fits, and as the phone's own picker on a phone.
                         <label
                           className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 transition focus-within:ring-2 focus-within:ring-brand-500 hover:bg-slate-100 hover:text-ink-900"
-                          title="Mark as off, not their shift, overtime, hourly leave or official leave"
+                          title="Mark as off, weekend, holiday, leave, late or overtime"
                         >
                           <MoreHorizontal width={17} height={17} />
                           <select

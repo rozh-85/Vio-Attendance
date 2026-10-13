@@ -45,6 +45,13 @@ export const ATTENDANCE_MARKS: AttendanceMark[] = [
   'overtime',
   'hourly-leave',
   'official-leave',
+  'weekend',
+  'public-holiday',
+  'annual-leave',
+  'sick-leave',
+  'early-leave',
+  'late',
+  'administrative-leave',
 ];
 
 /** What each mark is called, wherever it is shown. */
@@ -54,6 +61,13 @@ export const MARK_LABEL: Record<AttendanceMark, string> = {
   overtime: 'Overtime',
   'hourly-leave': 'Hourly leave',
   'official-leave': 'Official leave',
+  weekend: 'Weekend',
+  'public-holiday': 'Public holiday',
+  'annual-leave': 'Annual leave',
+  'sick-leave': 'Sick leave',
+  'early-leave': 'Early leave',
+  late: 'Late',
+  'administrative-leave': 'Administrative leave',
 };
 
 /**

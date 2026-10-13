@@ -461,6 +461,13 @@ export class SupabaseDataService implements DataService {
           'Marks need a one-time database update: run supabase/attendance-marks.sql in the Supabase SQL editor.',
         );
       }
+      // The database still allows only the first five marks.
+      if (error.code === '23514' && (error.message ?? '').includes('attendance_mark_check')) {
+        throw new DataError(
+          'DATABASE_OUTDATED',
+          'This mark needs a one-time database update: run supabase/attendance-marks.sql in the Supabase SQL editor.',
+        );
+      }
       throw error;
     }
     return this.toRecord(data as AttendanceRow);

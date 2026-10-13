@@ -67,7 +67,14 @@ export type AttendanceMark =
   | 'not-their-shift'
   | 'overtime'
   | 'hourly-leave'
-  | 'official-leave';
+  | 'official-leave'
+  | 'weekend'
+  | 'public-holiday'
+  | 'annual-leave'
+  | 'sick-leave'
+  | 'early-leave'
+  | 'late'
+  | 'administrative-leave';
 
 /** Annual leave allowance for one employee. Missing records use the 12-day default. */
 export interface LeaveAllowance {

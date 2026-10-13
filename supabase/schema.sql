@@ -85,17 +85,27 @@ create table if not exists public.attendance (
   -- The supervisor's ⋯ mark (see supabase/attendance-marks.sql).
   mark         text
     constraint attendance_mark_check
-    check (mark in ('off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave')),
+    check (mark in (
+        'off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave',
+        'weekend', 'public-holiday', 'annual-leave', 'sick-leave', 'early-leave',
+        'late', 'administrative-leave'
+      )),
   constraint attendance_session_employee_unique unique (session_id, employee_id),
   constraint attendance_checkout_after_checkin
     check (check_out_at is null or check_in_at is null or check_out_at >= check_in_at)
 );
 
--- Older tables predate the mark column.
+-- Older tables predate the mark column, or allow fewer marks.
 alter table public.attendance
-  add column if not exists mark text
-    constraint attendance_mark_check
-    check (mark in ('off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave'));
+  add column if not exists mark text;
+alter table public.attendance drop constraint if exists attendance_mark_check;
+alter table public.attendance
+  add constraint attendance_mark_check
+    check (mark in (
+      'off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave',
+      'weekend', 'public-holiday', 'annual-leave', 'sick-leave', 'early-leave',
+      'late', 'administrative-leave'
+    ));
 
 create index if not exists attendance_session_idx  on public.attendance(session_id);
 create index if not exists attendance_employee_idx on public.attendance(employee_id);
