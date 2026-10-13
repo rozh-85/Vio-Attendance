@@ -342,3 +342,37 @@ export const ArrowUp = (p: IconProps) => (
     <path d="M12 19V5M6 11l6-6 6 6" />
   </svg>
 );
+
+export const Lock = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
+export const MapIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" />
+    <path d="M9 3v15M15 6v15" />
+  </svg>
+);
+
+export const Navigation = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m3 11 19-9-9 19-2-8-8-2Z" />
+  </svg>
+);
+
+export const MapPinOff = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M5.4 5.4A7 7 0 0 0 5 8c0 5 7 13 7 13s1.8-2 3.6-4.6M18.6 13A15 15 0 0 0 19 8a7 7 0 0 0-11.4-5.4" />
+    <path d="M2 2l20 20" />
+  </svg>
+);
+
+export const Wifi = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a15 15 0 0 1 20 0" />
+    <circle cx="12" cy="19.5" r="1" fill="currentColor" />
+  </svg>
+);

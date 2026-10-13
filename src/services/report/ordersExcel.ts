@@ -9,10 +9,10 @@ import {
 import { sellerOf, type OrderSummary } from '@/services/orders/report';
 import type { SalesOrder } from '@/services/orders/types';
 
-const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+export const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /** Cell styles, in the order of `cellXfs` below. */
-const S = {
+export const S = {
   plain: 0,
   title: 1,
   header: 2,
@@ -25,15 +25,15 @@ const S = {
   percent: 9,
 } as const;
 
-type Cell =
+export type Cell =
   | { text: string; style?: number }
   | { number: number; style?: number }
   | null;
 
-const text = (value: string, style: number = S.text): Cell => ({ text: value, style });
-const num = (value: number, style: number = S.money): Cell => ({ number: value, style });
+export const text = (value: string, style: number = S.text): Cell => ({ text: value, style });
+export const num = (value: number, style: number = S.money): Cell => ({ number: value, style });
 
-function columnName(index: number): string {
+export function columnName(index: number): string {
   let name = '';
   for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) {
     name = String.fromCharCode(65 + ((n - 1) % 26)) + name;
@@ -56,7 +56,7 @@ function rowXml(rowNumber: number, cells: Cell[], height?: number): string {
   return `<row r="${rowNumber}"${ht}>${xmlCells}</row>`;
 }
 
-function sheetXml(
+export function sheetXml(
   rows: { cells: Cell[]; height?: number }[],
   widths: number[],
   options: { freezeHeader?: boolean; autoFilterColumns?: number; merges?: string[] } = {},
@@ -80,7 +80,7 @@ function sheetXml(
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews><cols>${cols}</cols><sheetData>${data}</sheetData>${filter}${merges}</worksheet>`;
 }
 
-function stylesXml(): string {
+export function stylesXml(): string {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <numFmts count="1"><numFmt numFmtId="164" formatCode="0.0%"/></numFmts>
 <fonts count="5">
