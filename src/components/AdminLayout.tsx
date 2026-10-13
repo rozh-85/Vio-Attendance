@@ -11,7 +11,6 @@ import {
   Home,
   MapPin,
   Menu,
-  MessageSquare,
   Phone,
   Search,
   Settings,
@@ -24,11 +23,9 @@ import { Logo } from './Logo';
 import { APP_NAME } from '@/brand';
 import { paths } from '@/routes';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
-import { useAuth } from '@/services/auth/context';
 import { HR_NAV_GROUPS, isHrTab, type HrTab } from '@/services/hr/navigation';
 import { cn } from '@/utils/cn';
 
-const feedbackLink = { to: paths.feedback, label: 'Feedback', icon: MessageSquare, end: false };
 const hrLink = { to: paths.hr, label: 'HR management', icon: Briefcase, end: false };
 
 const adminLinks = [
@@ -36,7 +33,6 @@ const adminLinks = [
   { to: paths.employees, label: 'Employee report', icon: Search, end: false },
   { to: paths.leave, label: 'Leave management', icon: CalendarDays, end: false },
   hrLink,
-  feedbackLink,
 ];
 
 // `end` keeps "Shared phones" from lighting up on its /rozhadmin/… sibling.
@@ -121,7 +117,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const requestedHrTab = new URLSearchParams(location.search).get('tab');
   const activeHrTab: HrTab = isHrTab(requestedHrTab) ? requestedHrTab : 'overview';
   const [hrOpen, setHrOpen] = useState(isHrPage);
-  const { isFeedbackManager } = useAuth();
   useEffect(() => {
     if (isHrPage) setHrOpen(true);
   }, [isHrPage]);
@@ -129,11 +124,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   // entered this session, so they stay invisible to anyone reading the
   // supervisor's screen — but are one click away for whoever unlocked them,
   // instead of forcing them to retype the address every time they leave.
-  const links = isFeedbackManager
-    ? [feedbackLink]
-    : isOwnerUnlocked()
-      ? [...adminLinks, ...ownerLinks]
-      : adminLinks;
+  const links = isOwnerUnlocked() ? [...adminLinks, ...ownerLinks] : adminLinks;
 
   return (
     <div className="min-h-screen w-full lg:flex">
@@ -146,7 +137,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               {APP_NAME}
             </div>
             <div className="truncate text-xs text-ink-400">
-              {isFeedbackManager ? 'Feedback management' : 'Employee check-in'}
+              Employee check-in
             </div>
           </div>
         </div>

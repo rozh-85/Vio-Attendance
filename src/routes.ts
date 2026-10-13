@@ -8,10 +8,8 @@ export const paths = {
   employees: '/employees',
   leave: '/leave',
   catalog: '/catalog',
-  feedback: '/feedback',
   hr: '/hr',
   hrTab: (tab: string) => `/hr?tab=${encodeURIComponent(tab)}`,
-  publicFeedback: (token: string) => `/feedback/${token}`,
   // Unlisted: the shared-phone report names suspected proxy check-ins, so it
   // is not in the sidebar and asks for the owner's password of its own.
   devices: '/rozhadmin',
@@ -34,9 +32,7 @@ export const routePatterns = {
   employees: '/employees',
   leave: '/leave',
   catalog: '/catalog',
-  feedback: '/feedback',
   hr: '/hr',
-  publicFeedback: '/feedback/:token',
   devices: '/rozhadmin',
   checkInLocations: '/rozhadmin/locations',
   socialOrders: '/rozhadmin/orders',

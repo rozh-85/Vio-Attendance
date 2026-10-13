@@ -19,8 +19,6 @@ import { LoginPage } from '@/pages/LoginPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { LeaveManagementPage } from '@/pages/LeaveManagementPage';
 import { CatalogManagementPage } from '@/pages/CatalogManagementPage';
-import { FeedbackPage } from '@/pages/FeedbackPage';
-import { PublicFeedbackPage } from '@/pages/PublicFeedbackPage';
 import { HrManagementPage } from '@/pages/HrManagementPage';
 
 export default function App() {
@@ -59,14 +57,6 @@ export default function App() {
               element={
                 <RequireAuth>
                   <CatalogManagementPage />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path={routePatterns.feedback}
-              element={
-                <RequireAuth allowFeedbackManager>
-                  <FeedbackPage />
                 </RequireAuth>
               }
             />
@@ -138,7 +128,6 @@ export default function App() {
             <Route path={routePatterns.recover} element={<RecoverCodePage />} />
             <Route path={routePatterns.checkIn} element={<CheckInPage />} />
             <Route path={routePatterns.checkOut} element={<CheckOutPage />} />
-            <Route path={routePatterns.publicFeedback} element={<PublicFeedbackPage />} />
             {/* Social media sellers: their own sign-in, add-only. */}
             <Route path={routePatterns.sellerOrders} element={<SellerOrderPage />} />
 

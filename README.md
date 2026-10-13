@@ -237,24 +237,6 @@ tables, the catalog module uses browser local storage when Supabase is not
 configured. PDF export opens a print-ready preview so managers can choose
 "Save as PDF" in the browser print dialog.
 
-## Product feedback
-
-The supervisor sidebar includes `/feedback` for product-specific feedback image
-galleries. Administrators choose the matching product once and can add one or
-several screenshots in the same upload, then generate a secure read-only link
-that shows every image currently saved for that product. Customers cannot submit, edit, or browse feedback for
-other products. Future products can be added directly from the Feedback page
-and immediately appear in its filter and upload form. Run
-[`supabase/feedback.sql`](supabase/feedback.sql) after the catalog migration to
-create the protected tables, RPC functions, and private `feedback-images`
-Storage bucket. Public links use `/feedback/:token`; an active token resolves to
-one read-only product gallery.
-
-The Auth user `feedback@gmail.com` is treated as a feedback-only manager. It is
-sent directly to `/feedback`, sees only that sidebar entry, and cannot use the
-attendance or catalog-management routes. Create that user in Supabase Auth; the
-password is kept in Supabase and is not stored in this repository.
-
 ## Project structure
 
 ```
@@ -279,8 +261,6 @@ src/
 | `/`                      | Supervisor | Dashboard — add employees, start sessions |
 | `/session/:id`           | Supervisor | Control panel + QR codes               |
 | `/employees`             | Supervisor | Employee report + PDF export           |
-| `/feedback`              | Supervisor | Feedback images and gallery links      |
-| `/feedback/:token`       | Customer   | Read-only product feedback gallery     |
 | `/VioAdmin`             | Supervisor | Sign in (deliberately non-obvious)     |
 | `/rozhadmin`             | Owner      | Phones used by several employees (unlisted, own password) |
 | `/rozhadmin/locations`   | Owner      | Check-ins outside the work location, and VPNs (same password) |
