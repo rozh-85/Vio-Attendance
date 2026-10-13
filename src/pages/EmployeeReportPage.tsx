@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -316,6 +317,19 @@ export function EmployeeReportPage() {
     setSelected(employee);
     setQuery(employee.fullName);
   }
+
+  // The dashboard's search opens an employee here with ?employee=<id>.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const wanted = searchParams.get('employee');
+  useEffect(() => {
+    if (!wanted || employees.length === 0) return;
+    const employee = employees.find((e) => e.id === wanted);
+    if (employee) {
+      setSelected(employee);
+      setQuery(employee.fullName);
+    }
+    setSearchParams({}, { replace: true });
+  }, [wanted, employees, setSearchParams]);
 
   function toggle(sessionId: string) {
     setIncluded((prev) => {

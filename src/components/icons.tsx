@@ -315,3 +315,30 @@ export const Wallet = (p: IconProps) => (
     <path d="M22 12h-5a2 2 0 0 0 0 4h5M17 14h.01" />
   </svg>
 );
+
+export const User = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+export const Play = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5Z" />
+  </svg>
+);
+
+export const MoreVertical = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="5" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="19" r="1" fill="currentColor" />
+  </svg>
+);
+
+export const ArrowUp = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 19V5M6 11l6-6 6 6" />
+  </svg>
+);

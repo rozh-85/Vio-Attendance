@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -97,6 +97,23 @@ export function SessionView() {
   // code that stays valid for the whole session.
   const [checkInQrConstant, setCheckInQrConstant] = useState(false);
   const [checkOutQrConstant, setCheckOutQrConstant] = useState(false);
+
+  // The dashboard's QR buttons land here with ?qr=in or ?qr=out: open that QR
+  // once the session has loaded, and only while it is still running.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const qrRequest = searchParams.get('qr');
+  useEffect(() => {
+    if (!session || (qrRequest !== 'in' && qrRequest !== 'out')) return;
+    setSearchParams({}, { replace: true });
+    if (session.status !== 'active') return;
+    if (qrRequest === 'in') {
+      if (!session.checkInOpen) void update({ checkInOpen: true });
+      setModal('check-in');
+    } else {
+      if (!session.checkOutOpen) void update({ checkOutOpen: true });
+      setModal('check-out');
+    }
+  }, [session, qrRequest, setSearchParams, update]);
 
   const filteredAttendees = useMemo(() => {
     let result = attendees;
