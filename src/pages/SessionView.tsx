@@ -612,20 +612,17 @@ export function SessionView() {
           path={paths.checkIn(session.id)}
           rotating={!checkInQrConstant}
         />
-        <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-          <span className="text-sm text-ink-500">
-            {checkInQrConstant
-              ? 'One constant code for the whole session.'
-              : 'Code changes every few seconds.'}
-          </span>
-          <Toggle
-            checked={checkInQrConstant}
-            onChange={setCheckInQrConstant}
-            label="Constant QR"
-          />
-        </div>
-        <GateToggle
+        <SettingRow
+          className="mt-5"
+          label="Constant QR"
+          hint={checkInQrConstant ? 'One constant code for the whole session.' : 'Code changes every few seconds.'}
+          checked={checkInQrConstant}
+          onChange={setCheckInQrConstant}
+        />
+        <SettingRow
+          className="mt-2"
           label="Accepting check-ins"
+          hint={session.checkInOpen ? 'Scans are being accepted.' : 'Scans are paused.'}
           checked={session.checkInOpen}
           onChange={(v) => update({ checkInOpen: v })}
         />
@@ -644,20 +641,17 @@ export function SessionView() {
           path={paths.checkOut(session.id)}
           rotating={!checkOutQrConstant}
         />
-        <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-          <span className="text-sm text-ink-500">
-            {checkOutQrConstant
-              ? 'One constant code for the whole session.'
-              : 'Code changes every few seconds.'}
-          </span>
-          <Toggle
-            checked={checkOutQrConstant}
-            onChange={setCheckOutQrConstant}
-            label="Constant QR"
-          />
-        </div>
-        <GateToggle
+        <SettingRow
+          className="mt-5"
+          label="Constant QR"
+          hint={checkOutQrConstant ? 'One constant code for the whole session.' : 'Code changes every few seconds.'}
+          checked={checkOutQrConstant}
+          onChange={setCheckOutQrConstant}
+        />
+        <SettingRow
+          className="mt-2"
           label="Accepting check-outs"
+          hint={session.checkOutOpen ? 'Scans are being accepted.' : 'Scans are paused.'}
           checked={session.checkOutOpen}
           onChange={(v) => update({ checkOutOpen: v })}
         />
@@ -777,21 +771,27 @@ export function SessionView() {
   );
 }
 
-function GateToggle({
+/** One switch in a QR window: its name and what it is doing, the switch on the right. */
+function SettingRow({
   label,
+  hint,
   checked,
   onChange,
+  className,
 }: {
   label: string;
+  hint: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  className?: string;
 }) {
   return (
-    <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-      <span className="text-sm text-ink-500">
-        {checked ? 'Scans are being accepted.' : 'Scans are paused.'}
-      </span>
-      <Toggle checked={checked} onChange={onChange} label={label} />
+    <div className={cn('flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3', className)}>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-ink-900">{label}</div>
+        <div className="text-xs text-ink-500">{hint}</div>
+      </div>
+      <Toggle checked={checked} onChange={onChange} ariaLabel={label} />
     </div>
   );
 }
