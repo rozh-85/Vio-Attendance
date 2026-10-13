@@ -415,7 +415,8 @@ export function CheckInLocationsPage() {
   const [events, setEvents] = useState<CheckInEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hours, setHours] = useState<number>(LIVE_HOURS);
+  // Opens (and reopens after a refresh) on all time; Today is the live view.
+  const [hours, setHours] = useState<number>(0);
   const [query, setQuery] = useState('');
   /** '' = every session. */
   const [sessionId, setSessionId] = useState('');
