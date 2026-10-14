@@ -198,7 +198,7 @@ export function AttendeeTable({
                 const value = e.target.value;
                 if (value) void applyBulk(value === 'none' ? null : (value as AttendanceMark));
               }}
-              className="h-9 cursor-pointer appearance-none rounded-lg border border-brand-200 bg-white pl-3 pr-8 text-sm font-semibold text-ink-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:opacity-60"
+              className="h-9 cursor-pointer appearance-none rounded-lg border border-brand-200 bg-card pl-3 pr-8 text-sm font-semibold text-ink-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:opacity-60"
             >
               <option value="" disabled>
                 {applying ? 'Saving…' : 'Mark as…'}
@@ -236,7 +236,7 @@ export function AttendeeTable({
             <li
               key={employee.id}
               className={cn(
-                'rounded-2xl border bg-white p-4 transition',
+                'rounded-2xl border bg-card p-4 transition',
                 ticked ? 'border-brand-200 bg-brand-50/40' : 'border-slate-200',
               )}
             >

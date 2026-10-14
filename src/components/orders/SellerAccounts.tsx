@@ -73,7 +73,7 @@ function PasswordField({ value, onChange }: { value: string; onChange: (v: strin
       <div className="flex gap-2">
         <div className="relative flex-1">
           <input
-            className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-11 font-mono text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            className="h-12 w-full rounded-xl border border-slate-200 bg-card px-4 pr-11 font-mono text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             type={shown ? 'text' : 'password'}
             autoComplete="new-password"
             value={value}
@@ -180,7 +180,7 @@ function AddAccountModal({
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-ink-900">Employee</span>
             <select
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-card px-4 text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               value={employeeId}
               onChange={(e) => {
                 const id = e.target.value;

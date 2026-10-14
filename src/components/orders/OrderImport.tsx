@@ -140,7 +140,7 @@ export function OrderImport({ accounts, onImported }: { accounts: SocialAccount[
                     <div className="text-xs text-ink-400">{s.orders === 1 ? '1 order' : `${s.orders} orders`}</div>
                   </div>
                   <select
-                    className="h-11 min-w-56 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    className="h-11 min-w-56 rounded-xl border border-slate-200 bg-card px-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                     value={mapping[s.name] ?? ''}
                     onChange={(e) => setMapping((m) => ({ ...m, [s.name]: e.target.value }))}
                   >

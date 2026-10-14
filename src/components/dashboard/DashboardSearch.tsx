@@ -85,7 +85,7 @@ export function DashboardSearch({ employees, rows }: { employees: Employee[]; ro
       />
       <input
         type="search"
-        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 [&::-webkit-search-cancel-button]:hidden"
+        className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-9 text-sm text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 [&::-webkit-search-cancel-button]:hidden"
         placeholder="Search employees, sessions…"
         value={query}
         onChange={(e) => {
@@ -120,7 +120,7 @@ export function DashboardSearch({ employees, rows }: { employees: Employee[]; ro
       )}
 
       {open && query.trim() && (
-        <div className="absolute right-0 top-full z-40 mt-1.5 w-full min-w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 top-full z-40 mt-1.5 w-full min-w-72 overflow-hidden rounded-xl border border-slate-200 bg-raised shadow-xl">
           {hits.length === 0 ? (
             <p className="px-4 py-5 text-center text-sm text-ink-500">Nothing matches “{query.trim()}”.</p>
           ) : (

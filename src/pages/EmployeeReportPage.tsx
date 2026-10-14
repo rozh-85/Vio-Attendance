@@ -603,7 +603,7 @@ export function EmployeeReportPage() {
                     'rounded-full border px-4 py-2 text-sm font-semibold transition',
                     period.kind === tab.kind
                       ? 'border-brand-600 bg-brand-50 text-brand-700'
-                      : 'border-slate-200 bg-white text-ink-600 hover:border-slate-300 hover:bg-slate-50',
+                      : 'border-slate-200 bg-card text-ink-600 hover:border-slate-300 hover:bg-slate-50',
                   )}
                   onClick={() => setPeriod(tab.build())}
                 >

@@ -98,7 +98,7 @@ export function SharedDeviceGroupList({
       {groups.map((group) => (
         <li
           key={group.deviceSessionId}
-          className="rounded-xl border border-amber-200 bg-white p-4"
+          className="rounded-xl border border-amber-200 bg-card p-4"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="font-semibold text-ink-900">

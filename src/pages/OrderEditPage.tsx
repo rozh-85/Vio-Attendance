@@ -30,7 +30,7 @@ import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
 
 const selectClass =
-  'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
+  'h-12 w-full rounded-xl border border-slate-200 bg-card px-4 text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
 
 const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'> = {
   new: 'info',
@@ -423,7 +423,7 @@ export function OrderEditPage() {
         </aside>
 
         {/* Save bar on phones, tablets and laptops; wide screens use the side panel. */}
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:left-64 xl:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-card/95 px-4 py-3 backdrop-blur lg:left-64 xl:hidden">
           <div className="mx-auto max-w-3xl">
             {error && <div className="mb-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>}
             <div className="flex gap-2">

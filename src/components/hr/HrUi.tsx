@@ -29,7 +29,7 @@ export interface Field {
 export const options = (values: string[]) =>
   values.map((value) => ({ value, label: value }));
 export const fieldClass =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
+  "h-11 w-full rounded-xl border border-slate-200 bg-card px-3 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
 export function Fields({
   fields,
   value,
@@ -301,7 +301,7 @@ export function EditorPage({
         ))}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-card px-5 py-4">
         <p className="text-sm text-ink-500">
           Nothing is saved until you choose {saveLabel.toLowerCase()}.
         </p>
@@ -415,7 +415,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5">
         <div>
           <h2 className="text-base font-bold">{title}</h2>

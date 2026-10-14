@@ -122,7 +122,7 @@ function SummaryItem({
   tone: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+    <div className="rounded-xl border border-slate-200 bg-card px-4 py-3.5">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-semibold text-ink-500">{label}</span>
         <span className={`size-2 rounded-full ${tone}`} />
@@ -380,7 +380,7 @@ export function InterviewTracking({
         <SummaryItem label="Outside Country" value={summary.outside} tone="bg-violet-400" />
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-card">
         <div className="border-b border-slate-200 p-4">
           <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(260px,1fr)_190px_170px_190px_auto]">
             <label className="relative">
@@ -528,7 +528,7 @@ export function InterviewTracking({
                           href={portfolioUrl(candidate.portfolioUrl)}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-700 hover:bg-slate-50"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-card px-2.5 py-1.5 text-xs font-semibold text-ink-700 hover:bg-slate-50"
                         >
                           <LinkIcon width={13} /> Open Portfolio
                         </a>
@@ -591,7 +591,7 @@ export function InterviewTracking({
               <select
                 value={pageSize}
                 onChange={(event) => setPageSize(Number(event.target.value))}
-                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-ink-700"
+                className="h-8 rounded-lg border border-slate-200 bg-card px-2 text-xs font-medium text-ink-700"
               >
                 {[10, 20, 50].map((size) => (
                   <option key={size} value={size}>
@@ -734,7 +734,7 @@ function ActionMenu({
       >
         <MoreHorizontal width={18} />
       </summary>
-      <div className="absolute right-0 z-30 mt-1 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+      <div className="absolute right-0 z-30 mt-1 w-48 rounded-xl border border-slate-200 bg-raised p-1.5 shadow-lg">
         <MenuButton icon={<Eye width={15} />} label="View Details" onClick={onView} />
         <MenuButton icon={<Pencil width={15} />} label="Edit" onClick={onEdit} />
         <MenuButton icon={<CalendarDays width={15} />} label="Change Status" onClick={onStatus} />
@@ -1078,10 +1078,10 @@ function CandidateDetails({
       <button
         type="button"
         aria-label="Close candidate details"
-        className="absolute inset-0 bg-ink-900/30"
+        className="absolute inset-0 bg-[#0f172a]/30"
         onClick={onClose}
       />
-      <aside className="absolute inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-slate-200 bg-white shadow-xl">
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-slate-200 bg-card shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wide text-brand-600">
@@ -1140,7 +1140,7 @@ function CandidateDetails({
                   {index < candidate.history.length - 1 && (
                     <span className="absolute left-[5px] top-3 h-full w-px bg-slate-200" />
                   )}
-                  <span className="relative mt-1.5 size-3 shrink-0 rounded-full border-2 border-white bg-brand-500 ring-1 ring-brand-200" />
+                  <span className="relative mt-1.5 size-3 shrink-0 rounded-full border-2 border-card bg-brand-500 ring-1 ring-brand-200" />
                   <div>
                     <div className="text-sm font-semibold text-ink-800">{entry.event}</div>
                     <div className="mt-0.5 text-xs text-ink-400">{formatDate(entry.date)}</div>

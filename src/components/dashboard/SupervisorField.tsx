@@ -30,7 +30,7 @@ export function SupervisorField({
         className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
       />
       <input
-        className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+        className="h-12 w-full rounded-xl border border-slate-200 bg-card pl-11 pr-10 text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
         placeholder="Sara Ahmed"
         value={value}
         required
@@ -68,7 +68,7 @@ export function SupervisorField({
         <ul
           id={listId}
           role="listbox"
-          className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+          className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-raised p-1.5 shadow-xl"
         >
           <li className="px-3 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-400">
             Recent supervisors

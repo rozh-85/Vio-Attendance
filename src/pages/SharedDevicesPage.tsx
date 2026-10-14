@@ -186,7 +186,7 @@ export function SharedDevicesPage() {
               'rounded-full border px-4 py-2 text-sm font-semibold transition',
               hours === range.hours
                 ? 'border-brand-600 bg-brand-50 text-brand-700'
-                : 'border-slate-200 bg-white text-ink-600 hover:border-slate-300 hover:bg-slate-50',
+                : 'border-slate-200 bg-card text-ink-600 hover:border-slate-300 hover:bg-slate-50',
             )}
             onClick={() => setHours(range.hours)}
           >
@@ -210,7 +210,7 @@ export function SharedDevicesPage() {
             Session
           </span>
           <select
-            className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-ink-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            className="h-12 w-full rounded-xl border border-slate-200 bg-card px-4 text-ink-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
           >

@@ -3,7 +3,7 @@ import { cn } from '@/utils/cn';
 type Tone = 'neutral' | 'success' | 'info' | 'warning' | 'danger' | 'note';
 
 const tones: Record<Tone, string> = {
-  neutral: 'bg-white border-slate-200 text-ink-900',
+  neutral: 'bg-card border-slate-200 text-ink-900',
   success: 'bg-emerald-50/70 border-emerald-100 text-emerald-700',
   info: 'bg-brand-50/70 border-brand-100 text-brand-700',
   warning: 'bg-amber-50/70 border-amber-100 text-amber-700',

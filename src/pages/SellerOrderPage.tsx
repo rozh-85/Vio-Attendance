@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/Logo';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Pencil, Plus, Search, Trash, X } from '@/components/icons';
 import {
   CATEGORIES,
@@ -156,11 +157,11 @@ const chipClass = (selected: boolean) =>
     'min-h-11 rounded-xl border px-3.5 py-2 text-sm font-semibold transition active:scale-[0.98]',
     selected
       ? 'border-brand-600 bg-brand-600 text-white shadow-sm'
-      : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
+      : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
   );
 
 const inputClass =
-  'h-12 w-full rounded-xl border bg-white px-4 text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
+  'h-12 w-full rounded-xl border bg-card px-4 text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
 
 const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'> = {
   new: 'info',
@@ -580,6 +581,7 @@ function SellerWorkspace({
           <Clock width={14} height={14} className="mt-0.5 shrink-0" />
           You can fix or delete an order while it is still new.
         </p>
+        <ThemeToggle className="mt-4" />
         <button
           type="button"
           onClick={onSignOut}
@@ -591,7 +593,7 @@ function SellerWorkspace({
 
       <div className="min-w-0 flex-1">
         {/* ── Top bar (phone and tablet) ─────────────────────────────────── */}
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-card/95 backdrop-blur lg:hidden">
           <div className="flex items-center gap-3 px-4 py-3">
             <Logo size={34} />
             <div className="min-w-0 flex-1 leading-tight">
@@ -601,6 +603,7 @@ function SellerWorkspace({
                 {allTime.orders === 1 ? 'order' : 'orders'} in total · {today.orders} today
               </div>
             </div>
+            <ThemeToggle variant="icon" />
             <button
               type="button"
               onClick={onSignOut}
@@ -666,7 +669,7 @@ function SellerWorkspace({
                 'mb-6 flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4',
                 flash.tone === 'success'
                   ? 'border-emerald-100 bg-emerald-50 text-emerald-800'
-                  : 'border-slate-200 bg-white text-ink-700',
+                  : 'border-slate-200 bg-card text-ink-700',
               )}
             >
               <CheckCircle width={22} height={22} className="shrink-0" />
@@ -827,7 +830,7 @@ function MyOrders({
               }}
               className={cn(
                 'whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold transition',
-                range === r.id ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
+                range === r.id ? 'bg-raised text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
               )}
             >
               {r.label}
@@ -1368,7 +1371,7 @@ function OrderForm({
               </span>
               <button
                 type="button"
-                className="rounded-lg bg-white px-3 py-1.5 font-semibold text-amber-800 shadow-sm"
+                className="rounded-lg bg-card px-3 py-1.5 font-semibold text-amber-800 shadow-sm"
                 onClick={() => set('price', (price * 1000).toLocaleString('en-US'))}
               >
                 Use {(price * 1000).toLocaleString('en-US')}
@@ -1472,7 +1475,7 @@ function OrderForm({
       </aside>
 
       {/* ── Save bar (phone, tablet and laptop) ────────────────────────────── */}
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:left-72 xl:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-card/95 px-4 py-3 backdrop-blur lg:left-72 xl:hidden">
         <div className="mx-auto max-w-3xl">
           {error && <div className="mb-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>}
           <div className="flex gap-2">
@@ -1484,7 +1487,7 @@ function OrderForm({
             <button
               type="button"
               onClick={() => setReviewing(true)}
-              className="flex h-14 shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-ink-700 transition hover:bg-slate-50 active:scale-[0.98]"
+              className="flex h-14 shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-card px-3.5 text-sm font-semibold text-ink-700 transition hover:bg-slate-50 active:scale-[0.98]"
             >
               <Eye width={18} height={18} />
               Review
@@ -1508,7 +1511,7 @@ function OrderForm({
       {/* ── Review sheet (phone, tablet and laptop) ────────────────────────── */}
       {reviewing && (
         <div className="fixed inset-0 z-40 xl:hidden" role="dialog" aria-modal="true" aria-label="Review the order">
-          <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" onClick={() => setReviewing(false)} />
+          <div className="absolute inset-0 bg-[#0f172a]/40 backdrop-blur-sm" onClick={() => setReviewing(false)} />
           <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] animate-[sheet-up_0.22s_ease-out] flex-col rounded-t-3xl bg-card shadow-2xl lg:left-72">
             <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-slate-200" />
             <div className="flex items-center gap-3 px-5 pb-2 pt-3">

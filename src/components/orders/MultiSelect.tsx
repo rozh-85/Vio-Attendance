@@ -80,7 +80,7 @@ export function MultiSelect({
           'inline-flex h-9 max-w-[17rem] items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition',
           summary
             ? 'border-brand-600 bg-brand-50 text-brand-700'
-            : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
+            : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
           open && !summary && 'border-slate-300 bg-slate-50',
         )}
       >
@@ -115,7 +115,7 @@ export function MultiSelect({
               />
               <input
                 autoFocus
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-card pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                 placeholder={`Find a ${label.toLowerCase()}…`}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -141,7 +141,7 @@ export function MultiSelect({
                   <span
                     className={cn(
                       'grid size-5 shrink-0 place-items-center rounded-md border transition',
-                      on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white',
+                      on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-card',
                     )}
                   >
                     {on && <Check width={13} height={13} />}

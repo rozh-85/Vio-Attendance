@@ -38,7 +38,7 @@ export function Modal({
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-[#0f172a]/40 backdrop-blur-sm"
         onClick={onClose}
       />
       <div

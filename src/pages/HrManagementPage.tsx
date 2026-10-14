@@ -169,7 +169,7 @@ function HrModuleSelector({
   pendingCount: number;
 }) {
   return (
-      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 lg:hidden">
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-card p-4 lg:hidden">
         <label htmlFor="hr-module" className="mb-2 block text-xs font-bold uppercase tracking-wider text-ink-400">
           HR module
         </label>
@@ -1202,7 +1202,7 @@ function EmployeeDetails({
                 }}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                   view === value
-                    ? "bg-white text-brand-700 shadow-sm"
+                    ? "bg-raised text-brand-700 shadow-sm"
                     : "text-ink-500 hover:text-ink-900"
                 }`}
               >
@@ -3130,7 +3130,7 @@ function Reports({
           >
             Payroll CSV
           </Button>
-          <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-ink-700 hover:bg-slate-50">
+          <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 hover:bg-slate-50">
             <Upload width={17} /> Import HR backup
             <input
               type="file"

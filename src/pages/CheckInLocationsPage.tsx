@@ -71,7 +71,7 @@ const chipClass = (selected: boolean) =>
     'whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition',
     selected
       ? 'border-brand-600 bg-brand-50 text-brand-700'
-      : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
+      : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
   );
 
 const AVATAR_TONES = [
@@ -305,7 +305,7 @@ function LatestOutside({ review }: { review: CheckInReview | undefined }) {
         className="absolute inset-0 opacity-70"
         style={{
           backgroundImage:
-            'linear-gradient(115deg, transparent 47%, #e2e8f0 47%, #e2e8f0 53%, transparent 53%), linear-gradient(25deg, transparent 46%, #e2e8f0 46%, #e2e8f0 50%, transparent 50%), linear-gradient(#eef2f6 1px, transparent 1px), linear-gradient(90deg, #eef2f6 1px, transparent 1px)',
+            'linear-gradient(115deg, transparent 47%, var(--color-slate-200) 47%, var(--color-slate-200) 53%, transparent 53%), linear-gradient(25deg, transparent 46%, var(--color-slate-200) 46%, var(--color-slate-200) 50%, transparent 50%), linear-gradient(var(--color-slate-100) 1px, transparent 1px), linear-gradient(90deg, var(--color-slate-100) 1px, transparent 1px)',
           backgroundSize: '180px 180px, 140px 140px, 28px 28px, 28px 28px',
           maskImage: 'linear-gradient(to right, transparent, black 30%)',
           WebkitMaskImage: 'linear-gradient(to right, transparent, black 30%)',
@@ -317,7 +317,7 @@ function LatestOutside({ review }: { review: CheckInReview | undefined }) {
         <MapPin width={40} height={40} className="relative -translate-y-2 fill-brand-600 text-white" strokeWidth={1.5} />
       </div>
       {review && review.zone?.kind === 'outside' && (
-        <div className="absolute left-6 top-6 max-w-[15rem] rounded-2xl border border-rose-100 bg-white/95 px-4 py-3 shadow-lg">
+        <div className="absolute left-6 top-6 max-w-[15rem] rounded-2xl border border-rose-100 bg-card/95 px-4 py-3 shadow-lg">
           <div className="flex items-center gap-2 text-sm font-semibold text-brand-700">
             <Navigation width={14} height={14} /> Outside location
           </div>
@@ -357,7 +357,7 @@ function ExportButton({
         type="button"
         disabled={shownCount === 0}
         onClick={() => onExport('shown')}
-        className="inline-flex h-11 items-center gap-2 rounded-l-xl border border-slate-200 bg-white pl-4 pr-3 text-sm font-semibold text-ink-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-11 items-center gap-2 rounded-l-xl border border-slate-200 bg-card pl-4 pr-3 text-sm font-semibold text-ink-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Download width={17} height={17} className="text-brand-600" /> Export Excel
       </button>
@@ -366,12 +366,12 @@ function ExportButton({
         aria-label="More export choices"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-11 items-center rounded-r-xl border border-l-0 border-slate-200 bg-white px-2.5 text-ink-500 transition hover:bg-slate-50"
+        className="inline-flex h-11 items-center rounded-r-xl border border-l-0 border-slate-200 bg-card px-2.5 text-ink-500 transition hover:bg-slate-50"
       >
         <ChevronDown width={16} height={16} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+        <div className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-xl border border-slate-200 bg-raised p-1.5 shadow-xl">
           <button
             type="button"
             className={item}
@@ -727,7 +727,7 @@ export function CheckInLocationsPage() {
                 className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
               />
               <select
-                className="h-11 w-full cursor-pointer appearance-none truncate rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm font-semibold text-ink-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                className="h-11 w-full cursor-pointer appearance-none truncate rounded-xl border border-slate-200 bg-card pl-10 pr-9 text-sm font-semibold text-ink-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
               >
@@ -759,7 +759,7 @@ export function CheckInLocationsPage() {
                 placeholder="Search by employee name, code or position…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 [&::-webkit-search-cancel-button]:hidden"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 [&::-webkit-search-cancel-button]:hidden"
               />
               {query && (
                 <button
@@ -824,7 +824,7 @@ export function CheckInLocationsPage() {
                 const { event, employee } = review;
                 const session = sessionsById.get(event.sessionId);
                 return (
-                  <li key={event.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <li key={event.id} className="rounded-2xl border border-slate-200 bg-card p-4">
                     <div className="flex items-start gap-3">
                       <Avatar name={employee?.fullName ?? '?'} />
                       <div className="min-w-0 flex-1">

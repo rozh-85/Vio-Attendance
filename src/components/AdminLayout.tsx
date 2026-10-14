@@ -20,6 +20,7 @@ import {
   X,
 } from './icons';
 import { Logo } from './Logo';
+import { ThemeToggle } from './ThemeToggle';
 import { APP_NAME } from '@/brand';
 import { paths } from '@/routes';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
@@ -201,6 +202,12 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+        <div className="mt-auto pt-6">
+          <div className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-ink-400">
+            Appearance
+          </div>
+          <ThemeToggle />
+        </div>
       </aside>
 
       {/* Main column. */}
@@ -213,6 +220,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <Logo size={30} className="rounded-lg" />
               <span className="truncate text-sm font-bold text-ink-900">{APP_NAME}</span>
             </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+            <ThemeToggle variant="icon" />
             <button
               type="button"
               className="flex size-10 shrink-0 items-center justify-center rounded-xl text-ink-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
@@ -223,6 +232,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             >
               {menuOpen ? <X width={22} height={22} /> : <Menu width={22} height={22} />}
             </button>
+            </div>
           </div>
           {menuOpen && (
             <>

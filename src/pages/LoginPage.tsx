@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/Logo';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Check } from '@/components/icons';
 import { useAuth } from '@/services/auth/context';
 import { APP_NAME, BRAND_NAME, WORDMARK_SRC } from '@/brand';
@@ -58,9 +59,10 @@ export function LoginPage() {
         <div className="flex flex-col px-6 py-8 sm:px-10 lg:px-8 xl:px-16">
           <div className="flex items-center gap-2.5">
             <Logo size={34} className="rounded-lg" />
-            <span className="text-lg font-bold tracking-tight text-ink-900">
+            <span className="flex-1 text-lg font-bold tracking-tight text-ink-900">
               {APP_NAME}
             </span>
+            <ThemeToggle variant="icon" />
           </div>
 
           <div className="flex flex-1 items-center justify-center py-12">

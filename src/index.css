@@ -28,17 +28,136 @@
   --color-brand-100: #f6e3e3;
   --color-brand-200: #edc5c6;
   --color-brand-300: #de9b9c;
+  --color-brand-400: #d1696b;
   --color-brand-500: #be3a3c;
   --color-brand-600: #a5292b;
   --color-brand-700: #841f21;
 
   --color-ink-900: #0f172a;
+  --color-ink-800: #1e293b;
   --color-ink-700: #334155;
+  --color-ink-600: #475569;
   --color-ink-500: #64748b;
   --color-ink-400: #94a3b8;
+  --color-ink-300: #cbd5e1;
 
   --color-surface: #f4f6f9;
   --color-card: #ffffff;
+  /* Menus, pop-overs and the picked tab of a switch: a step above the card. */
+  --color-raised: #ffffff;
+}
+
+/* `dark:` utilities follow the class on <html>, set by src/services/theme.ts. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Dark theme ──────────────────────────────────────────────────────────────
+   The app paints with a handful of palettes (slate, ink, brand and the status
+   colours), so dark mode swaps those values rather than restyling each page.
+   Light shades are backgrounds and become deep tints; deep shades are text and
+   become light; the 500s stay vivid for dots and bars. White is left alone —
+   it is the text on red buttons and the paper behind every QR code. */
+.dark {
+  color-scheme: dark;
+
+  --color-surface: #0b1017;
+  --color-card: #121a26;
+  --color-raised: #212b3c;
+
+  --color-ink-900: #e7ecf3;
+  --color-ink-800: #d6dde7;
+  --color-ink-700: #c2cbd8;
+  --color-ink-600: #a6b1c0;
+  --color-ink-500: #8c98aa;
+  --color-ink-400: #6f7b8e;
+  --color-ink-300: #4f5a6b;
+
+  --color-slate-50: #161f2d;
+  --color-slate-100: #1a2331;
+  --color-slate-200: #263246;
+  --color-slate-300: #344158;
+  --color-slate-400: #4b5a72;
+
+  --color-brand-50: #2b1619;
+  --color-brand-100: #3b1c21;
+  --color-brand-200: #5c2a30;
+  --color-brand-300: #8f3d43;
+  --color-brand-400: #c4565a;
+  --color-brand-500: #e5605f;
+  --color-brand-600: #d43b3e;
+  --color-brand-700: #f4a7a8;
+
+  --color-rose-50: #2d161b;
+  --color-rose-100: #3d1b22;
+  --color-rose-200: #5b2731;
+  --color-rose-300: #8a3b48;
+  --color-rose-400: #fb7185;
+  --color-rose-500: #f43f5e;
+  --color-rose-600: #fb7185;
+  --color-rose-700: #fda4af;
+
+  --color-emerald-50: #0f2a21;
+  --color-emerald-100: #143528;
+  --color-emerald-200: #1d4a37;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #22c55e;
+  --color-emerald-600: #34d399;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+
+  --color-amber-50: #2a2112;
+  --color-amber-100: #3a2c12;
+  --color-amber-200: #574116;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #fbbf24;
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+
+  --color-violet-50: #211b38;
+  --color-violet-100: #2b2147;
+  --color-violet-200: #3d2f66;
+  --color-violet-400: #a78bfa;
+  --color-violet-500: #8b5cf6;
+  --color-violet-600: #a78bfa;
+  --color-violet-700: #c4b5fd;
+
+  --color-sky-50: #0f2535;
+  --color-sky-600: #38bdf8;
+
+  --color-orange-50: #2d1d10;
+  --color-orange-200: #5a3613;
+  --color-orange-400: #fb923c;
+  --color-orange-700: #fdba74;
+
+  --color-blue-50: #10203a;
+  --color-blue-200: #1e3a6a;
+  --color-blue-400: #60a5fa;
+  --color-blue-700: #93c5fd;
+}
+
+/* brand-600 is both the red behind white button text and a text colour; one
+   value cannot be bright enough for text on navy and dark enough under white
+   text, so as text it gets a lighter red. The deep hovers likewise stay deep. */
+.dark .text-brand-600,
+.dark .hover\:text-brand-600:hover,
+.dark .group:hover .group-hover\:text-brand-600 {
+  color: #f0686a;
+}
+.dark .hover\:bg-brand-700:hover:not(:disabled) {
+  background-color: #e04a4c;
+}
+.dark .bg-rose-600:not(:disabled) {
+  background-color: #e11d48;
+}
+.dark .hover\:bg-rose-700:hover:not(:disabled) {
+  background-color: #be123c;
+}
+/* Focus rings sit off the page colour, not a white halo. */
+.dark *,
+.dark *::before,
+.dark *::after {
+  --tw-ring-offset-color: var(--color-card);
 }
 
 html,

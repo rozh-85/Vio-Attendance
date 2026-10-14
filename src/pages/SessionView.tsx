@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Toggle } from '@/components/ui/Toggle';
 import { RotatingQRPanel } from '@/components/RotatingQRPanel';
 import { AttendeeTable } from '@/components/AttendeeTable';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { SharedDevicesCard } from '@/components/SharedDevicesCard';
 import { AddEmployeeModal } from '@/components/AddEmployeeModal';
 import {
@@ -344,12 +345,15 @@ export function SessionView() {
     <div className="min-h-full w-full px-4 py-5 sm:px-6 sm:py-6 lg:px-8 2xl:px-10">
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          to={paths.dashboard}
-          className="inline-flex h-10 w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-ink-700 transition hover:bg-slate-50"
-        >
-          <ArrowLeft width={17} height={17} /> Back to Dashboard
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to={paths.dashboard}
+            className="inline-flex h-10 w-fit items-center gap-2 rounded-xl border border-slate-200 bg-card px-3.5 text-sm font-semibold text-ink-700 transition hover:bg-slate-50"
+          >
+            <ArrowLeft width={17} height={17} /> Back to Dashboard
+          </Link>
+          <ThemeToggle variant="icon" />
+        </div>
         <div className={cn('grid gap-2 sm:flex', isActive ? 'grid-cols-3' : 'grid-cols-2')}>
           <Button
             variant="outline"
@@ -485,7 +489,7 @@ export function SessionView() {
                 'whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-semibold transition sm:px-4',
                 statusFilter === f.id
                   ? 'border-brand-600 bg-brand-50 text-brand-700'
-                  : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
+                  : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
               )}
             >
               {f.label} <span className="tabular-nums opacity-70">({f.count})</span>
@@ -504,7 +508,7 @@ export function SessionView() {
               placeholder="Search by name, code or position…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 [&::-webkit-search-cancel-button]:hidden"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-9 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 [&::-webkit-search-cancel-button]:hidden"
             />
             {searchQuery && (
               <button

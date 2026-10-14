@@ -125,11 +125,11 @@ const chip = (selected: boolean) =>
     'inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold transition',
     selected
       ? 'border-brand-600 bg-brand-50 text-brand-700'
-      : 'border-slate-200 bg-white text-ink-700 hover:border-slate-300 hover:bg-slate-50',
+      : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
   );
 
 const selectClass =
-  'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
+  'h-11 w-full rounded-xl border border-slate-200 bg-card px-3 text-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
 
 /** One labelled row of the filter panel; the label sits on the left on wide screens. */
 function FilterRow({ label, children }: { label: string; children: ReactNode }) {
@@ -160,7 +160,7 @@ function Kpi({
     <div
       className={cn(
         'min-w-0 rounded-2xl border p-4 sm:p-5',
-        tone === 'brand' ? 'border-brand-100 bg-brand-50/70' : 'border-slate-200 bg-white',
+        tone === 'brand' ? 'border-brand-100 bg-brand-50/70' : 'border-slate-200 bg-card',
         className,
       )}
     >
@@ -300,7 +300,7 @@ function TrendChart({
               key={m}
               type="button"
               onClick={() => setMeasure(m)}
-              className={cn('rounded-lg px-3 py-1.5', measure === m ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500')}
+              className={cn('rounded-lg px-3 py-1.5', measure === m ? 'bg-raised text-ink-900 shadow-sm' : 'text-ink-500')}
             >
               {m === 'orders' ? 'Orders' : 'Sales'}
             </button>
@@ -915,7 +915,7 @@ export function OrdersReport({
               onClick={() => setView(t.id)}
               className={cn(
                 'inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition',
-                view === t.id ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
+                view === t.id ? 'bg-raised text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
               )}
             >
               {t.label}
@@ -923,7 +923,7 @@ export function OrdersReport({
                 <span
                   className={cn(
                     'rounded-full px-2 py-0.5 text-xs tabular-nums',
-                    view === t.id ? 'bg-brand-50 text-brand-700' : 'bg-white/70 text-ink-500',
+                    view === t.id ? 'bg-brand-50 text-brand-700' : 'bg-card/70 text-ink-500',
                   )}
                 >
                   {t.count.toLocaleString('en-US')}
@@ -933,7 +933,7 @@ export function OrdersReport({
           ))}
         </div>
         {onlySeller && (
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1.5 pl-3 pr-1.5 text-sm">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-card py-1.5 pl-3 pr-1.5 text-sm">
             <span className="size-2.5 rounded-full" style={{ background: colorOf(onlySeller) }} />
             <span className="text-ink-500">Showing</span>
             <b dir="auto" className="text-ink-900">

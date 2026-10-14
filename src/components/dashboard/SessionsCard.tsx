@@ -77,7 +77,7 @@ export function SessionsCard({
                 setStatus(e.target.value as StatusFilter);
                 setPage(0);
               }}
-              className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-semibold text-ink-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 sm:w-36"
+              className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-card pl-4 pr-10 text-sm font-semibold text-ink-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 sm:w-36"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -110,7 +110,7 @@ export function SessionsCard({
                 setQuery(e.target.value);
                 setPage(0);
               }}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             />
           </label>
         </div>
@@ -253,7 +253,7 @@ function PageButton({ children, disabled, onClick }: { children: ReactNode; disa
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="h-9 rounded-lg border border-slate-200 bg-white px-3 font-semibold text-ink-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+      className="h-9 rounded-lg border border-slate-200 bg-card px-3 font-semibold text-ink-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {children}
     </button>
@@ -330,7 +330,7 @@ function CheckIns({ row }: { row: SessionRow }) {
 function RowActions({ row, onAction }: { row: SessionRow; onAction: (action: RowAction) => void }) {
   const active = row.session.status === 'active';
   const icon =
-    'grid size-9 place-items-center rounded-lg border border-slate-200 bg-white text-ink-500 transition hover:border-slate-300 hover:text-ink-900';
+    'grid size-9 place-items-center rounded-lg border border-slate-200 bg-card text-ink-500 transition hover:border-slate-300 hover:text-ink-900';
   return (
     <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
       <button type="button" title="View session" aria-label="View session" className={icon} onClick={() => onAction('view')}>
@@ -379,7 +379,7 @@ function SessionCardItem({ row, onAction }: { row: SessionRow; onAction: (action
       tabIndex={0}
       onClick={() => onAction('view')}
       onKeyDown={(e) => e.key === 'Enter' && onAction('view')}
-      className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-slate-300"
+      className="rounded-xl border border-slate-200 bg-card p-4 transition hover:border-slate-300"
     >
       <div className="flex items-start justify-between gap-3">
         <DayCell row={row} />
@@ -454,7 +454,7 @@ function DateRangePicker({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'flex h-11 w-full items-center gap-2 rounded-xl border bg-white pl-3.5 pr-3 text-sm transition sm:w-52',
+          'flex h-11 w-full items-center gap-2 rounded-xl border bg-card pl-3.5 pr-3 text-sm transition sm:w-52',
           set ? 'border-brand-200 text-ink-900' : 'border-slate-200 text-ink-400',
           open && 'border-brand-500 ring-2 ring-brand-500/40',
         )}
@@ -477,7 +477,7 @@ function DateRangePicker({
         )}
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:left-auto sm:right-0">
+        <div className="absolute left-0 top-full z-30 mt-1.5 w-72 rounded-xl border border-slate-200 bg-raised p-4 shadow-xl sm:left-auto sm:right-0">
           <div className="flex flex-wrap gap-1.5">
             {quick.map((q) => (
               <button

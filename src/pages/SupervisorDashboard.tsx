@@ -297,7 +297,7 @@ export function SupervisorDashboard() {
                 aria-label="Date"
                 value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-ink-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-card pl-11 pr-3 text-ink-900 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               />
             </label>
           </div>

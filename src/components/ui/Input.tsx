@@ -9,7 +9,7 @@ interface FieldProps {
 }
 
 const baseField =
-  'w-full rounded-xl border bg-white px-4 text-ink-900 placeholder:text-ink-400 ' +
+  'w-full rounded-xl border bg-card px-4 text-ink-900 placeholder:text-ink-400 ' +
   'transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500';
 
 function Label({ label, required }: { label?: string; required?: boolean }) {
