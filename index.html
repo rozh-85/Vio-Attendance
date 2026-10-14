@@ -12,9 +12,10 @@
       (function () {
         try {
           var pref = localStorage.getItem('vio.theme');
+          // Light unless dark, or Auto on a device set to dark, was picked.
           var dark =
             pref === 'dark' ||
-            (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (dark) document.documentElement.classList.add('dark');
         } catch (e) {}
       })();

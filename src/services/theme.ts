@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Light, dark, or whatever the device is set to. The choice is kept per
- * browser; index.html applies it before the first paint so a dark page never
- * flashes white on load.
+ * Light, dark, or whatever the device is set to. Light until someone picks
+ * otherwise; the choice is kept per browser, and index.html applies it before
+ * the first paint so a dark page never flashes white on load.
  */
 export type ThemePref = 'light' | 'dark' | 'system';
 
@@ -14,9 +14,9 @@ const media = () => window.matchMedia('(prefers-color-scheme: dark)');
 export function readThemePref(): ThemePref {
   try {
     const value = localStorage.getItem(KEY);
-    return value === 'light' || value === 'dark' ? value : 'system';
+    return value === 'dark' || value === 'system' ? value : 'light';
   } catch {
-    return 'system';
+    return 'light';
   }
 }
 
@@ -32,8 +32,7 @@ export function applyTheme(pref: ThemePref = readThemePref()): void {
 
 export function setThemePref(pref: ThemePref): void {
   try {
-    if (pref === 'system') localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, pref);
+    localStorage.setItem(KEY, pref);
   } catch {
     // Storage blocked: the choice lasts until the page is closed.
   }
