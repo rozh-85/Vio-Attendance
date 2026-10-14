@@ -74,7 +74,8 @@ export type AttendanceMark =
   | 'sick-leave'
   | 'early-leave'
   | 'late'
-  | 'administrative-leave';
+  | 'administrative-leave'
+  | 'double-shift';
 
 /** Annual leave allowance for one employee. Missing records use the 12-day default. */
 export interface LeaveAllowance {

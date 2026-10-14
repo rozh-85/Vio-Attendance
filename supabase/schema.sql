@@ -88,7 +88,7 @@ create table if not exists public.attendance (
     check (mark in (
         'off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave',
         'weekend', 'public-holiday', 'annual-leave', 'sick-leave', 'early-leave',
-        'late', 'administrative-leave'
+        'late', 'administrative-leave', 'double-shift'
       )),
   constraint attendance_session_employee_unique unique (session_id, employee_id),
   constraint attendance_checkout_after_checkin
@@ -104,7 +104,7 @@ alter table public.attendance
     check (mark in (
       'off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave',
       'weekend', 'public-holiday', 'annual-leave', 'sick-leave', 'early-leave',
-      'late', 'administrative-leave'
+      'late', 'administrative-leave', 'double-shift'
     ));
 
 create index if not exists attendance_session_idx  on public.attendance(session_id);

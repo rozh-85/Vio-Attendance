@@ -52,6 +52,7 @@ export const ATTENDANCE_MARKS: AttendanceMark[] = [
   'early-leave',
   'late',
   'administrative-leave',
+  'double-shift',
 ];
 
 /** What each mark is called, wherever it is shown. */
@@ -68,6 +69,7 @@ export const MARK_LABEL: Record<AttendanceMark, string> = {
   'early-leave': 'Early leave',
   late: 'Late',
   'administrative-leave': 'Administrative leave',
+  'double-shift': 'Double shift',
 };
 
 /**

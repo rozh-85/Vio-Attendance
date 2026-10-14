@@ -2,7 +2,7 @@
 -- The supervisor's mark on one employee's attendance in one session: the ⋯
 -- menu on the session screen (off, not their shift, overtime, hourly leave,
 -- official leave, weekend, public holiday, annual leave, sick leave, early
--- leave, late, administrative leave). Printed on the employee PDF and the
+-- leave, late, administrative leave, double shift). Printed on the employee PDF and the
 -- Excel sheets; on a missed session it replaces "Absent" and counts as excused.
 --
 -- Run this in the Supabase SQL editor, after schema.sql. Safe to re-run, and
@@ -18,7 +18,7 @@ alter table public.attendance
     check (mark in (
       'off', 'not-their-shift', 'overtime', 'hourly-leave', 'official-leave',
       'weekend', 'public-holiday', 'annual-leave', 'sick-leave', 'early-leave',
-      'late', 'administrative-leave'
+      'late', 'administrative-leave', 'double-shift'
     ));
 
 notify pgrst, 'reload schema';
