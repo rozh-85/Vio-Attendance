@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import { format, parseISO, subDays } from 'date-fns';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/Logo';
+import { AuthField, AuthShell, PasswordField } from '@/components/auth/AuthShell';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Pencil, Plus, Search, Trash, X } from '@/components/icons';
+import { ArrowRight, CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Pencil, Plus, Search, Trash, User, X } from '@/components/icons';
 import {
   CATEGORIES,
   CITIES,
@@ -306,43 +306,67 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
   }
 
   return (
-    <Screen width="sm">
-      <Card className="p-8">
-        <Logo size={48} className="mx-auto" />
-        <h1 className="mt-5 text-center text-2xl font-bold">Orders</h1>
-        <p dir="rtl" className="text-center text-ink-400">
-          تۆمارکردنی ئۆردەر
-        </p>
-        <p className="mt-2 text-center text-ink-500">Sign in with the account your manager gave you.</p>
-
-        {notice && <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div>}
-
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <Input
-            label="Username"
-            required
-            autoFocus
-            autoCapitalize="none"
-            autoCorrect="off"
-            autoComplete="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <Input
-            label="Password"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
-          <Button type="submit" size="lg" fullWidth loading={busy} disabled={!username.trim() || !password}>
-            Sign in
-          </Button>
-        </form>
-      </Card>
-    </Screen>
+    <AuthShell
+      badgeIcon={<User width={20} height={20} />}
+      badge={
+        <>
+          Seller sign-in · <span dir="rtl">چوونەژوورەوە</span>
+        </>
+      }
+      title="Welcome"
+      accent="back"
+      subtitle={
+        <>
+          Sign in with the account your manager gave you.
+          <span dir="rtl" className="mt-0.5 block text-sm text-ink-400">
+            بەو هەژمارەیە بچۆ ژوورەوە کە بەڕێوەبەرەکەت پێی داویت
+          </span>
+        </>
+      }
+      footnote="Accounts are made by your manager."
+      headline={['Orders,', 'in one place']}
+      tagline="Fast. Simple. Bilingual."
+      description="Save every Instagram, TikTok and Facebook order in seconds, and fix a mistake while the order is still new."
+      features={[
+        { icon: <Plus width={24} height={24} />, title: 'New order', text: 'Just as the customer said it' },
+        { icon: <FileText width={24} height={24} />, title: 'My orders', text: 'Everything you have saved' },
+        { icon: <Pencil width={24} height={24} />, title: 'Fix mistakes', text: 'Edit or delete while still new' },
+      ]}
+    >
+      {notice && <div className="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div>}
+      <form onSubmit={onSubmit} className="space-y-5">
+        <AuthField
+          label="Username"
+          icon={<User width={18} height={18} />}
+          required
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="username"
+          placeholder="your.name"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <PasswordField
+          required
+          autoComplete="current-password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          className="h-[3.25rem] shadow-lg shadow-brand-600/20"
+          loading={busy}
+          disabled={!username.trim() || !password}
+        >
+          Sign in <ArrowRight width={18} height={18} />
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 

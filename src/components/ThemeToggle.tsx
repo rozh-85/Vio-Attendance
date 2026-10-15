@@ -14,9 +14,12 @@ const OPTIONS: { id: ThemePref; label: string; Icon: typeof Sun }[] = [
  */
 export function ThemeToggle({
   variant = 'segmented',
+  onBrand = false,
   className,
 }: {
   variant?: 'segmented' | 'icon';
+  /** White on the red brand panel. */
+  onBrand?: boolean;
   className?: string;
 }) {
   const { pref, resolved, setPref } = useTheme();
@@ -31,7 +34,10 @@ export function ThemeToggle({
         title={next === 'dark' ? 'Dark mode' : 'Light mode'}
         aria-label={next === 'dark' ? 'Switch to dark mode' : 'Switch to light mode'}
         className={cn(
-          'grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-card text-ink-500 transition hover:bg-slate-50 hover:text-ink-900',
+          'grid size-10 shrink-0 place-items-center rounded-xl border transition',
+          onBrand
+            ? 'border-white/25 bg-white/10 text-white hover:bg-white/20'
+            : 'border-slate-200 bg-card text-ink-500 hover:bg-slate-50 hover:text-ink-900',
           className,
         )}
       >

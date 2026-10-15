@@ -19,11 +19,31 @@ interface AuthContextValue {
   user: User | null;
   /** True until the initial session lookup resolves. */
   loading: boolean;
-  signIn(email: string, password: string): Promise<void>;
+  /** `remember` false: the sign-in ends when the browser closes. */
+  signIn(email: string, password: string, remember?: boolean): Promise<void>;
   signOut(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * "Remember me" off: the choice is kept, and a cookie with no expiry date
+ * marks the browser as still open. When the browser has been closed the cookie
+ * is gone, so the saved sign-in is dropped on the next visit.
+ */
+const REMEMBER_KEY = 'vio.rememberMe';
+const ALIVE_COOKIE = 'vio_alive=1';
+
+function forgetOnReopen(): boolean {
+  try {
+    return (
+      localStorage.getItem(REMEMBER_KEY) === '0' &&
+      !document.cookie.split('; ').includes(ALIVE_COOKIE)
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Tracks the Supabase auth session for the supervisor. Employee-facing screens
@@ -40,11 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
+    void (async () => {
+      if (forgetOnReopen()) await supabase.auth.signOut({ scope: 'local' });
+      const { data } = await supabase.auth.getSession();
       if (!active) return;
       setUser(data.session?.user ?? null);
       setLoading(false);
-    });
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
@@ -54,10 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase]);
 
-  async function signIn(email: string, password: string) {
+  async function signIn(email: string, password: string, remember = true) {
     if (!supabase) throw new Error('Authentication is not configured.');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    try {
+      localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0');
+      document.cookie = `${ALIVE_COOKIE}; path=/; SameSite=Lax`;
+    } catch {
+      // Storage blocked: the sign-in simply lasts as Supabase keeps it.
+    }
   }
 
   async function signOut() {

@@ -396,3 +396,10 @@ export const Monitor = (p: IconProps) => (
     <path d="M8 21h8M12 17v4" />
   </svg>
 );
+
+export const Mail = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </svg>
+);

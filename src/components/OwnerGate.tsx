@@ -1,9 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Screen } from './Screen';
-import { Card } from './ui/Card';
-import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { Phone } from './icons';
+import { AuthField, AuthShell, PasswordField } from './auth/AuthShell';
+import { ArrowRight, Lock, Mail, MapPin, Phone, Wallet } from './icons';
 import { isOwnerUnlocked, unlockOwner, verifyOwner } from '@/services/auth/ownerGate';
 
 /**
@@ -15,7 +13,7 @@ export function OwnerGate({
   title = 'Shared phones',
   children,
 }: {
-  /** The page being unlocked, shown above the form. */
+  /** The page being unlocked, named above the form. */
   title?: string;
   children: ReactNode;
 }) {
@@ -45,54 +43,55 @@ export function OwnerGate({
   }
 
   return (
-    <Screen width="sm">
-      <Card className="p-8">
-        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-50 text-brand-600">
-          <Phone width={26} height={26} />
-        </div>
-        <h1 className="mt-5 text-center text-2xl font-bold">{title}</h1>
-        <p className="mt-1 text-center text-ink-500">
-          This report is private. Sign in to open it.
-        </p>
+    <AuthShell
+      badgeIcon={<Lock width={20} height={20} />}
+      badge={`Private owner area · ${title}`}
+      title="Owner"
+      accent="access"
+      subtitle={`${title} is private. Sign in with the owner account to open it.`}
+      footnote="Closing this tab locks the private pages again."
+      headline={['Private reports,', 'yours only']}
+      tagline="Phones. Places. Sales."
+      description="See who shares a phone, who checks in away from work and what the social media team sells — none of it reaches a supervisor."
+      features={[
+        { icon: <Phone width={24} height={24} />, title: 'Shared phones', text: 'One phone, several names' },
+        { icon: <MapPin width={24} height={24} />, title: 'Check-in locations', text: 'Outside the work area, or on a VPN' },
+        { icon: <Wallet width={24} height={24} />, title: 'Social media orders', text: 'Sales, sellers and exports' },
+      ]}
+    >
+      <form onSubmit={onSubmit} className="space-y-5">
+        <AuthField
+          label="Email"
+          icon={<Mail width={18} height={18} />}
+          type="email"
+          required
+          autoFocus
+          autoComplete="username"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <PasswordField
+          required
+          autoComplete="current-password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <Input
-            label="Email"
-            type="email"
-            required
-            autoFocus
-            autoComplete="username"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <Input
-            label="Password"
-            type="password"
-            required
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+        {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-          {error && (
-            <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            size="lg"
-            fullWidth
-            loading={checking}
-            disabled={!email.trim() || !password}
-          >
-            Open report
-          </Button>
-        </form>
-      </Card>
-    </Screen>
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          className="h-[3.25rem] shadow-lg shadow-brand-600/20"
+          loading={checking}
+          disabled={!email.trim() || !password}
+        >
+          Open {title} <ArrowRight width={18} height={18} />
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
