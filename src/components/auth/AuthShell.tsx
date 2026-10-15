@@ -75,7 +75,7 @@ export function AuthShell({
             <span className="flex-1 text-lg font-bold tracking-tight text-white">Attendance</span>
             <ThemeToggle variant="icon" onBrand />
           </div>
-          <div className="pointer-events-none absolute -bottom-12 left-1/2 w-[16.5rem] -translate-x-1/2 sm:w-[20rem]">
+          <div className="pointer-events-none absolute -bottom-10 left-1/2 w-[15rem] -translate-x-1/2 sm:w-[18rem]">
             <LaptopPreview />
           </div>
         </div>
@@ -127,7 +127,7 @@ export function AuthShell({
                 </li>
               ))}
             </ul>
-            <div className="pointer-events-none absolute bottom-10 -right-12 w-[28rem] xl:-right-6 xl:w-[32rem] 2xl:w-[36rem]">
+            <div className="pointer-events-none absolute bottom-12 right-10 w-[19rem] xl:right-12 xl:w-[24rem] 2xl:bottom-16 2xl:right-16 2xl:w-[28rem] [@media(max-height:760px)]:hidden">
               <LaptopPreview />
             </div>
           </div>
@@ -158,62 +158,68 @@ function PanelBackdrop() {
 
 /**
  * A small drawing of the app on a laptop — sidebar, figures and a table of
- * sessions. Decoration only.
+ * sessions — in real laptop proportions: a 16:10 screen in a thin bezel, and
+ * a base a little wider than the lid with the notch for opening it. Fixed
+ * colours, so it looks the same in light and dark mode. Decoration only.
  */
 function LaptopPreview() {
-  const rows = [
-    ['bg-emerald-400', 'w-14'],
-    ['bg-slate-300', 'w-10'],
-    ['bg-slate-300', 'w-12'],
-    ['bg-emerald-400', 'w-9'],
-    ['bg-slate-300', 'w-11'],
+  const rows: [string, string][] = [
+    ['#34d399', '58%'],
+    ['#cbd5e1', '42%'],
+    ['#cbd5e1', '50%'],
+    ['#34d399', '36%'],
+    ['#cbd5e1', '46%'],
+    ['#34d399', '40%'],
   ];
   return (
     <div aria-hidden className="relative select-none">
-      <div className="rotate-[-4deg] drop-shadow-2xl">
-        {/* Screen */}
-        <div className="rounded-t-2xl bg-[#1b1f27] p-2 pb-2.5">
-          <div className="flex h-[13.5rem] overflow-hidden rounded-lg bg-[#f6f7f9] text-[0px]">
-            <div className="w-16 shrink-0 space-y-2 bg-white p-2">
-              <div className="flex items-center gap-1">
-                <span className="size-3.5 rounded bg-[#a5292b]" />
-                <span className="h-1.5 w-7 rounded bg-slate-300" />
-              </div>
-              <span className="block h-3 rounded bg-[#a5292b]" />
-              {[0, 1, 2, 3, 4].map((i) => (
-                <span key={i} className="block h-1.5 w-10 rounded bg-slate-200" />
+      {/* Lid */}
+      <div className="relative rounded-[1rem] bg-[#16181d] p-[2.4%] pb-[3%] shadow-[0_40px_70px_-25px_rgba(0,0,0,0.55)] ring-1 ring-white/10">
+        <span className="absolute left-1/2 top-[1.1%] size-[0.3rem] -translate-x-1/2 rounded-full bg-[#2f343d]" />
+        <div className="flex aspect-[16/10] overflow-hidden rounded-[0.35rem] bg-[#f4f6f9]">
+          {/* Sidebar */}
+          <div className="flex w-[20%] shrink-0 flex-col gap-[6%] bg-white p-[3%]">
+            <div className="flex items-center gap-[8%]">
+              <span className="aspect-square w-[22%] rounded-[3px] bg-[#a5292b]" />
+              <span className="h-[5px] w-[50%] rounded bg-[#cbd5e1]" />
+            </div>
+            <span className="h-[9px] rounded-[3px] bg-[#a5292b]" />
+            {[70, 60, 75, 55, 65].map((w, i) => (
+              <span key={i} className="h-[5px] rounded bg-[#e2e8f0]" style={{ width: `${w}%` }} />
+            ))}
+          </div>
+          {/* Page */}
+          <div className="flex flex-1 flex-col gap-[5%] p-[3.5%]">
+            <div className="flex items-center justify-between">
+              <span className="h-[8px] w-[34%] rounded bg-[#334155]" />
+              <span className="h-[10px] w-[18%] rounded-[3px] bg-[#a5292b]" />
+            </div>
+            <div className="grid grid-cols-4 gap-[4%]">
+              {['#fde2e2', '#d1fae5', '#fef3c7', '#fde2e2'].map((tone, i) => (
+                <div key={i} className="rounded-[4px] bg-white p-[8%]">
+                  <span className="block aspect-square w-[28%] rounded-[3px]" style={{ background: tone }} />
+                  <span className="mt-[12%] block h-[6px] w-[55%] rounded bg-[#475569]" />
+                </div>
               ))}
             </div>
-            <div className="flex-1 space-y-2 p-2.5">
-              <div className="flex items-center justify-between">
-                <span className="h-2.5 w-20 rounded bg-slate-700/80" />
-                <span className="h-3 w-12 rounded bg-[#a5292b]" />
-              </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {['bg-rose-100', 'bg-emerald-100', 'bg-amber-100', 'bg-rose-100'].map((tone, i) => (
-                  <div key={i} className="rounded-md bg-white p-1.5">
-                    <span className={cn('block size-2.5 rounded', tone)} />
-                    <span className="mt-1 block h-2 w-5 rounded bg-slate-700/70" />
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-1 rounded-md bg-white p-1.5">
-                {rows.map(([dot, w], i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-8 rounded bg-slate-300" />
-                    <span className={cn('h-1.5 rounded', w, 'bg-slate-200')} />
-                    <span className={cn('ml-auto h-2 w-6 rounded-full', dot)} />
-                    <span className="h-1.5 w-10 rounded-full bg-emerald-400/70" />
-                  </div>
-                ))}
-              </div>
+            <div className="flex flex-1 flex-col justify-around rounded-[4px] bg-white px-[3%] py-[2%]">
+              {rows.map(([dot, w], i) => (
+                <div key={i} className="flex items-center gap-[3%]">
+                  <span className="h-[4px] w-[14%] rounded bg-[#cbd5e1]" />
+                  <span className="h-[4px] rounded bg-[#e2e8f0]" style={{ width: w }} />
+                  <span className="ml-auto h-[6px] w-[10%] rounded-full" style={{ background: dot }} />
+                  <span className="h-[4px] w-[16%] rounded-full bg-[#6ee7b7]" />
+                </div>
+              ))}
             </div>
           </div>
         </div>
-        {/* Base */}
-        <div className="mx-[-6%] h-3 rounded-b-xl bg-gradient-to-b from-[#c9ccd3] to-[#8e929b]" />
       </div>
-
+      {/* Base, with the notch for opening the lid */}
+      <div className="relative mx-[-7%] h-[0.8rem] rounded-b-[1.2rem] rounded-t-[3px] bg-gradient-to-b from-[#e4e7ec] via-[#c5c9d1] to-[#9399a4]">
+        <span className="absolute left-1/2 top-0 h-[38%] w-[15%] -translate-x-1/2 rounded-b-[6px] bg-[#aeb3bc]" />
+      </div>
+      <div className="mx-[2%] h-2 rounded-full bg-black/30 blur-md" />
     </div>
   );
 }
