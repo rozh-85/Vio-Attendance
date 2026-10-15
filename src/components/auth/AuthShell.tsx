@@ -1,9 +1,8 @@
 import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Eye, EyeOff, Lock } from '@/components/icons';
-import { APP_NAME, BRAND_NAME } from '@/brand';
+import { BRAND_NAME } from '@/brand';
 import { cn } from '@/utils/cn';
 
 export interface AuthFeature {
@@ -49,7 +48,7 @@ export function AuthShell({
   features: AuthFeature[];
 }) {
   const form = (
-    <div className="w-full max-w-[25rem]">
+    <div className="w-full">
       <div className="flex items-center gap-3">
         <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600">
           {badgeIcon}
@@ -90,21 +89,23 @@ export function AuthShell({
 
       {/* ── Laptop ────────────────────────────────────────────────────── */}
       <div className="hidden min-h-[calc(100vh-2rem)] overflow-hidden rounded-[2rem] border border-slate-200/70 bg-card shadow-xl lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="flex flex-col px-12 py-10 xl:px-16">
-          <div className="flex items-center gap-2.5">
-            <Logo size={36} className="rounded-lg" />
-            <span className="flex-1 text-lg font-bold tracking-tight text-ink-900">Attendance</span>
-            <ThemeToggle variant="icon" />
+        <div className="flex justify-center px-10 py-10 xl:px-14">
+          <div className="flex w-full max-w-[26rem] flex-col 2xl:max-w-[28rem]">
+            <div className="flex items-center gap-2.5">
+              <Logo size={36} className="rounded-lg" />
+              <span className="flex-1 text-lg font-bold tracking-tight text-ink-900">Attendance</span>
+              <ThemeToggle variant="icon" />
+            </div>
+            <div className="flex flex-1 items-center py-10">{form}</div>
+            <p className="text-center text-xs text-ink-400">
+              © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+            </p>
           </div>
-          <div className="flex flex-1 items-center py-10">{form}</div>
-          <p className="text-xs text-ink-400">
-            © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
-          </p>
         </div>
 
         <div className="relative overflow-hidden bg-brand-600">
           <PanelBackdrop />
-          <div className="relative flex h-full flex-col px-12 py-14 xl:px-16">
+          <div className="relative flex h-full flex-col px-12 py-14 xl:px-16 2xl:px-20 2xl:py-20">
             <h2 className="text-5xl font-bold leading-[1.05] tracking-tight text-white xl:text-6xl">
               {headline[0]}
               <br />
@@ -127,7 +128,7 @@ export function AuthShell({
               ))}
             </ul>
             <div className="pointer-events-none absolute bottom-10 -right-12 w-[28rem] xl:-right-6 xl:w-[32rem] 2xl:w-[36rem]">
-              <LaptopPreview withPhone />
+              <LaptopPreview />
             </div>
           </div>
         </div>
@@ -157,9 +158,9 @@ function PanelBackdrop() {
 
 /**
  * A small drawing of the app on a laptop — sidebar, figures and a table of
- * sessions — with a phone showing a check-in QR in front. Decoration only.
+ * sessions. Decoration only.
  */
-function LaptopPreview({ withPhone = false }: { withPhone?: boolean }) {
+function LaptopPreview() {
   const rows = [
     ['bg-emerald-400', 'w-14'],
     ['bg-slate-300', 'w-10'],
@@ -213,15 +214,6 @@ function LaptopPreview({ withPhone = false }: { withPhone?: boolean }) {
         <div className="mx-[-6%] h-3 rounded-b-xl bg-gradient-to-b from-[#c9ccd3] to-[#8e929b]" />
       </div>
 
-      {withPhone && (
-        <div className="absolute -bottom-8 -left-4 w-28 rotate-[8deg] rounded-[1.4rem] bg-[#1b1f27] p-1.5 shadow-2xl">
-          <div className="flex flex-col items-center rounded-[1.1rem] bg-white px-2 pb-3 pt-2.5">
-            <span className="rounded bg-[#a5292b] px-1 text-[7px] font-black text-white">Vio</span>
-            <QRCodeSVG value={`${APP_NAME} check-in`} size={64} className="mt-2" />
-            <span className="mt-1.5 text-[7px] font-semibold text-[#334155]">Scan to Check in</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
