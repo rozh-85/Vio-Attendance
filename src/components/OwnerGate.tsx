@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { AuthField, AuthShell, PasswordField } from './auth/AuthShell';
 import { ArrowRight, Lock, Mail, MapPin, Phone, Wallet } from './icons';
@@ -11,12 +12,19 @@ import { isOwnerUnlocked, unlockOwner, verifyOwner } from '@/services/auth/owner
  */
 export function OwnerGate({
   title = 'Shared phones',
+  landOn,
   children,
 }: {
   /** The page being unlocked, named above the form. */
   title?: string;
+  /**
+   * Where to go once unlocked, instead of this page. /rozhadmin is the owner's
+   * way in, so it signs in for every owner page and lands on the dashboard.
+   */
+  landOn?: string;
   children: ReactNode;
 }) {
+  const navigate = useNavigate();
   const [unlocked, setUnlocked] = useState(isOwnerUnlocked);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +40,8 @@ export function OwnerGate({
     try {
       if (await verifyOwner(email, password)) {
         unlockOwner();
-        setUnlocked(true);
+        if (landOn) navigate(landOn, { replace: true });
+        else setUnlocked(true);
       } else {
         setError('Wrong email or password.');
         setPassword('');
@@ -45,10 +54,14 @@ export function OwnerGate({
   return (
     <AuthShell
       badgeIcon={<Lock width={20} height={20} />}
-      badge={`Private owner area · ${title}`}
+      badge={landOn ? 'Private owner area' : `Private owner area · ${title}`}
       title="Owner"
       accent="access"
-      subtitle={`${title} is private. Sign in with the owner account to open it.`}
+      subtitle={
+        landOn
+          ? 'Sign in with the owner account to open the private pages.'
+          : `${title} is private. Sign in with the owner account to open it.`
+      }
       footnote="Closing this tab locks the private pages again."
       headline={['Private reports,', 'yours only']}
       tagline="Phones. Places. Sales."
@@ -89,7 +102,7 @@ export function OwnerGate({
           loading={checking}
           disabled={!email.trim() || !password}
         >
-          Open {title} <ArrowRight width={18} height={18} />
+          {landOn ? 'Sign in' : `Open ${title}`} <ArrowRight width={18} height={18} />
         </Button>
       </form>
     </AuthShell>

@@ -175,6 +175,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Password dots. iPhone Safari drew them as striped bars, so the dots get
+   the plain system font with no ligatures or legibility tuning: every
+   browser then shows ordinary round dots. The placeholder keeps the page font. */
+input[type='password'] {
+  -webkit-text-security: disc;
+  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: normal;
+  font-variant-ligatures: none;
+  text-rendering: auto;
+  letter-spacing: 0.06em;
+}
+input[type='password']::placeholder {
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+}
+
 /* The seller's review sheet slides up from the bottom. */
 @keyframes sheet-up {
   from {

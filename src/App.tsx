@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { DataServiceProvider } from '@/services/data/context';
 import { AuthProvider } from '@/services/auth/context';
 import { RequireAuth } from '@/components/RequireAuth';
-import { routePatterns } from '@/routes';
+import { paths, routePatterns } from '@/routes';
 import { SupervisorDashboard } from '@/pages/SupervisorDashboard';
 import { EmployeeReportPage } from '@/pages/EmployeeReportPage';
 import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
@@ -68,12 +68,13 @@ export default function App() {
                 </RequireAuth>
               }
             />
-            {/* Unlisted owner report: supervisor sign-in, then its own password. */}
+            {/* Unlisted owner report: supervisor sign-in, then its own password.
+                The owner signs in here, so that lands on the dashboard. */}
             <Route
               path={routePatterns.devices}
               element={
                 <RequireAuth>
-                  <OwnerGate>
+                  <OwnerGate landOn={paths.dashboard}>
                     <SharedDevicesPage />
                   </OwnerGate>
                 </RequireAuth>
