@@ -210,7 +210,7 @@ function Section({ step, title, ku, children }: { step: number; title: string; k
 
 /**
  * The page social media sellers use to log orders. A seller sees only their
- * own orders, and can fix or delete one while it is still new — never anyone
+ * own orders, and can fix or delete one for 24 hours while it is still new — never anyone
  * else's. Everything else is in the owner's report.
  */
 export function SellerOrderPage() {
@@ -326,11 +326,11 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
       footnote="Accounts are made by your manager."
       headline={['Orders,', 'in one place']}
       tagline="Fast. Simple. Bilingual."
-      description="Save every Instagram, TikTok and Facebook order in seconds, and fix a mistake while the order is still new."
+      description="Save every Instagram, TikTok and Facebook order in seconds, and fix a mistake within 24 hours."
       features={[
         { icon: <Plus width={24} height={24} />, title: 'New order', text: 'Just as the customer said it' },
         { icon: <FileText width={24} height={24} />, title: 'My orders', text: 'Everything you have saved' },
-        { icon: <Pencil width={24} height={24} />, title: 'Fix mistakes', text: 'Edit or delete while still new' },
+        { icon: <Pencil width={24} height={24} />, title: 'Fix mistakes', text: 'Edit or delete within 24 hours' },
       ]}
     >
       {notice && <div className="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div>}
@@ -522,7 +522,7 @@ function SellerWorkspace({
         ? {
             en: 'My orders',
             ku: 'ئۆردەرەکانم',
-            sub: 'All your orders. You can fix or delete an order while it is still new.',
+            sub: 'All your orders. You can fix or delete one for 24 hours after saving it, while it is still new.',
           }
         : { en: `Edit order #${view.order.orderNo}`, ku: 'دەستکاریکردن', sub: 'Change what was wrong, then save.' };
 
@@ -603,7 +603,7 @@ function SellerWorkspace({
 
         <p className="mt-auto flex gap-2 text-xs leading-5 text-ink-400">
           <Clock width={14} height={14} className="mt-0.5 shrink-0" />
-          You can fix or delete an order while it is still new.
+          You can fix or delete an order for 24 hours after saving it, while it is still new.
         </p>
         <ThemeToggle className="mt-4" />
         <button
@@ -772,7 +772,8 @@ const MY_PAGE = 20;
 /** Why the seller cannot change an order, for the lock's tooltip. */
 function lockReason(o: SellerOrder): string {
   if (o.status !== 'new') return `${STATUS_LABEL[o.status]} by your manager — ask them to change it.`;
-  return 'From the old order sheet — ask your manager to change it.';
+  if (o.source === 'import') return 'From the old order sheet — ask your manager to change it.';
+  return 'Saved over 24 hours ago — ask your manager to change it.';
 }
 
 /**
@@ -1034,8 +1035,8 @@ function MyOrders({
 
       <p className="flex items-start gap-2 text-xs leading-5 text-ink-400">
         <Clock width={14} height={14} className="mt-0.5 shrink-0" />
-        You can edit or delete an order while it is New. Orders from the old sheet and orders your manager has
-        marked are locked.
+        You can edit or delete an order for 24 hours after you save it, while it is New. Older orders, orders from
+        the old sheet and orders your manager has marked are locked.
       </p>
     </div>
   );

@@ -1,7 +1,7 @@
 /**
  * Holds every check-in up against the work locations set under HR → Locations
- * & devices, so the owner can see by name who checked in from somewhere else.
- * Shown only on the owner-gated check-in locations page (/rozhadmin/locations).
+ * & devices, so supervisors can see by name who checked in from somewhere else.
+ * Shown only on the check-in locations page (/locations).
  *
  * Like the shared-phone report, nothing here ever blocks a check-in. It only
  * explains, afterwards, where each one came from:

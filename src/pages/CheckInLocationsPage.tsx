@@ -2,13 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import {
   CalendarDays,
   ChevronDown,
   Download,
   Home,
-  Lock,
   MapIcon,
   MapPin,
   MapPinOff,
@@ -20,7 +18,6 @@ import {
   X,
 } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
-import { lockOwner } from '@/services/auth/ownerGate';
 import {
   HOME_COUNTRY,
   activeZones,
@@ -401,11 +398,10 @@ function ExportButton({
 }
 
 /**
- * Owner page: every check-in held up against the work locations set in HR,
- * naming whoever checked in outside all of them or without sharing their
- * location. It sits behind the same owner password as the shared-phone report
- * and is the only place GPS and network details are shown — the session
- * screen and every supervisor page never receive them.
+ * Every check-in held up against the work locations set in HR, naming whoever
+ * checked in outside all of them or without sharing their location. In every
+ * supervisor's sidebar, and the only page that shows GPS and network details —
+ * the session screen never receives them.
  */
 export function CheckInLocationsPage() {
   const data = useDataService();
@@ -629,27 +625,13 @@ export function CheckInLocationsPage() {
           <div className="min-w-0">
             <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">Check-in locations</h1>
             <p className="mt-1 max-w-2xl text-sm text-ink-500 sm:text-base">
-              Track where employees check in, compared with their work locations set in HR. Only this private
-              report shows check-ins made outside the allowed locations or without a location.
+              Track where employees check in, compared with their work locations set in HR — and who checked in
+              outside the allowed locations or without a location.
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-start gap-4">
           <LatestOutside review={latestOutside} />
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Lock report"
-            title="Lock report"
-            className="px-2.5 sm:px-3"
-            leftIcon={<Lock width={15} height={15} />}
-            onClick={() => {
-              lockOwner();
-              window.location.reload();
-            }}
-          >
-            <span className="hidden sm:inline">Lock report</span>
-          </Button>
         </div>
       </div>
 

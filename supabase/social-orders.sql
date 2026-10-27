@@ -3,7 +3,7 @@
 -- Social media sellers sign in at /orders with an account the owner makes in
 -- /rozhadmin/orders. A seller adds orders and sees only their OWN orders —
 -- never anyone else's — and can fix or delete one they saved in the app
--- while it is still new. All orders are read only by signed-in
+-- for 24 hours, while it is still new. All orders are read only by signed-in
 -- supervisors and are shown in full only in the owner report.
 --
 -- Run once in the Supabase SQL editor, after schema.sql. Safe to run again —
@@ -334,10 +334,11 @@ $$;
 
 -- ── Seller: My orders — every order of their own ────────────────────────────
 -- Includes the ones imported from the old sheet under their account. An
--- order can be fixed or deleted by its seller, at any time, if they saved it
--- in the app and it is still new — once the owner marks it delivered,
--- cancelled or returned it is the owner's to change, and so are orders from
--- the old sheet.
+-- order can be fixed or deleted by its seller only if they saved it in the
+-- app, within the last 24 hours, and it is still new — after that, or once
+-- the owner marks it delivered, cancelled or returned, it is the owner's to
+-- change, and so are orders from the old sheet. The 24 hours count from when
+-- the seller saved it, not from the order day they picked.
 create or replace function public.social_my_orders(p_token text)
 returns jsonb
 language plpgsql
@@ -376,7 +377,9 @@ begin
              'note', o.note,
              'status', o.status,
              'source', o.source,
-             'canChange', o.source = 'app' and o.status = 'new')
+             'canChange', o.source = 'app'
+                          and o.status = 'new'
+                          and coalesce(o.entered_at, o.created_at) > now() - interval '24 hours')
            order by o.created_at desc)
       from public.social_orders as o
      where o.account_id = v_account.id
@@ -420,7 +423,8 @@ begin
    where id = p_order_id
      and account_id = v_account.id
      and source = 'app'
-     and status = 'new';
+     and status = 'new'
+     and coalesce(entered_at, created_at) > now() - interval '24 hours';
   if not found then
     raise exception 'ORDER_LOCKED';
   end if;
@@ -445,7 +449,8 @@ begin
    where id = p_order_id
      and account_id = v_account.id
      and source = 'app'
-     and status = 'new';
+     and status = 'new'
+     and coalesce(entered_at, created_at) > now() - interval '24 hours';
   if not found then
     raise exception 'ORDER_LOCKED';
   end if;

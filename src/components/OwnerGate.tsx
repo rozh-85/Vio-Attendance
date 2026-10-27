@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { AuthField, AuthShell, PasswordField } from './auth/AuthShell';
-import { ArrowRight, Lock, Mail, MapPin, Phone, Wallet } from './icons';
+import { ArrowRight, Lock, Mail, Phone, Wallet } from './icons';
 import { isOwnerUnlocked, unlockOwner, verifyOwner } from '@/services/auth/ownerGate';
 
 /**
@@ -64,12 +64,12 @@ export function OwnerGate({
       }
       footnote="Closing this tab locks the private pages again."
       headline={['Private reports,', 'yours only']}
-      tagline="Phones. Places. Sales."
-      description="See who shares a phone, who checks in away from work and what the social media team sells — none of it reaches a supervisor."
+      tagline="Phones. Sales."
+      description="See who shares a phone and what the social media team sells — none of it reaches a supervisor."
       features={[
         { icon: <Phone width={24} height={24} />, title: 'Shared phones', text: 'One phone, several names' },
-        { icon: <MapPin width={24} height={24} />, title: 'Check-in locations', text: 'Outside the work area, or on a VPN' },
         { icon: <Wallet width={24} height={24} />, title: 'Social media orders', text: 'Sales, sellers and exports' },
+        { icon: <Lock width={24} height={24} />, title: 'Locks with the tab', text: 'Closing the tab locks them again' },
       ]}
     >
       <form onSubmit={onSubmit} className="space-y-5">

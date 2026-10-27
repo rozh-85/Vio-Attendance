@@ -33,18 +33,13 @@ const adminLinks = [
   { to: paths.dashboard, label: 'Dashboard', icon: Home, end: true },
   { to: paths.employees, label: 'Employee report', icon: Search, end: false },
   { to: paths.leave, label: 'Leave management', icon: CalendarDays, end: false },
+  { to: paths.checkInLocations, label: 'Check-in locations', icon: MapPin, end: false },
   hrLink,
 ];
 
 // `end` keeps "Shared phones" from lighting up on its /rozhadmin/… sibling.
 const ownerLinks = [
   { to: paths.devices, label: 'Shared phones', icon: Phone, end: true },
-  {
-    to: paths.checkInLocations,
-    label: 'Check-in locations',
-    icon: MapPin,
-    end: false,
-  },
   { to: paths.socialOrders, label: 'Social media orders', icon: Wallet, end: false },
 ];
 

@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { DataServiceProvider } from '@/services/data/context';
 import { AuthProvider } from '@/services/auth/context';
 import { RequireAuth } from '@/components/RequireAuth';
@@ -80,16 +80,18 @@ export default function App() {
                 </RequireAuth>
               }
             />
-            {/* Same owner password: who checked in away from the work site. */}
+            {/* Who checked in away from the work site: any supervisor. */}
             <Route
               path={routePatterns.checkInLocations}
               element={
                 <RequireAuth>
-                  <OwnerGate title="Check-in locations">
-                    <CheckInLocationsPage />
-                  </OwnerGate>
+                  <CheckInLocationsPage />
                 </RequireAuth>
               }
+            />
+            <Route
+              path={routePatterns.oldCheckInLocations}
+              element={<Navigate to={paths.checkInLocations} replace />}
             />
             {/* Same owner password: the social media sellers' orders. */}
             <Route

@@ -13,8 +13,8 @@ export const paths = {
   // Unlisted: the shared-phone report names suspected proxy check-ins, so it
   // is not in the sidebar and asks for the owner's password of its own.
   devices: '/rozhadmin',
-  // Behind the same owner password: who checked in away from the work site.
-  checkInLocations: '/rozhadmin/locations',
+  // Who checked in away from the work site; in every supervisor's sidebar.
+  checkInLocations: '/locations',
   // Behind the same owner password: the social media sellers' orders.
   socialOrders: '/rozhadmin/orders',
   socialOrder: (id: string) => `/rozhadmin/orders/${id}`,
@@ -34,7 +34,9 @@ export const routePatterns = {
   catalog: '/catalog',
   hr: '/hr',
   devices: '/rozhadmin',
-  checkInLocations: '/rozhadmin/locations',
+  checkInLocations: '/locations',
+  // Its old owner-only address, sent on to the new one.
+  oldCheckInLocations: '/rozhadmin/locations',
   socialOrders: '/rozhadmin/orders',
   socialOrder: '/rozhadmin/orders/:orderId',
   sellerOrders: '/orders',
