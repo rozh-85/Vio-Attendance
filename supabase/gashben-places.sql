@@ -105,6 +105,47 @@ begin
   insert into public.gashben_place_calls(place_id,note) values(p_id,coalesce(p_note,''));
 end $$;
 
+create or replace function public.gashben_delete_place(p_token text, p_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+declare a uuid := public.gashben_places_account(p_token);
+begin
+  delete from public.gashben_places where id = p_id and account_id = a;
+  if not found then raise exception 'Place not found.'; end if;
+end $$;
+
+create or replace function public.gashben_owner_save_place(p_id uuid, p_place jsonb)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare a uuid; result uuid;
+begin
+  if auth.uid() is null or lower(coalesce(auth.jwt()->>'email','')) = 'feedback@gmail.com' then
+    raise exception 'NOT_ALLOWED';
+  end if;
+  if p_id is null then
+    select account_id into a from public.gashben_place_accounts order by account_id limit 1;
+    if a is null then raise exception 'Gashben account is not configured.'; end if;
+    insert into public.gashben_places(account_id,person_name,name,phone,city,kind,reminder_date)
+    values(a,btrim(p_place->>'person_name'),btrim(p_place->>'name'),btrim(p_place->>'phone'),btrim(p_place->>'city'),btrim(p_place->>'kind'),nullif(p_place->>'reminder_date','')::date)
+    returning id into result;
+  else
+    update public.gashben_places set person_name=btrim(p_place->>'person_name'), name=btrim(p_place->>'name'),
+      phone=btrim(p_place->>'phone'), city=btrim(p_place->>'city'), kind=btrim(p_place->>'kind'),
+      reminder_date=nullif(p_place->>'reminder_date','')::date
+    where id=p_id returning id into result;
+    if result is null then raise exception 'Place not found.'; end if;
+  end if;
+  return result;
+end $$;
+
+create or replace function public.gashben_owner_delete_place(p_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null or lower(coalesce(auth.jwt()->>'email','')) = 'feedback@gmail.com' then
+    raise exception 'NOT_ALLOWED';
+  end if;
+  delete from public.gashben_places where id = p_id;
+  if not found then raise exception 'Place not found.'; end if;
+end $$;
+
 -- Both the existing order and the place link are saved in one transaction.
 -- Uses the exact same validation and fields as the current order sheet.
 create or replace function public.gashben_submit_place_order(p_token text,p_id uuid,p_order jsonb)
@@ -121,10 +162,14 @@ begin
 end $$;
 
 revoke all on function public.gashben_places_access(text), public.gashben_places_data(text),
-  public.gashben_save_place(text,uuid,jsonb),public.gashben_log_call(text,uuid,text,date),
+  public.gashben_save_place(text,uuid,jsonb),public.gashben_delete_place(text,uuid),
+  public.gashben_log_call(text,uuid,text,date),
+  public.gashben_owner_save_place(uuid,jsonb),public.gashben_owner_delete_place(uuid),
   public.gashben_submit_place_order(text,uuid,jsonb) from public;
 grant execute on function public.gashben_places_access(text), public.gashben_places_data(text),
-  public.gashben_save_place(text,uuid,jsonb),public.gashben_log_call(text,uuid,text,date),
+  public.gashben_save_place(text,uuid,jsonb),public.gashben_delete_place(text,uuid),
+  public.gashben_log_call(text,uuid,text,date),
+  public.gashben_owner_save_place(uuid,jsonb),public.gashben_owner_delete_place(uuid),
   public.gashben_submit_place_order(text,uuid,jsonb) to anon, authenticated;
 notify pgrst, 'reload schema';
 commit;

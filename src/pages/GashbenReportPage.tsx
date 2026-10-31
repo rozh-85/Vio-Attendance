@@ -1,35 +1,92 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { ArrowLeft, Download, Pencil, Plus, Trash } from '@/components/icons';
 import { PlacesTable } from '@/components/places/PlacesTable';
 import { PlacesCalendar } from '@/components/places/PlacesCalendar';
-import { loadPlaces } from '@/services/places/store';
-import type { PlacesData } from '@/services/places/types';
-import { baghdadDay, reminderDay } from '@/services/places/types';
+import { CallHistory, isDue, PlaceEditorModal, PlaceOrdersCard, PlaceProfileHeader, PlacesStats, PlacesToolbar } from '@/components/places/PlaceParts';
+import { loadPlaces, savePlaceAsOwner, deletePlaceAsOwner } from '@/services/places/store';
+import type { Place, PlaceInput, PlacesData } from '@/services/places/types';
 import { getOrdersStore } from '@/services/orders/store';
 import type { SalesOrder } from '@/services/orders/types';
-import { formatIqd, STATUS_LABEL } from '@/services/orders/options';
+import { formatIqd } from '@/services/orders/options';
 import { exportGashbenPdf } from '@/services/report/gashbenPdf';
 import { paths } from '@/routes';
 
+/** The owner's view of Gashben's places: same table and profiles as Gashben sees, plus totals and a PDF. */
 export function GashbenReportPage() {
   const { placeId } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState<PlacesData>({ places: [], calls: [], links: [] });
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [query, setQuery] = useState('');
-  const [calendar, setCalendar] = useState(false);
+  const [dueOnly, setDueOnly] = useState(false);
+  const [view, setView] = useState<'table' | 'calendar'>('table');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editor, setEditor] = useState<Place | 'new' | null>(null);
   useEffect(() => { Promise.all([loadPlaces(), getOrdersStore().listOrders()]).then(([next, os]) => { setData(next); setOrders(os); }).catch((e) => setError(e instanceof Error ? e.message : 'Could not load Gashben report.')).finally(() => setLoading(false)); }, []);
-  const filtered = useMemo(() => data.places.filter((p) => [p.name,p.person_name,p.phone,p.city,p.kind].join(' ').toLowerCase().includes(query.toLowerCase())), [data.places, query]);
+
   const place = data.places.find((p) => p.id === placeId);
+  const due = data.places.filter(isDue).length;
+  const filtered = data.places.filter((p) => [p.name, p.person_name, p.phone, p.city, p.kind].join(' ').toLowerCase().includes(query.trim().toLowerCase()) && (!dueOnly || isDue(p)));
   const byId = new Map(orders.map((o) => [o.id, o]));
-  const linked = (id: string) => data.links.filter((l) => l.place_id === id).map((l) => byId.get(l.order_id)).filter((o): o is SalesOrder => !!o);
+  const ordersOf = (id: string) => data.links.filter((l) => l.place_id === id).map((l) => byId.get(l.order_id)).filter((o): o is SalesOrder => !!o);
+  const totals = (id: string) => { const list = ordersOf(id); return { count: list.length, total: list.reduce((s, o) => s + o.totalPrice, 0) }; };
+  const linkedValue = data.places.reduce((s, p) => s + totals(p.id).total, 0);
+
+  async function save(input: PlaceInput) {
+    const editing = editor !== 'new' && editor ? editor : null;
+    const id = await savePlaceAsOwner(input, editing?.id);
+    setEditor(null);
+    setData(await loadPlaces());
+    if (!editing) navigate(paths.gashbenPlaceReport(id));
+  }
+  async function removePlace(target: Place) {
+    if (!window.confirm(`Delete ${target.name}? Its call history and place links will be removed.`)) return;
+    try { await deletePlaceAsOwner(target.id); setData(await loadPlaces()); if (placeId) navigate(paths.gashbenReport); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not delete place.'); }
+  }
+
   if (loading) return <AdminLayout><p className="p-10 text-ink-500">Loading Gashben report…</p></AdminLayout>;
-  return <AdminLayout><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold text-brand-600">Owner report</p><h1 className="text-3xl font-bold">Gashben places</h1><p className="mt-1 max-w-3xl text-ink-500">Places, follow-up reminders and orders connected to the Gashben account.</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => exportGashbenPdf(data.places, data.links, orders)}>Export PDF</Button><Button variant="outline" onClick={() => setCalendar(!calendar)}>{calendar ? 'Table' : 'Calendar'}</Button></div></div>
-  {error && <Card className="mt-6 border-rose-200 bg-rose-50 p-5 text-rose-700">{error}</Card>}
-  {placeId && place ? <><Link className="mt-6 inline-block text-brand-700 underline" to={paths.gashbenReport}>← All Gashben places</Link><Card className="mt-4 p-6"><div className="grid gap-4 sm:grid-cols-4"><div><div className="text-xs uppercase text-ink-400">Place</div><div className="text-xl font-bold">{place.name}</div></div><div><div className="text-xs uppercase text-ink-400">Contact</div><div className="font-semibold">{place.person_name}</div><div className="text-sm text-ink-500">{place.phone}</div></div><div><div className="text-xs uppercase text-ink-400">City / type</div><div>{place.city} · {place.kind}</div></div><div><div className="text-xs uppercase text-ink-400">Next call</div><div className={reminderDay(place) <= baghdadDay() ? 'font-bold text-rose-600' : 'font-semibold'}>{reminderDay(place)}</div></div></div></Card><Card className="mt-5 overflow-hidden"><h2 className="p-5 text-lg font-bold">Linked orders · {linked(place.id).length}</h2><table className="w-full text-left text-sm"><thead className="bg-slate-50"><tr>{['Order','Date','Customer','Item','Total','Status'].map((h)=><th key={h} className="p-4">{h}</th>)}</tr></thead><tbody>{linked(place.id).map((o)=><tr key={o.id} className="border-t border-slate-100"><td className="p-4">#{o.orderNo}</td><td className="p-4">{o.createdAt.slice(0,10)}</td><td className="p-4">{o.customerName}</td><td className="p-4">{o.itemModel || o.itemCategory}</td><td className="p-4">{formatIqd(o.totalPrice)}</td><td className="p-4">{STATUS_LABEL[o.status]}</td></tr>)}</tbody></table></Card></> : <><div className="mt-6 grid gap-4 sm:grid-cols-4"><Card className="p-5"><div className="text-3xl font-bold">{data.places.length}</div><div className="text-sm text-ink-500">Places</div></Card><Card className="p-5"><div className="text-3xl font-bold">{data.places.filter((p) => reminderDay(p) <= baghdadDay()).length}</div><div className="text-sm text-ink-500">Calls due</div></Card><Card className="p-5"><div className="text-3xl font-bold">{data.links.length}</div><div className="text-sm text-ink-500">Linked orders</div></Card><Card className="p-5"><div className="text-3xl font-bold">{formatIqd(orders.filter((o) => data.links.some((l) => l.order_id === o.id)).reduce((sum,o)=>sum+o.totalPrice,0))}</div><div className="text-sm text-ink-500">Order value</div></Card></div><div className="mt-6"><Input label="Search" placeholder="Place, contact, phone or city…" value={query} onChange={(e) => setQuery(e.target.value)} /></div><div className="mt-6">{calendar ? <PlacesCalendar places={filtered} owner /> : <PlacesTable places={filtered} owner />}</div></>}</AdminLayout>;
+  return <AdminLayout><div className="mx-auto max-w-7xl space-y-5">
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p className="text-sm font-semibold text-brand-600">Owner report</p>
+        <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">Gashben places</h1>
+        <p className="mt-1 max-w-2xl text-ink-500">Places Gashben calls, their follow-up reminders and the orders saved for each one.</p>
+      </div>
+      <Button variant="outline" leftIcon={<Download width={16} height={16} />} onClick={() => exportGashbenPdf(place ? [place] : filtered, data.links, orders, data.calls)}>
+        {place ? 'Export place PDF' : 'Export PDF'}
+      </Button>
+    </div>
+    {error && <Card className="border-rose-200 bg-rose-50 p-5 text-rose-700">{error}</Card>}
+
+    {placeId && !place ? <Card className="p-6">Place not found. <Link className="text-brand-700 underline" to={paths.gashbenReport}>Back to all places</Link></Card> : place ? <>
+      <Link className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline" to={paths.gashbenReport}><ArrowLeft width={16} height={16} /> All Gashben places</Link>
+      <PlaceProfileHeader place={place} actions={<>
+        <Button variant="outline" leftIcon={<Pencil width={15} height={15} />} onClick={() => setEditor(place)}>Edit</Button>
+        <Button variant="ghost" aria-label="Delete place" className="text-rose-600 hover:bg-rose-50" onClick={() => void removePlace(place)}><Trash width={16} height={16} /></Button>
+      </>} />
+      <div className="grid items-start gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2"><PlaceOrdersCard orders={ordersOf(place.id)} empty="Gashben has not saved an order for this place yet." /></div>
+        <CallHistory calls={data.calls.filter((c) => c.place_id === place.id)} />
+      </div>
+    </> : <>
+      <PlacesStats items={[
+        { label: 'Places', value: data.places.length },
+        { label: 'Calls due', value: due, tone: due ? 'danger' : 'neutral' },
+        { label: 'Linked orders', value: data.links.length, tone: 'info' },
+        { label: 'Order value', value: formatIqd(linkedValue), tone: 'success' },
+      ]} />
+      <PlacesToolbar query={query} onQuery={setQuery} dueOnly={dueOnly} onDueOnly={setDueOnly} dueCount={due} view={view} onView={setView}>
+        <Button leftIcon={<Plus width={16} height={16} />} onClick={() => setEditor('new')}>Add place</Button>
+      </PlacesToolbar>
+      {view === 'table' ? <PlacesTable places={filtered} owner totals={totals} onEdit={setEditor} onDelete={(target) => void removePlace(target)} /> : <PlacesCalendar places={filtered} owner />}
+    </>}
+
+    <PlaceEditorModal open={editor !== null} initial={editor === 'new' ? null : editor} onSave={save} onClose={() => setEditor(null)} />
+  </div></AdminLayout>;
 }

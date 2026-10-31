@@ -49,6 +49,34 @@ export async function savePlace(token: string, input: PlaceInput, id?: string): 
   persist(data);
   return place.id;
 }
+export async function deletePlace(token: string, id: string): Promise<void> {
+  if (getSupabaseClient()) return rpc('gashben_delete_place', { p_token: token, p_id: id });
+  const account = await requireAccount(token);
+  const data = localData();
+  const place = data.places.find((p) => p.id === id && p.account_id === account);
+  if (!place) throw new Error('Place not found.');
+  data.places = data.places.filter((p) => p.id !== id);
+  data.calls = data.calls.filter((c) => c.place_id !== id);
+  data.links = data.links.filter((l) => l.place_id !== id);
+  persist(data);
+}
+export async function savePlaceAsOwner(input: PlaceInput, id?: string): Promise<string> {
+  if (getSupabaseClient()) return rpc<string>('gashben_owner_save_place', { p_id: id ?? null, p_place: input });
+  const data = localData();
+  const existing = data.places.find((p) => p.id === id);
+  const place: Place = { ...input, id: id ?? crypto.randomUUID(), account_id: existing?.account_id ?? data.places[0]?.account_id ?? 'gashben', created_at: existing?.created_at ?? new Date().toISOString(), last_activity: existing?.last_activity ?? new Date().toISOString() };
+  data.places = [...data.places.filter((p) => p.id !== place.id), place];
+  persist(data);
+  return place.id;
+}
+export async function deletePlaceAsOwner(id: string): Promise<void> {
+  if (getSupabaseClient()) return rpc('gashben_owner_delete_place', { p_id: id });
+  const data = localData();
+  data.places = data.places.filter((p) => p.id !== id);
+  data.calls = data.calls.filter((c) => c.place_id !== id);
+  data.links = data.links.filter((l) => l.place_id !== id);
+  persist(data);
+}
 export async function logCall(token: string, id: string, note: string, nextDate: string | null): Promise<void> {
   if (getSupabaseClient()) return rpc('gashben_log_call', { p_token: token, p_id: id, p_note: note, p_next_date: nextDate });
   const account = await requireAccount(token);

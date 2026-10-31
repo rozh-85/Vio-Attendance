@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Logo } from '@/components/Logo';
 import { AuthField, AuthShell, PasswordField } from '@/components/auth/AuthShell';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { ArrowRight, CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Pencil, Plus, Search, Trash, User, X } from '@/components/icons';
+import { ArrowRight, Building, CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Menu, Pencil, Plus, Search, Trash, User, X } from '@/components/icons';
 import {
   CATEGORIES,
   CITIES,
@@ -525,11 +525,33 @@ function SellerWorkspace({
     }
   }
 
-  const navItems = [
-    { kind: 'new' as const, label: 'New order', ku: 'ئۆردەری نوێ', icon: Plus },
-    { kind: 'mine' as const, label: 'My orders', ku: 'ئۆردەرەکانم', icon: FileText, count: mine.length },
+  const navItems: { kind: 'new' | 'mine' | 'places'; label: string; ku: string; icon: typeof Plus; count?: number }[] = [
+    { kind: 'new', label: 'New order', ku: 'ئۆردەری نوێ', icon: Plus },
+    { kind: 'mine', label: 'My orders', ku: 'ئۆردەرەکانم', icon: FileText, count: mine.length },
+    // Only Gashben's account has places to call.
+    ...(placesAccess ? [{ kind: 'places' as const, label: 'Places & calls', ku: 'شوێنەکان و پەیوەندی', icon: Building }] : []),
   ];
   const activeNav = placesPage ? 'places' : view.kind === 'edit' ? 'mine' : view.kind;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pick = (kind: (typeof navItems)[number]['kind']) => {
+    setMenuOpen(false);
+    if (kind === 'places') navigate(paths.sellerPlaces);
+    else go({ kind });
+  };
+
+  // A new page closes the phone menu; while it is open the page behind holds still.
+  useEffect(() => setMenuOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    document.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [menuOpen]);
 
   const title = placesPage ? { en: 'Places & calls', ku: 'شوێنەکان', sub: 'Your contacts, place orders and follow-up calendar.' } :
     view.kind === 'new'
@@ -542,134 +564,165 @@ function SellerWorkspace({
           }
         : { en: `Edit order #${view.order.orderNo}`, ku: 'دەستکاریکردن', sub: 'Change what was wrong, then save.' };
 
+  /** The menu, shared by the laptop sidebar and the phone's slide-out one. */
+  const sidebar = (
+    <>
+      <div className="mt-6 flex items-center gap-3 rounded-2xl bg-slate-50 p-3 lg:mt-8">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-600 text-lg font-bold text-white">
+          {firstName.charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0">
+          <div className="truncate font-bold text-ink-900">{session.displayName}</div>
+          <div className="text-xs text-ink-400">Seller</div>
+        </div>
+      </div>
+
+      <nav className="mt-6 space-y-1">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = activeNav === item.kind;
+          return (
+            <button
+              key={item.kind}
+              type="button"
+              onClick={() => pick(item.kind)}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition',
+                active ? 'bg-brand-600 text-white shadow-sm' : 'text-ink-700 hover:bg-slate-100 hover:text-ink-900',
+              )}
+            >
+              <Icon width={18} height={18} className="shrink-0" />
+              <span className="flex-1">
+                {item.label}
+                <span dir="rtl" className={cn('block text-xs font-medium', active ? 'text-white/75' : 'text-ink-400')}>
+                  {item.ku}
+                </span>
+              </span>
+              {item.count !== undefined && item.count > 0 && (
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-xs tabular-nums',
+                    active ? 'bg-white/20 text-white' : 'bg-slate-100 text-ink-500',
+                  )}
+                >
+                  {item.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+        <div className="bg-brand-600 px-4 py-3 text-white">
+          <div className="text-xs font-bold uppercase tracking-wide text-white/75">All my orders</div>
+          <div className="mt-0.5 flex items-baseline gap-2">
+            <span className="text-3xl font-bold tabular-nums">{allTime.orders.toLocaleString('en-US')}</span>
+            <span className="text-sm text-white/80">{allTime.orders === 1 ? 'order' : 'orders'}</span>
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Saved today</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl font-bold tabular-nums text-ink-900">{today.orders}</span>
+            <span className="text-xs text-ink-500">{today.orders === 1 ? 'order' : 'orders'}</span>
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-auto flex gap-2 pt-6 text-xs leading-5 text-ink-400">
+        <Clock width={14} height={14} className="mt-0.5 shrink-0" />
+        You can fix or delete an order for 24 hours after saving it, while it is still new.
+      </p>
+      <ThemeToggle className="mt-4" />
+      <button
+        type="button"
+        onClick={onSignOut}
+        className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+      >
+        <Logout width={18} height={18} /> Sign out
+      </button>
+    </>
+  );
+
+  const brand = (
+    <div className="flex items-center gap-2.5 px-1">
+      <Logo size={36} />
+      <div className="leading-tight">
+        <div className="text-sm font-bold text-ink-900">Vio Orders</div>
+        <div className="text-xs text-ink-400">Social media sales</div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen w-full lg:flex">
       {/* ── Sidebar (laptop) ─────────────────────────────────────────────── */}
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-slate-200 bg-card px-5 py-6 lg:flex">
-        <div className="flex items-center gap-2.5 px-1">
-          <Logo size={36} />
-          <div className="leading-tight">
-            <div className="text-sm font-bold text-ink-900">Vio Orders</div>
-            <div className="text-xs text-ink-400">Social media sales</div>
-          </div>
-        </div>
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-card px-5 py-6 lg:flex">
+        {brand}
+        {sidebar}
+      </aside>
 
-        <div className="mt-8 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-600 text-lg font-bold text-white">
-            {firstName.charAt(0).toUpperCase()}
-          </span>
-          <div className="min-w-0">
-            <div className="truncate font-bold text-ink-900">{session.displayName}</div>
-            <div className="text-xs text-ink-400">Seller</div>
-          </div>
-        </div>
-
-        <nav className="mt-6 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeNav === item.kind;
-            return (
-              <button
-                key={item.kind}
-                type="button"
-                onClick={() => go({ kind: item.kind })}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition',
-                  active ? 'bg-brand-600 text-white shadow-sm' : 'text-ink-700 hover:bg-slate-100 hover:text-ink-900',
-                )}
-              >
-                <Icon width={18} height={18} className="shrink-0" />
-                <span className="flex-1">
-                  {item.label}
-                  <span dir="rtl" className={cn('block text-xs font-medium', active ? 'text-white/75' : 'text-ink-400')}>
-                    {item.ku}
-                  </span>
-                </span>
-                {item.count !== undefined && item.count > 0 && (
-                  <span
-                    className={cn(
-                      'rounded-full px-2 py-0.5 text-xs tabular-nums',
-                      active ? 'bg-white/20 text-white' : 'bg-slate-100 text-ink-500',
-                    )}
-                  >
-                    {item.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-          {placesAccess && <Link to={paths.sellerPlaces} className={cn('mt-2 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold', placesPage ? 'bg-brand-600 text-white' : 'text-ink-700 hover:bg-slate-100')}><CalendarDays width={18} />Places & calls</Link>}
-        </nav>
-
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-          <div className="bg-brand-600 px-4 py-3 text-white">
-            <div className="text-xs font-bold uppercase tracking-wide text-white/75">All my orders</div>
-            <div className="mt-0.5 flex items-baseline gap-2">
-              <span className="text-3xl font-bold tabular-nums">{allTime.orders.toLocaleString('en-US')}</span>
-              <span className="text-sm text-white/80">{allTime.orders === 1 ? 'order' : 'orders'}</span>
-            </div>
-          </div>
-          <div className="px-4 py-3">
-            <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Saved today</div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-xl font-bold tabular-nums text-ink-900">{today.orders}</span>
-              <span className="text-xs text-ink-500">{today.orders === 1 ? 'order' : 'orders'}</span>
-            </div>
-          </div>
-        </div>
-
-        <p className="mt-auto flex gap-2 text-xs leading-5 text-ink-400">
-          <Clock width={14} height={14} className="mt-0.5 shrink-0" />
-          You can fix or delete an order for 24 hours after saving it, while it is still new.
-        </p>
-        <ThemeToggle className="mt-4" />
+      {/* ── The same sidebar on phones, sliding in from the left ─────────── */}
+      <div className={cn('fixed inset-0 z-50 lg:hidden', !menuOpen && 'pointer-events-none')}>
         <button
           type="button"
-          onClick={onSignOut}
-          className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+          tabIndex={menuOpen ? 0 : -1}
+          aria-label="Close menu"
+          onClick={() => setMenuOpen(false)}
+          className={cn(
+            'absolute inset-0 bg-[#0f172a]/45 backdrop-blur-[2px] transition-opacity duration-300',
+            menuOpen ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+        <aside
+          id="seller-navigation"
+          aria-label="Menu"
+          inert={!menuOpen}
+          className={cn(
+            'absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-slate-200 bg-card px-5 pb-6 pt-4 shadow-2xl transition-[translate,visibility] duration-300 ease-out',
+            menuOpen ? 'visible translate-x-0' : 'invisible -translate-x-full',
+          )}
         >
-          <Logout width={18} height={18} /> Sign out
-        </button>
-      </aside>
+          <div className="flex items-center justify-between gap-2">
+            {brand}
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setMenuOpen(false)}
+              className="grid size-10 shrink-0 place-items-center rounded-xl text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+            >
+              <X width={20} height={20} />
+            </button>
+          </div>
+          {sidebar}
+        </aside>
+      </div>
 
       <div className="min-w-0 flex-1">
         {/* ── Top bar (phone and tablet) ─────────────────────────────────── */}
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-card/95 backdrop-blur lg:hidden">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <Logo size={34} />
+          <div className="flex items-center gap-2 px-3 py-2.5">
+            <button
+              type="button"
+              className="grid size-10 shrink-0 place-items-center rounded-xl text-ink-700 transition hover:bg-slate-100"
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              aria-controls="seller-navigation"
+              onClick={() => setMenuOpen(true)}
+            >
+              <Menu width={22} height={22} />
+            </button>
+            <Logo size={30} className="shrink-0 rounded-lg" />
             <div className="min-w-0 flex-1 leading-tight">
-              <div className="truncate font-bold text-ink-900">Hi, {firstName}</div>
-              <div className="truncate text-xs text-ink-500">
-                <b className="text-ink-900">{allTime.orders.toLocaleString('en-US')}</b>{' '}
-                {allTime.orders === 1 ? 'order' : 'orders'} in total · {today.orders} today
+              <div className="truncate text-sm font-bold text-ink-900">{title.en}</div>
+              <div className="truncate text-[11px] text-ink-500">
+                Hi, {firstName} · <b className="text-ink-900">{allTime.orders.toLocaleString('en-US')}</b>{' '}
+                {allTime.orders === 1 ? 'order' : 'orders'} · {today.orders} today
               </div>
             </div>
             <ThemeToggle variant="icon" />
-            <button
-              type="button"
-              onClick={onSignOut}
-              aria-label="Sign out"
-              className="grid size-10 place-items-center rounded-xl text-ink-500 hover:bg-slate-100"
-            >
-              <Logout width={20} height={20} />
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-1 px-4 pb-3">
-            {navItems.map((item) => (
-              <button
-                key={item.kind}
-                type="button"
-                onClick={() => go({ kind: item.kind })}
-                className={cn(
-                  'rounded-xl py-2 text-sm font-semibold transition',
-                  activeNav === item.kind ? 'bg-brand-600 text-white' : 'bg-slate-100 text-ink-700',
-                )}
-              >
-                {item.label}
-                {item.count ? ` (${item.count})` : ''}
-              </button>
-            ))}
-            {placesAccess && <Link className={cn('rounded-xl px-3 py-2 text-center text-sm font-semibold', placesPage ? 'bg-brand-600 text-white' : 'bg-slate-100 text-ink-700')} to={paths.sellerPlaces}>Places & calls</Link>}
           </div>
         </header>
 
@@ -1534,8 +1587,8 @@ function OrderForm({
           {error && <div className="mb-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>}
           <div className="flex gap-2">
             {onCancel && (
-              <Button type="button" variant="outline" size="lg" className="px-4" onClick={onCancel}>
-                Cancel
+              <Button type="button" variant="outline" size="lg" className="shrink-0 px-4" aria-label="Cancel" onClick={onCancel}>
+                <X width={18} height={18} />
               </Button>
             )}
             <button
