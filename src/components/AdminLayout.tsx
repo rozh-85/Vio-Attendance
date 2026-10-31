@@ -40,6 +40,7 @@ const adminLinks = [
 // `end` keeps "Shared phones" from lighting up on its /rozhadmin/… sibling.
 const ownerLinks = [
   { to: paths.devices, label: 'Shared phones', icon: Phone, end: true },
+  { to: paths.gashbenReport, label: 'Gashben places report', icon: Building, end: false },
   { to: paths.socialOrders, label: 'Social media orders', icon: Wallet, end: false },
 ];
 

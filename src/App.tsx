@@ -1,3 +1,4 @@
+import { GashbenReportPage } from '@/pages/GashbenReportPage';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { DataServiceProvider } from '@/services/data/context';
 import { AuthProvider } from '@/services/auth/context';
@@ -104,6 +105,8 @@ export default function App() {
                 </RequireAuth>
               }
             />
+            <Route path={routePatterns.gashbenReport} element={<RequireAuth><OwnerGate title="Gashben places report"><GashbenReportPage /></OwnerGate></RequireAuth>} />
+            <Route path={routePatterns.gashbenPlaceReport} element={<RequireAuth><OwnerGate title="Gashben places report"><GashbenReportPage /></OwnerGate></RequireAuth>} />
             {/* One order on its own page, opened from the orders report. */}
             <Route
               path={routePatterns.socialOrder}
@@ -133,6 +136,8 @@ export default function App() {
             <Route path={routePatterns.checkOut} element={<CheckOutPage />} />
             {/* Social media sellers: their own sign-in, add-only. */}
             <Route path={routePatterns.sellerOrders} element={<SellerOrderPage />} />
+            <Route path={routePatterns.sellerPlaces} element={<SellerOrderPage />} />
+            <Route path={routePatterns.sellerPlace} element={<SellerOrderPage />} />
 
             {/* Everything else — /login, /register, and any unknown URL — shows
                 the neutral employee page. It never reveals the admin login. */}

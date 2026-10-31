@@ -223,6 +223,12 @@ main schema. It adds revision-safe HR JSON persistence and a private
 `hr-documents` storage bucket. Local development stores the same workspace in
 browser storage.
 
+For the Gashben places page and its linked place orders, run
+[`supabase/gashben-places.sql`](supabase/gashben-places.sql) after
+[`supabase/social-orders.sql`](supabase/social-orders.sql). The script finds the
+Gashben seller account by username/display name; it also includes a marked
+insert statement for pointing the feature at the account UUID directly.
+
 ## Catalog Management
 
 The unlisted `/catalog` route contains a single Master Catalog and a

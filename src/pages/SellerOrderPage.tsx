@@ -1,3 +1,7 @@
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { paths } from '@/routes';
+import { canUsePlaces } from '@/services/places/store';
+import { SellerPlacesPage } from '@/pages/SellerPlacesPage';
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { format, parseISO, subDays } from 'date-fns';
 import { Screen } from '@/components/Screen';
@@ -388,6 +392,17 @@ function SellerWorkspace({
   onSignOut: () => void;
   onExpired: () => void;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const placesPage = location.pathname.startsWith(paths.sellerPlaces);
+  const [placesAccess, setPlacesAccess] = useState<boolean | null>(null);
+  const [placesAccessError, setPlacesAccessError] = useState('');
+  useEffect(() => {
+    let active = true;
+    canUsePlaces(session.token).then((allowed) => { if (active) setPlacesAccess(allowed); })
+      .catch((e) => { if (active) { setPlacesAccess(false); setPlacesAccessError(e instanceof Error ? e.message : 'Could not check places access.'); } });
+    return () => { active = false; };
+  }, [session.token]);
   const [view, setView] = useState<View>({ kind: 'new' });
   const [mine, setMine] = useState<SellerOrder[]>([]);
   const [loadingMine, setLoadingMine] = useState(true);
@@ -450,6 +465,7 @@ function SellerWorkspace({
   };
 
   const go = (next: View) => {
+    if (placesPage) navigate(paths.sellerOrders);
     setView(next);
     if (next.kind !== 'mine') setFlash(null);
     window.scrollTo({ top: 0 });
@@ -513,9 +529,9 @@ function SellerWorkspace({
     { kind: 'new' as const, label: 'New order', ku: 'ئۆردەری نوێ', icon: Plus },
     { kind: 'mine' as const, label: 'My orders', ku: 'ئۆردەرەکانم', icon: FileText, count: mine.length },
   ];
-  const activeNav = view.kind === 'edit' ? 'mine' : view.kind;
+  const activeNav = placesPage ? 'places' : view.kind === 'edit' ? 'mine' : view.kind;
 
-  const title =
+  const title = placesPage ? { en: 'Places & calls', ku: 'شوێنەکان', sub: 'Your contacts, place orders and follow-up calendar.' } :
     view.kind === 'new'
       ? { en: 'New order', ku: 'ئۆردەری نوێ', sub: 'Fill in the order as the customer gave it.' }
       : view.kind === 'mine'
@@ -582,6 +598,7 @@ function SellerWorkspace({
               </button>
             );
           })}
+          {placesAccess && <Link to={paths.sellerPlaces} className={cn('mt-2 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold', placesPage ? 'bg-brand-600 text-white' : 'text-ink-700 hover:bg-slate-100')}><CalendarDays width={18} />Places & calls</Link>}
         </nav>
 
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
@@ -652,6 +669,7 @@ function SellerWorkspace({
                 {item.count ? ` (${item.count})` : ''}
               </button>
             ))}
+            {placesAccess && <Link className={cn('rounded-xl px-3 py-2 text-center text-sm font-semibold', placesPage ? 'bg-brand-600 text-white' : 'bg-slate-100 text-ink-700')} to={paths.sellerPlaces}>Places & calls</Link>}
           </div>
         </header>
 
@@ -671,12 +689,12 @@ function SellerWorkspace({
               </h1>
               <p className="mt-1 text-ink-500">{title.sub}</p>
             </div>
-            {view.kind === 'mine' && (
+            {!placesPage && view.kind === 'mine' && (
               <Button leftIcon={<Plus />} onClick={() => go({ kind: 'new' })}>
                 New order
               </Button>
             )}
-            {view.kind === 'new' && (
+            {!placesPage && view.kind === 'new' && (
               <Button variant="outline" size="sm" leftIcon={<X width={16} height={16} />} onClick={clearForm}>
                 Clear form
                 <span className="text-slate-300">·</span>
@@ -687,7 +705,7 @@ function SellerWorkspace({
             )}
           </div>
 
-          {flash && (
+          {!placesPage && flash && (
             <div
               className={cn(
                 'mb-6 flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4',
@@ -728,10 +746,10 @@ function SellerWorkspace({
             </div>
           )}
 
-          {view.kind === 'new' && (
+          {!placesPage && view.kind === 'new' && (
             <OrderForm key={`new-${formKey}`} mode="new" sellerName={session.displayName} onSubmit={saveNew} />
           )}
-          {view.kind === 'edit' && (
+          {!placesPage && view.kind === 'edit' && (
             <OrderForm
               key={`edit-${view.order.id}`}
               mode="edit"
@@ -742,10 +760,10 @@ function SellerWorkspace({
               onDelete={() => void remove(view.order)}
             />
           )}
-          {view.kind === 'mine' && mineError && (
+          {!placesPage && view.kind === 'mine' && mineError && (
             <div className="mb-6 rounded-2xl bg-amber-50 px-5 py-4 text-sm text-amber-800">{mineError}</div>
           )}
-          {view.kind === 'mine' && !mineError && (
+          {!placesPage && view.kind === 'mine' && !mineError && (
             <MyOrders
               orders={mine}
               loading={loadingMine}
@@ -753,6 +771,13 @@ function SellerWorkspace({
               onDelete={(order) => void remove(order)}
             />
           )}
+          {placesPage && (placesAccess === null ? <p>Checking account…</p> : !placesAccess ? <Card className="p-6"><p>{placesAccessError || 'This page is only available to Gashben.'}</p><Link className="mt-3 block text-brand-700 underline" to={paths.sellerOrders}>Back to orders</Link></Card> :
+            <SellerPlacesPage token={session.token} orders={mine} onOrdersChanged={loadMine} renderOrder={({ place, onSubmit, onCancel }) =>
+              <OrderForm key={place.id} mode="new" sellerName={session.displayName}
+                draftKey={`vio.placeOrderDraft.${place.id}`}
+                prefill={{ customerName: place.person_name, customerPhone: place.phone, city: place.city, address: place.name }}
+                onSubmit={onSubmit} onCancel={onCancel} />
+            } />)}
         </main>
       </div>
     </div>
@@ -1167,6 +1192,8 @@ const CHECKS: { key: keyof Errors; label: string }[] = [
 ];
 
 function OrderForm({
+  draftKey = DRAFT_KEY,
+  prefill,
   mode,
   sellerName,
   initial,
@@ -1174,6 +1201,8 @@ function OrderForm({
   onCancel,
   onDelete,
 }: {
+  draftKey?: string;
+  prefill?: Partial<Draft>;
   mode: 'new' | 'edit';
   sellerName: string;
   initial?: SellerOrder;
@@ -1183,7 +1212,7 @@ function OrderForm({
   onDelete?: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>(() =>
-    initial ? draftFrom(initial) : (loadJson<Draft>(DRAFT_KEY) ?? emptyDraft()),
+    initial ? draftFrom(initial) : (loadJson<Draft>(draftKey) ?? { ...emptyDraft(), ...prefill }),
   );
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
@@ -1206,8 +1235,8 @@ function OrderForm({
 
   // A new order keeps what is typed, so a reload or a call coming in loses nothing.
   useEffect(() => {
-    if (mode === 'new') saveJson(DRAFT_KEY, draft);
-  }, [draft, mode]);
+    if (mode === 'new') saveJson(draftKey, draft);
+  }, [draft, mode, draftKey]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));

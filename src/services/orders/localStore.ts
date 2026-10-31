@@ -1,3 +1,4 @@
+import { isGashbenIdentity } from '@/services/places/types';
 import { OrdersError } from './errors';
 import { MAX_BACKDATE_DAYS } from './options';
 import type { OrdersStore } from './store';
@@ -75,6 +76,11 @@ export class LocalOrdersStore implements OrdersStore {
       ? read<StoredAccount>(KEYS.accounts).find((a) => a.id === session.accountId)
       : undefined;
     return account?.active ? account : null;
+  }
+
+  async placesAccount(token: string): Promise<string | null> {
+    const account = await this.accountFor(token);
+    return account && isGashbenIdentity(account.username, account.displayName) ? account.id : null;
   }
 
   async signIn(username: string, password: string): Promise<SellerSession> {
