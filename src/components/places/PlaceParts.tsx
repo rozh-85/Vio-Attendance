@@ -1,11 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input, Textarea } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { CalendarDays, Clock, MapPin, Phone, Search, User } from '@/components/icons';
+import { Building, CalendarDays, Check, Clock, MapPin, Phone, Search, User } from '@/components/icons';
 import { baghdadDay, reminderDay, type Place, type PlaceCall, type PlaceInput } from '@/services/places/types';
 import { formatIqd, STATUS_LABEL } from '@/services/orders/options';
 import { cn } from '@/utils/cn';
@@ -49,7 +49,7 @@ export function PlacesStats({ items }: { items: { label: string; value: number |
     <div className={cn('grid grid-cols-2 gap-3', items.length > 3 ? 'lg:grid-cols-4' : 'sm:grid-cols-3')}>
       {items.map((item) => (
         <div key={item.label} className={cn('rounded-2xl border p-4 sm:p-5', statTones[item.tone ?? 'neutral'])}>
-          <div className="break-words text-xl font-bold tabular-nums sm:text-2xl xl:text-3xl">{item.value}</div>
+          <div className="text-lg font-bold tabular-nums sm:text-2xl xl:text-3xl">{item.value}</div>
           <div className="mt-1 text-sm font-medium text-ink-500">{item.label}</div>
         </div>
       ))}
@@ -57,59 +57,127 @@ export function PlacesStats({ items }: { items: { label: string; value: number |
   );
 }
 
-/** Search, All/Due filter and Table/Calendar switch, in one row. */
-export function PlacesToolbar({
+/** Gashben's start of the day: how many calls are waiting, and the totals in one line. */
+export function TodayCard({ due, metrics, onStart }: { due: number; metrics: { label: string; value: string | number }[]; onStart: () => void }) {
+  return (
+    <div className="overflow-hidden rounded-3xl bg-brand-600 text-white shadow-sm">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wide text-white/70">
+            Today · {format(parseISO(baghdadDay()), 'EEEE d MMMM')}
+          </div>
+          <div className="mt-1 text-2xl font-bold sm:text-3xl">
+            {due ? `${due} ${due === 1 ? 'call' : 'calls'} to make` : 'All caught up'}
+          </div>
+          <div className="mt-0.5 text-sm text-white/80">
+            {due ? 'Overdue and today’s follow-ups are waiting.' : 'No follow-up calls are due today.'}
+          </div>
+        </div>
+        {due > 0 && (
+          <button
+            type="button"
+            onClick={onStart}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-brand-700 shadow-sm transition hover:bg-white/90"
+          >
+            <Phone width={16} height={16} /> Start calling
+          </button>
+        )}
+      </div>
+      <dl className="grid grid-cols-3 divide-x divide-white/15 border-t border-white/15 bg-black/10">
+        {metrics.map((m) => (
+          <div key={m.label} className="min-w-0 px-3 py-3 text-center sm:px-5">
+            <dd className="text-sm font-bold tabular-nums sm:text-lg">{m.value}</dd>
+            <dt className="truncate text-[11px] font-medium uppercase tracking-wide text-white/70">{m.label}</dt>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+export type PlacesTab = 'due' | 'all' | 'calendar';
+
+/**
+ * One row to find a place: the three views as big tabs (calls to make first),
+ * and a search box. Extra buttons (Add place) go at the end.
+ */
+export function PlacesTabs({
+  tab,
+  onTab,
+  dueCount,
+  allCount,
   query,
   onQuery,
-  dueOnly,
-  onDueOnly,
-  dueCount,
-  view,
-  onView,
   children,
 }: {
+  tab: PlacesTab;
+  onTab: (tab: PlacesTab) => void;
+  dueCount: number;
+  allCount: number;
   query: string;
   onQuery: (q: string) => void;
-  dueOnly: boolean;
-  onDueOnly: (due: boolean) => void;
-  dueCount: number;
-  view: 'table' | 'calendar';
-  onView: (v: 'table' | 'calendar') => void;
   children?: ReactNode;
 }) {
+  const tabs = [
+    { id: 'due' as const, label: 'Calls to make', icon: Phone, count: dueCount },
+    { id: 'all' as const, label: 'All places', icon: Building, count: allCount },
+    { id: 'calendar' as const, label: 'Calendar', icon: CalendarDays },
+  ];
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-      <label className="relative min-w-0 flex-1">
-        <span className="sr-only">Search places</span>
-        <Search width={18} height={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
-        <input
-          className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-4 text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-          placeholder="Search place, contact, phone or city…"
-          value={query}
-          onChange={(e) => onQuery(e.target.value)}
-        />
-      </label>
-      <div className="flex flex-wrap items-center gap-2">
-        <Segmented
-          value={dueOnly ? 'due' : 'all'}
-          onChange={(v) => onDueOnly(v === 'due')}
-          options={[
-            { id: 'all', label: 'All' },
-            { id: 'due', label: `Calls due${dueCount ? ` · ${dueCount}` : ''}` },
-          ]}
-        />
-        <Segmented
-          value={view}
-          onChange={(v) => onView(v as 'table' | 'calendar')}
-          options={[
-            { id: 'table', label: 'Table' },
-            { id: 'calendar', label: 'Calendar' },
-          ]}
-        />
+    <div className="space-y-3">
+      <div role="tablist" aria-label="Places view" className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
+        {tabs.map(({ id, label, icon: Icon, count }) => {
+          const active = tab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onTab(id)}
+              className={cn(
+                'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-xs font-semibold transition sm:flex-row sm:gap-2 sm:text-sm',
+                active ? 'bg-card text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
+              )}
+            >
+              <Icon width={18} height={18} className={cn('shrink-0', active && 'text-brand-600')} />
+              <span className="truncate">{label}</span>
+              {count !== undefined && (
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-[11px] tabular-nums',
+                    id === 'due' && count > 0 ? 'bg-rose-600 text-white' : 'bg-slate-200/70 text-ink-500',
+                  )}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex gap-2">
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">Search places</span>
+          <Search width={18} height={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+          <input
+            type="search"
+            className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-4 text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            placeholder="Search place, person, phone or city…"
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+          />
+        </label>
         {children}
       </div>
     </div>
   );
+}
+
+/** Filters places by the search box and the chosen tab. */
+export function filterPlaces(places: Place[], query: string, tab: PlacesTab): Place[] {
+  const q = query.trim().toLowerCase();
+  return places.filter((p) => (!q || [p.name, p.person_name, p.phone, p.city, p.kind].join(' ').toLowerCase().includes(q)) && (tab !== 'due' || isDue(p)));
 }
 
 export function Segmented({ value, onChange, options }: { value: string; onChange: (id: string) => void; options: { id: string; label: string }[] }) {
@@ -268,7 +336,7 @@ export function ReminderChoice({ value, onChange, label }: { value: string | nul
   );
 }
 
-export function RecordCallCard({ onSave }: { onSave: (note: string, nextDate: string | null) => Promise<void> }) {
+function RecordCallForm({ onSave, compact = false }: { onSave: (note: string, nextDate: string | null) => Promise<void>; compact?: boolean }) {
   const [note, setNote] = useState('');
   const [nextDate, setNextDate] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -276,17 +344,32 @@ export function RecordCallCard({ onSave }: { onSave: (note: string, nextDate: st
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    try { await onSave(note, nextDate); setNote(''); setNextDate(null); setResetKey((k) => k + 1); } finally { setBusy(false); }
+    try { await onSave(note, nextDate); setNote(''); setNextDate(null); setResetKey((k) => k + 1); } catch { /* the page shows the error */ } finally { setBusy(false); }
   }
+  return (
+    <form onSubmit={submit} className={cn('space-y-4', !compact && 'mt-4')}>
+      <Textarea label="Call notes" placeholder="What did they say? (optional)" maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />
+      <ReminderChoice key={resetKey} label="Next call" value={nextDate} onChange={setNextDate} />
+      <Button type="submit" fullWidth loading={busy} leftIcon={<Check width={16} height={16} />}>Save call</Button>
+    </form>
+  );
+}
+
+export function RecordCallCard({ onSave }: { onSave: (note: string, nextDate: string | null) => Promise<void> }) {
   return (
     <Card className="p-5">
       <h3 className="text-lg font-bold text-ink-900">Record a call</h3>
-      <form onSubmit={submit} className="mt-4 space-y-4">
-        <Textarea label="Call notes" placeholder="What did they say?" maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} />
-        <ReminderChoice key={resetKey} label="Next call" value={nextDate} onChange={setNextDate} />
-        <Button type="submit" fullWidth loading={busy} leftIcon={<Phone width={16} height={16} />}>Mark as called</Button>
-      </form>
+      <RecordCallForm onSave={onSave} />
     </Card>
+  );
+}
+
+/** "I called them" straight from the list, without opening the place. */
+export function RecordCallModal({ place, onSave, onClose }: { place: Place | null; onSave: (place: Place, note: string, nextDate: string | null) => Promise<void>; onClose: () => void }) {
+  return (
+    <Modal open={!!place} onClose={onClose} title={place ? `Called ${place.name}` : ''} description={place ? `${place.person_name} · ${place.phone}` : undefined} className="max-w-lg">
+      {place && <RecordCallForm compact onSave={async (note, next) => { await onSave(place, note, next); onClose(); }} />}
+    </Modal>
   );
 }
 
