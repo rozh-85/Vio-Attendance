@@ -22,11 +22,11 @@ interface Square {
   size: AppTile['size'];
 }
 
+/** From a tablet up: small 1×1, wide 2×1, big 2×2. */
 const SPAN: Record<AppTile['size'], string> = {
-  small: '',
-  wide: 'col-span-2',
-  // On a phone a big square would fill the screen: it lies wide there instead.
-  big: 'col-span-2 sm:row-span-2',
+  small: 'sm:col-span-1',
+  wide: 'sm:col-span-2',
+  big: 'sm:col-span-2 sm:row-span-2',
 };
 
 /** A darker step of a colour, for the square's gradient. */
@@ -36,8 +36,12 @@ function deeper(hex: string, by = 0.28): string {
   return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
 }
 
-/** One square: a colour, its icon, its name — the whole square opens the page. */
-function Tile({ square }: { square: Square }) {
+/**
+ * One square: a colour, its icon, its name — the whole square opens the page.
+ * On a phone every square is the same size, two across; `phoneWide` lets the
+ * first one of an odd group lie across both, so the rows come out even.
+ */
+function Tile({ square, phoneWide }: { square: Square; phoneWide: boolean }) {
   const Icon = square.icon;
   const big = square.size === 'big';
   return (
@@ -46,6 +50,7 @@ function Tile({ square }: { square: Square }) {
       className={cn(
         'group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-3 text-white shadow-sm outline-none transition duration-200',
         'hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-4 focus-visible:ring-brand-500/40 active:scale-[0.98] sm:p-4',
+        phoneWide ? 'col-span-2' : 'col-span-1',
         SPAN[square.size],
       )}
       style={{ background: `linear-gradient(140deg, ${square.color}, ${deeper(square.color)})` }}
@@ -56,15 +61,23 @@ function Tile({ square }: { square: Square }) {
         className="pointer-events-none absolute -bottom-[12%] -right-[10%] size-[62%] opacity-[0.13] transition duration-300 group-hover:scale-110 group-hover:opacity-20"
         strokeWidth={1.5}
       />
-      <Icon className={cn('relative shrink-0', big ? 'size-9 sm:size-11' : 'size-6 sm:size-7')} strokeWidth={1.8} />
+      <Icon className={cn('relative size-7 shrink-0', big ? 'sm:size-11' : 'sm:size-7')} strokeWidth={1.8} />
       <span className="relative min-w-0">
-        <span className={cn('block font-bold leading-tight', big ? 'text-xl sm:text-2xl' : 'text-sm sm:text-base')}>{square.label}</span>
-        {square.about && square.size !== 'small' && (
-          <span className="mt-1 line-clamp-2 block text-xs leading-snug text-white/80 sm:text-sm">{square.about}</span>
+        <span className={cn('block text-base font-bold leading-tight', big ? 'sm:text-2xl' : 'sm:text-base')}>{square.label}</span>
+        {square.about && (
+          <span
+            className={cn(
+              'mt-1 line-clamp-2 text-xs leading-snug text-white/80 sm:text-sm',
+              phoneWide ? 'block' : 'hidden',
+              square.size === 'small' ? 'sm:hidden' : 'sm:block',
+            )}
+          >
+            {square.about}
+          </span>
         )}
       </span>
       {big && (
-        <span className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-white/15 opacity-0 transition group-hover:opacity-100 sm:right-4 sm:top-4">
+        <span className="absolute right-3 top-3 hidden size-9 place-items-center rounded-full bg-white/15 opacity-0 transition group-hover:opacity-100 sm:right-4 sm:top-4 sm:grid">
           <ArrowRight width={18} height={18} />
         </span>
       )}
@@ -74,7 +87,8 @@ function Tile({ square }: { square: Square }) {
 
 /**
  * A group of squares. The grid measures itself, so every square stays square
- * whatever the width: 2 across on a phone, 4 across from a tablet up.
+ * whatever the width: 2 across on a phone (all one size), 4 across from a
+ * tablet up (small, wide and big).
  */
 function Group({ label, about, squares }: { label: string; about: string; squares: Square[] }) {
   return (
@@ -88,8 +102,8 @@ function Group({ label, about, squares }: { label: string; about: string; square
           className="grid grid-flow-dense grid-cols-2 gap-3 [--cols:2] sm:grid-cols-4 sm:[--cols:4]"
           style={{ gridAutoRows: 'calc((100cqw - (var(--cols) - 1) * 0.75rem) / var(--cols))' } as CSSProperties}
         >
-          {squares.map((s) => (
-            <Tile key={s.key} square={s} />
+          {squares.map((s, i) => (
+            <Tile key={s.key} square={s} phoneWide={i === 0 && squares.length % 2 === 1} />
           ))}
         </div>
       </div>
