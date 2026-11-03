@@ -68,6 +68,7 @@ interface OrderRow {
   item_model: string;
   item_category: string;
   total_price: number | string;
+  quantity?: number | null;
   gender: SalesOrder['gender'];
   platform: string;
   purchase: SalesOrder['purchase'];
@@ -107,6 +108,7 @@ function toOrder(row: OrderRow): SalesOrder {
     itemModel: row.item_model,
     itemCategory: row.item_category,
     totalPrice: Number(row.total_price) || 0,
+    quantity: Number(row.quantity) || 1,
     gender: row.gender,
     platform: row.platform,
     purchase: row.purchase,
@@ -143,6 +145,7 @@ function orderColumns(order: SalesOrderPatch): Record<string, unknown> {
     itemModel: 'item_model',
     itemCategory: 'item_category',
     totalPrice: 'total_price',
+    quantity: 'quantity',
     gender: 'gender',
     platform: 'platform',
     purchase: 'purchase',
@@ -164,7 +167,7 @@ function orderColumns(order: SalesOrderPatch): Record<string, unknown> {
  * Columns added after social-orders.sql was first run. A database that has
  * not re-run it rejects them, and the write is repeated without them.
  */
-const LATER_COLUMNS = ['purchase_count', 'entered_at'];
+const LATER_COLUMNS = ['purchase_count', 'entered_at', 'quantity'];
 
 function missingLaterColumn(error: { code?: string; message?: string } | null): string | null {
   if (!error || (error.code !== 'PGRST204' && error.code !== '42703')) return null;
@@ -232,6 +235,7 @@ class SupabaseOrdersStore implements OrdersStore {
     return ((data ?? []) as SellerOrder[]).map((o) => ({
       ...o,
       totalPrice: Number(o.totalPrice) || 0,
+      quantity: Number(o.quantity) || 1,
       purchaseCount: o.purchaseCount ?? null,
       enteredAt: o.enteredAt ?? o.createdAt,
       source: o.source ?? 'app',

@@ -47,15 +47,50 @@ export interface Sponsor {
 
 export type SponsorInput = Omit<Sponsor, 'id' | 'createdAt'>;
 
+/** One item model on the owner's price list. */
 export interface ModelCost {
   /** `modelKey()` of the model. */
   key: string;
-  /** The model as written when its cost was set, e.g. V.502. */
+  /** The model as written, e.g. V-502. */
   label: string;
-  /** What one piece costs Vio, in IQD. */
-  cost: number;
+  /** What one piece costs Vio, in IQD; null until written. */
+  cost: number | null;
+  /** What one piece sells for, in IQD; null until written. */
+  price: number | null;
+  /** The item type its orders are saved under, e.g. هیتەر. */
+  category: string;
+  /** Offered to sellers on the order form (once it has a price). */
+  active: boolean;
   updatedAt: string;
 }
+
+/** A model as it is saved: everything but the time. */
+export type ModelValues = Omit<ModelCost, 'updatedAt'>;
+
+/**
+ * The model `key` as saved now, with `patch` laid over it — what a page
+ * sends to save one change without losing the model's other fields.
+ */
+export function modelWith(
+  data: ProfitData,
+  key: string,
+  label: string,
+  patch: Partial<Pick<ModelCost, 'cost' | 'price' | 'category' | 'active'>>,
+): ModelValues {
+  const m = data.models[key];
+  return {
+    key,
+    label: label.trim() || m?.label || key,
+    cost: patch.cost !== undefined ? patch.cost : (m?.cost ?? null),
+    price: patch.price !== undefined ? patch.price : (m?.price ?? null),
+    category: patch.category !== undefined ? patch.category.trim() : (m?.category ?? ''),
+    active: patch.active !== undefined ? patch.active : (m?.active ?? true),
+  };
+}
+
+/** A model with no price, no cost and no type of its own holds nothing worth keeping. */
+export const isEmptyModel = (m: Pick<ModelCost, 'cost' | 'price' | 'category' | 'active'>) =>
+  m.cost === null && m.price === null && !m.category.trim() && m.active;
 
 export interface ProfitData {
   /** By `modelKey()`. */
@@ -99,13 +134,16 @@ export function parseIqd(value: string): number | null {
 
 export type CostSource = 'order' | 'model';
 
-/** What the goods of this order cost, and where that number came from; null when unknown. */
+/**
+ * What the goods of this order cost — its own cost, or its model's cost
+ * times the pieces — and where that came from; null when unknown.
+ */
 export function costOf(order: SalesOrder, data: ProfitData): { cost: number; source: CostSource } | null {
   const own = data.orderCosts[order.id];
   if (own !== undefined) return { cost: own, source: 'order' };
   const key = modelKey(order.itemModel);
   const model = key ? data.models[key] : undefined;
-  return model ? { cost: model.cost, source: 'model' } : null;
+  return model && model.cost !== null ? { cost: model.cost * (order.quantity || 1), source: 'model' } : null;
 }
 
 /** Price less cost for a sale; null for a cancelled or returned order, or one with no cost. */
@@ -154,7 +192,7 @@ export interface ModelRow {
   cost: number | null;
   /** Sales of it on record, every period. */
   allOrders: number;
-  /** Its average price over every sale on record. */
+  /** Its average price for one piece, over every sale on record. */
   avgPrice: number;
   /** Sales of it in the period. */
   orders: number;
@@ -251,6 +289,7 @@ function modelRows(all: SalesOrder[], data: ProfitData, from: string, to: string
     categories: Map<string, number>;
     allOrders: number;
     allSales: number;
+    allPieces: number;
     orders: number;
     sales: number;
     profit: number;
@@ -267,6 +306,7 @@ function modelRows(all: SalesOrder[], data: ProfitData, from: string, to: string
         categories: new Map(),
         allOrders: 0,
         allSales: 0,
+        allPieces: 0,
         orders: 0,
         sales: 0,
         profit: 0,
@@ -276,6 +316,7 @@ function modelRows(all: SalesOrder[], data: ProfitData, from: string, to: string
     bump(acc.categories, order.itemCategory.trim());
     acc.allOrders += 1;
     acc.allSales += order.totalPrice;
+    acc.allPieces += order.quantity || 1;
     if (inPeriod(orderDay(order), from, to)) {
       acc.orders += 1;
       acc.sales += order.totalPrice;
@@ -295,6 +336,7 @@ function modelRows(all: SalesOrder[], data: ProfitData, from: string, to: string
         categories: new Map(),
         allOrders: 0,
         allSales: 0,
+        allPieces: 0,
         orders: 0,
         sales: 0,
         profit: 0,
@@ -312,7 +354,7 @@ function modelRows(all: SalesOrder[], data: ProfitData, from: string, to: string
         category: mostCommon(acc.categories),
         cost: key ? (data.models[key]?.cost ?? null) : null,
         allOrders: acc.allOrders,
-        avgPrice: acc.allOrders ? acc.allSales / acc.allOrders : 0,
+        avgPrice: acc.allPieces ? acc.allSales / acc.allPieces : 0,
         orders: acc.orders,
         sales: acc.sales,
         profit: acc.profit,

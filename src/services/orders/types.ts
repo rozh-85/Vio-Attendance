@@ -21,8 +21,10 @@ export interface SalesOrder {
   address: string;
   itemModel: string;
   itemCategory: string;
-  /** Total price in IQD. */
+  /** Total price in IQD, for every piece together. */
   totalPrice: number;
+  /** Pieces of the item; 1 on orders from before quantities were kept. */
+  quantity: number;
   gender: CustomerGender | '';
   platform: string;
   purchase: OrderPurchase | '';
@@ -61,6 +63,8 @@ export type NewSalesOrder = Pick<
 > & {
   /** An earlier day for an order the seller forgot to save; left out means now. */
   orderDate?: string | null;
+  /** Pieces of the item, 1 when left out. */
+  quantity?: number;
 };
 
 /** What the owner may change on a saved order. */

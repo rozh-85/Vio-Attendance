@@ -14,6 +14,7 @@ import {
   Phone,
   Search,
   Settings,
+  TrendingUp,
   UserPlus,
   Users,
   Wallet,
@@ -42,6 +43,7 @@ const ownerLinks = [
   { to: paths.devices, label: 'Shared phones', icon: Phone, end: true },
   { to: paths.gashbenReport, label: 'Gashben places report', icon: Building, end: false },
   { to: paths.socialOrders, label: 'Social media orders', icon: Wallet, end: false },
+  { to: paths.profit, label: 'Profit', icon: TrendingUp, end: false },
 ];
 
 const hrIcons: Record<HrTab, typeof Users> = {
