@@ -4,3 +4,6 @@ node_modules
 .env
 .env.local
 .env.*.local
+
+# Product photo originals; uploaded to GitHub by hand, not with the code
+Appliance images/
