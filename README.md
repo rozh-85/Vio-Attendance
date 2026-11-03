@@ -231,28 +231,33 @@ insert statement for pointing the feature at the account UUID directly.
 
 ## Profit on social media orders
 
-The **Profit** tab of `/rozhadmin/orders` (behind the owner password) works out
-what the orders really earned:
+**Profit** has its own page at `/rozhadmin/profit`, in the sidebar next to
+*Social media orders* once the owner password is entered:
 
-> Sales − cost of the goods = **gross profit** · gross profit − sponsors = **net profit**
+> Sales − goods − sponsors = **net profit**
 
-- **Cost of each model** — write what one piece costs once, and every order of
-  that model, old and new, gets its profit. Spellings are merged (`V.502`,
-  `v502`, `V-502` and Kurdish digits are one model). Enter saves and moves to the
-  next model; **No cost yet** lists the ones still missing.
-- **Sponsors** — each paid post or ad, in dollars (with the rate) or dinars, and
-  the days it ran. Its cost is spread evenly over those days, so a period only
-  carries its own share.
+- **The Profit page** shows that sum as four tiles for the chosen period, where
+  each 1,000 IQD of sales went, net profit day by day, whether each platform's
+  sponsors pay off, the period's sponsors and the most profitable models, and
+  exports it all to Excel.
+- **Model costs** (`/rozhadmin/profit/costs`) — its own page, with a back arrow
+  and a Save bar. Write what one piece of a model costs once and every order of
+  it, old and new, gets its profit. Spellings are merged (`V.502`, `v502`,
+  `V-502` and Kurdish digits are one model). Enter moves to the next box;
+  nothing is saved until **Save**. Orders where no model was written get a cost
+  of their own on the same page.
+- **Sponsors** (`/rozhadmin/profit/sponsors/new`, or a sponsor's own page) —
+  platform, amount in dollars (with the rate) or dinars, and the days it ran.
+  Its cost is shared evenly over those days, so a period carries only its own
+  share. Deleting asks on the page itself.
 - **One order's own cost** — on an order's page, *Cost & profit* takes a cost
   for that order alone (two pieces, a different supplier price), or sets the
   model's cost for all its orders.
-- Orders with no cost are **left out** of the profit and counted as *No cost
-  yet*, so a missing cost never shows up as profit. Cancelled and returned
-  orders count no sales and no cost.
+- Orders with no cost are **left out** and flagged, so a missing cost never
+  shows up as profit. Cancelled and returned orders count no sales and no cost.
 
-The tab shows net profit for a period, the way from sales to it, profit by day,
-whether each platform's sponsors pay off, and exports it all to Excel. Once a
-cost is set, the orders table shows each order's profit under its price.
+No pop-ups: going back with something not saved shows a notice on the page
+with *Save and go back* or *Leave without saving*.
 
 Run [`supabase/social-profit.sql`](supabase/social-profit.sql) once, after
 `social-orders.sql`. It adds three tables — `social_model_costs`,
@@ -301,6 +306,7 @@ src/
 | `/VioAdmin`             | Supervisor | Sign in (deliberately non-obvious)     |
 | `/rozhadmin`             | Owner      | Phones used by several employees (unlisted, own password) |
 | `/rozhadmin/locations`   | Owner      | Check-ins outside the work location, and VPNs (same password) |
+| `/rozhadmin/profit`      | Owner      | Profit on social media orders: model costs and sponsors (same password) |
 | `/checkin/:sessionId`    | Employee   | Enter code to check in                 |
 | `/checkout/:sessionId`   | Employee   | Enter code to check out                |
 | `/recover`               | Employee   | Look up code by phone number           |

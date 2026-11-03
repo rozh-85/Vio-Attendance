@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { OrdersReport } from '@/components/orders/OrdersReport';
 import { SellerAccounts } from '@/components/orders/SellerAccounts';
 import { OrderImport } from '@/components/orders/OrderImport';
-import { ProfitReport } from '@/components/orders/profit/ProfitReport';
 import { useDataService } from '@/services/data/context';
 import { lockOwner } from '@/services/auth/ownerGate';
 import { sellerColor } from '@/services/orders/options';
@@ -14,13 +13,14 @@ import { sellerList } from '@/services/orders/report';
 import { OrdersError, getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { SalesOrder, SocialAccount } from '@/services/orders/types';
 import { profitOf, type ProfitData } from '@/services/orders/profit';
-import { ProfitNotSetUpError, getProfitStore, profitErrorMessage } from '@/services/orders/profitStore';
+import { getProfitStore } from '@/services/orders/profitStore';
+import { TrendingUp } from '@/components/icons';
+import { paths } from '@/routes';
 import type { Employee } from '@/types';
 import { cn } from '@/utils/cn';
 
 const TABS = [
   { id: 'report', label: 'Report' },
-  { id: 'profit', label: 'Profit' },
   { id: 'accounts', label: 'Accounts' },
   { id: 'import', label: 'Import' },
 ] as const;
@@ -36,7 +36,7 @@ const REFRESH_MS = 30_000;
  */
 export function SocialOrdersPage() {
   const data = useDataService();
-  // In the address (?tab=profit), so a refresh stays on the same tab.
+  // In the address (?tab=accounts), so a refresh stays on the same tab.
   const [params, setParams] = useSearchParams();
   const tab: Tab = TABS.some((t) => t.id === params.get('tab')) ? (params.get('tab') as Tab) : 'report';
   const setTab = (next: Tab) => setParams(next === 'report' ? {} : { tab: next }, { replace: true });
@@ -46,16 +46,15 @@ export function SocialOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ setup: boolean; message: string } | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  // Costs and sponsors load on their own: the orders work without them.
+  // Model costs, for the profit under each price. The orders work without
+  // them (before supabase/social-profit.sql has been run, say).
   const [profit, setProfit] = useState<ProfitData | null>(null);
-  const [profitError, setProfitError] = useState<{ setup: boolean; message: string } | null>(null);
 
   const reloadProfit = useCallback(async () => {
     try {
       setProfit(await getProfitStore().load());
-      setProfitError(null);
-    } catch (err) {
-      setProfitError({ setup: err instanceof ProfitNotSetUpError, message: profitErrorMessage(err) });
+    } catch {
+      setProfit(null);
     }
   }, []);
 
@@ -99,10 +98,6 @@ export function SocialOrdersPage() {
   // old sheet by how many orders it has — so each seller keeps one colour.
   const sellers = useMemo(() => sellerList(orders, accounts.map((a) => a.displayName)), [orders, accounts]);
 
-  const updateProfit = useCallback((change: (data: ProfitData) => ProfitData) => {
-    setProfit((current) => (current ? change(current) : current));
-  }, []);
-
   // Profit under each order's price, once at least one cost has been set.
   const orderProfit = useMemo(() => {
     if (!profit || (!Object.keys(profit.models).length && !Object.keys(profit.orderCosts).length)) return undefined;
@@ -134,6 +129,12 @@ export function SocialOrdersPage() {
               Live
             </span>
           )}
+          <Link
+            to={paths.profit}
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#047857] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#065f46]"
+          >
+            <TrendingUp width={16} height={16} /> Profit
+          </Link>
           <Button
             variant="outline"
             onClick={() => {
@@ -190,27 +191,6 @@ export function SocialOrdersPage() {
             profitOf={orderProfit}
             onChanged={() => void reload()}
           />
-        ) : tab === 'profit' ? (
-          profit ? (
-            <ProfitReport orders={orders} data={profit} update={updateProfit} />
-          ) : profitError ? (
-            <Card className="border-amber-200 bg-amber-50/60 p-6 text-amber-900">
-              <h2 className="text-lg font-bold">{profitError.setup ? 'One step left' : 'Could not load costs and sponsors'}</h2>
-              <p className="mt-1">{profitError.message}</p>
-              {profitError.setup && (
-                <p className="mt-2 text-sm">
-                  Open Supabase → SQL editor, paste the file{' '}
-                  <code className="font-mono">supabase/social-profit.sql</code>, press Run, then come back here. The
-                  orders are not touched.
-                </p>
-              )}
-              <Button className="mt-4" variant="outline" onClick={() => void reloadProfit()}>
-                Try again
-              </Button>
-            </Card>
-          ) : (
-            <p className="py-10 text-center text-ink-400">Loading…</p>
-          )
         ) : tab === 'accounts' ? (
           <SellerAccounts
             accounts={accounts}

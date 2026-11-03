@@ -10,6 +10,9 @@ import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
 import { CheckInLocationsPage } from '@/pages/CheckInLocationsPage';
 import { SocialOrdersPage } from '@/pages/SocialOrdersPage';
 import { OrderEditPage } from '@/pages/OrderEditPage';
+import { ProfitPage } from '@/pages/ProfitPage';
+import { ModelCostsPage } from '@/pages/ModelCostsPage';
+import { SponsorPage } from '@/pages/SponsorPage';
 import { SellerOrderPage } from '@/pages/SellerOrderPage';
 import { OwnerGate } from '@/components/OwnerGate';
 import { SessionView } from '@/pages/SessionView';
@@ -114,6 +117,37 @@ export default function App() {
                 <RequireAuth>
                   <OwnerGate title="Social media orders">
                     <OrderEditPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
+            {/* Profit on the social media orders: its own pages, same owner password. */}
+            <Route
+              path={routePatterns.profit}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="Profit">
+                    <ProfitPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.profitCosts}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="Profit">
+                    <ModelCostsPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.profitSponsor}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="Profit">
+                    <SponsorPage />
                   </OwnerGate>
                 </RequireAuth>
               }

@@ -440,3 +440,9 @@ export const AlertTriangle = (p: IconProps) => (
     <path d="M12 9v4M12 17h.01" />
   </svg>
 );
+
+export const ChevronRight = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
