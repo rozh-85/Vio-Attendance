@@ -1,248 +1,267 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
-import { AlertTriangle, ArrowRight, CheckCircle, TrendingDown, TrendingUp } from '@/components/icons';
+import { AlertTriangle, ArrowRight, Check } from '@/components/icons';
 import type { ProfitSummary } from '@/services/orders/profit';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
-import { MINUS, MONEY, iqd, percent, shortIqd, signedIqd, type MoneyTone } from './parts';
+import { MINUS, MONEY, SectionHead, iqd, linkButton, percent, signTone, type MoneyTone } from './parts';
 
-function Tile({
+/** "1,250,000 IQD", the currency quieter than the number. */
+function Amount({ value, sign }: { value: number; sign?: boolean }) {
+  const text = sign && value < 0 ? `${MINUS}${iqd(Math.abs(value))}` : iqd(value);
+  return (
+    <span className="whitespace-nowrap">
+      <span className="tabular-nums">{text}</span>
+      <span className="ml-1 text-sm font-medium text-ink-400">IQD</span>
+    </span>
+  );
+}
+
+function Stat({
   tone,
   label,
   value,
   sub,
-  subTone,
-  share,
-  shareLabel,
+  valueTone,
+  note,
 }: {
   tone: MoneyTone;
   label: string;
-  value: number;
-  sub: string;
-  subTone?: string;
-  /** 0–1, drawn as a bar at the foot of the tile. */
-  share: number;
-  shareLabel: string;
+  value: ReactNode;
+  sub: ReactNode;
+  valueTone?: string;
+  note?: ReactNode;
 }) {
   return (
-    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-card px-3.5 pb-3.5 pt-4 shadow-sm sm:px-5 sm:pb-5 sm:pt-5">
-      <span className={cn('absolute inset-x-0 top-0 h-1', MONEY[tone].bg)} />
-      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-400 sm:text-xs">
+    <Card className="flex min-w-0 flex-col p-4 sm:p-5">
+      <div className="flex items-center gap-2 text-sm font-medium text-ink-500">
         <span className={cn('size-2 shrink-0 rounded-full', MONEY[tone].bg)} />
-        <span className="truncate">{label}</span>
+        {label}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-1 font-bold text-ink-900">
-        {/* Short on phones and tablets, the full amount once there is room. */}
-        <span className="text-xl sm:text-2xl lg:hidden">{shortIqd(value)}</span>
-        <span className="hidden text-xl [overflow-wrap:anywhere] lg:inline xl:text-2xl 2xl:text-[1.7rem]">{iqd(value)}</span>
-        <span className="text-xs font-semibold text-ink-400">IQD</span>
+      <div className={cn('mt-2 text-xl font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-2xl', valueTone ?? 'text-ink-900')}>
+        {value}
       </div>
-      <div className={cn('mt-1 hidden text-sm sm:block', subTone ?? 'text-ink-500')}>{sub}</div>
-      <div className="mt-auto pt-3" title={shareLabel}>
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <div className={cn('h-full rounded-full', MONEY[tone].bg)} style={{ width: `${Math.min(1, Math.max(0, share)) * 100}%` }} />
-        </div>
-        <div className="mt-1.5 hidden text-[11px] text-ink-400 sm:block">{shareLabel}</div>
-      </div>
-    </div>
+      <div className="mt-1 text-sm text-ink-500">{sub}</div>
+      {note && <div className="mt-3 border-t border-slate-100 pt-2.5 text-xs text-amber-700">{note}</div>}
+    </Card>
   );
 }
 
-function Operator({ sign }: { sign: string }) {
+/** The four numbers the page is about: sales, goods, sponsors and what is left. */
+export function KeyFigures({ s }: { s: ProfitSummary }) {
+  const counted = s.costedOrders > 0 || s.sponsor > 0;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
-    <div className="relative z-10 hidden items-center justify-center lg:flex" aria-hidden>
-      <span className="grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-card text-xl font-bold text-ink-400 shadow-sm">
-        {sign}
-      </span>
-    </div>
-  );
-}
-
-/** A thin line of net profit, day by day, inside the net tile. */
-function Sparkline({ values }: { values: number[] }) {
-  if (values.length < 2) return null;
-  const max = Math.max(...values, 0);
-  const min = Math.min(...values, 0);
-  const span = max - min || 1;
-  const pts = values.map((v, i) => `${(i / (values.length - 1)) * 100},${((max - v) / span) * 100}`).join(' ');
-  const zero = ((max - 0) / span) * 100;
-  return (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-12 w-full" aria-hidden>
-      <line x1="0" x2="100" y1={zero} y2={zero} stroke="white" strokeOpacity="0.25" vectorEffect="non-scaling-stroke" />
-      <polyline
-        points={pts}
-        fill="none"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-/**
- * The profit as the sum it is: sales − goods − sponsors = net profit, each
- * part its own tile. Sales here are those that have a cost, so the sum on
- * screen always adds up; sales still waiting for a cost are named under it.
- */
-export function Equation({ s }: { s: ProfitSummary }) {
-  const loss = s.net < 0;
-  return (
-    <section
-      aria-label="Net profit"
-      className="grid grid-cols-3 gap-2.5 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_1.25rem_minmax(0,1fr)_1.25rem_minmax(0,1fr)_1.25rem_minmax(0,1.35fr)] lg:gap-0"
-    >
-      <Tile
+    <section aria-label="Key figures" className="grid grid-cols-2 gap-3 lg:gap-4 xl:grid-cols-4">
+      <Stat
         tone="sales"
         label="Sales"
-        value={s.costedSales}
-        sub={
-          s.uncostedOrders > 0
-            ? `${shortIqd(s.uncostedSales)} more waiting for a cost`
-            : `${s.orders} ${s.orders === 1 ? 'order' : 'orders'}`
-        }
-        subTone={s.uncostedOrders > 0 ? 'text-amber-700' : undefined}
-        share={s.sales ? s.costedSales / s.sales : 0}
-        shareLabel={s.sales ? `${percent(s.costedSales / s.sales)} of all sales have a cost` : 'No sales yet'}
+        value={<Amount value={s.sales} />}
+        sub={s.orders ? `${plural(s.orders, 'order', 'orders')} · ${iqd(s.sales / s.orders)} average` : 'No orders yet'}
       />
-      <Operator sign={MINUS} />
-      <Tile
+      <Stat
         tone="goods"
-        label="Goods"
-        value={s.cogs}
-        sub={s.costedOrders ? `${s.costedOrders} ${s.costedOrders === 1 ? 'order' : 'orders'} with a cost` : 'No cost set yet'}
-        share={s.costedSales ? s.cogs / s.costedSales : 0}
-        shareLabel={s.costedSales ? `${percent(s.cogs / s.costedSales)} of these sales` : '—'}
+        label="Cost of goods"
+        value={s.costedOrders ? <Amount value={s.cogs} /> : '—'}
+        sub={s.costedOrders ? `${percent(s.cogs / (s.costedSales || 1))} of the sales it covers` : 'Add model costs to see it'}
       />
-      <Operator sign={MINUS} />
-      <Tile
+      <Stat
         tone="sponsor"
         label="Sponsors"
-        value={s.sponsor}
-        sub={s.sponsorCount ? `${s.sponsorCount} ${s.sponsorCount === 1 ? 'sponsor' : 'sponsors'}` : 'None in this period'}
-        share={s.costedSales ? s.sponsor / s.costedSales : 0}
-        shareLabel={s.costedSales ? `${percent(s.sponsor / s.costedSales)} of these sales` : '—'}
+        value={<Amount value={s.sponsor} />}
+        sub={
+          s.sponsorCount
+            ? `${plural(s.sponsorCount, 'sponsor', 'sponsors')}${s.roas !== null ? ` · ${s.roas.toFixed(1)}× sales back` : ''}`
+            : 'None in this period'
+        }
       />
-      <Operator sign="=" />
-      <div
-        className={cn(
-          'relative order-first col-span-3 flex flex-col overflow-hidden rounded-2xl p-5 text-white shadow-md sm:p-6 lg:order-none lg:col-span-1',
-          loss ? 'bg-linear-to-br from-[#be123c] to-[#881337]' : 'bg-linear-to-br from-[#047857] to-[#064e3b]',
-        )}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wide text-white/75">Net profit</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">
-            {loss ? <TrendingDown width={14} height={14} /> : <TrendingUp width={14} height={14} />}
-            {loss ? 'Loss' : 'Profit'}
-          </span>
-        </div>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 [overflow-wrap:anywhere]">
-          <span className="text-4xl font-bold tracking-tight lg:text-[1.9rem] xl:text-4xl">
-            {loss ? MINUS : ''}
-            {iqd(Math.abs(s.net))}
-          </span>
-          <span className="text-sm font-semibold text-white/70">IQD</span>
-        </div>
-        <div className="mt-1 text-sm text-white/80">
-          {s.costedSales > 0 ? `${percent(Math.abs(s.net) / s.costedSales)} of sales` : 'No sales with a cost yet'}
-          {s.profitPerOrder !== null && ` · ${signedIqd(s.profitPerOrder)} an order`}
-        </div>
-        <div className="mt-auto pt-3">
-          <Sparkline values={s.trend.map((p) => p.net)} />
-        </div>
-      </div>
+      <Stat
+        tone={s.net < 0 ? 'loss' : 'profit'}
+        label="Net profit"
+        value={counted ? <Amount value={s.net} sign /> : '—'}
+        valueTone={counted ? signTone(s.net) : undefined}
+        sub={
+          counted
+            ? s.costedSales > 0
+              ? `${percent(s.net / s.costedSales)} of sales kept`
+              : 'Sponsors with no costed sales'
+            : 'Waiting for model costs'
+        }
+        note={
+          s.uncostedOrders > 0 && s.costedOrders > 0
+            ? `Counts ${s.costedOrders} of ${s.orders} orders — the rest have no cost yet`
+            : undefined
+        }
+      />
     </section>
   );
 }
 
+function Line({
+  label,
+  sub,
+  value,
+  tone,
+  level = 'item',
+}: {
+  label: string;
+  sub?: string;
+  value: string;
+  tone?: string;
+  level?: 'item' | 'subtotal' | 'total';
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-baseline justify-between gap-4 py-2.5',
+        level === 'subtotal' && 'border-t border-slate-200',
+        level === 'total' && 'mt-1 border-t-2 border-ink-900/80 pt-3',
+      )}
+    >
+      <dt className="min-w-0">
+        <span className={cn('text-sm', level === 'item' ? 'text-ink-600' : 'font-semibold text-ink-900')}>{label}</span>
+        {sub && <span className="block text-xs text-ink-400">{sub}</span>}
+      </dt>
+      <dd
+        className={cn(
+          'shrink-0 tabular-nums',
+          level === 'total' ? 'text-lg font-bold' : level === 'subtotal' ? 'font-semibold' : 'text-sm',
+          tone ?? 'text-ink-900',
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 /**
- * Where each 1,000 IQD of sales went: goods, sponsors and what was left —
- * easier to feel than a margin — and whether every order has a cost.
+ * How the sales become the profit, as a short statement that adds up, and
+ * where each 1,000 IQD of costed sales went.
  */
-export function MoneySplit({ s, missingModels }: { s: ProfitSummary; missingModels: number }) {
-  const spent = s.cogs + s.sponsor;
-  const loss = s.net < 0;
-  const base = Math.max(s.sales, spent + s.uncostedSales) || 1;
+export function Breakdown({ s }: { s: ProfitSummary }) {
+  const minus = (v: number) => (v ? `${MINUS}${iqd(v)}` : '0');
+  const signed = (v: number) => (v < 0 ? `${MINUS}${iqd(-v)}` : iqd(v));
+  const per = (v: number) => Math.round((v / (s.costedSales || 1)) * 1000);
   const parts = [
-    { tone: 'goods' as const, value: s.cogs },
-    { tone: 'sponsor' as const, value: s.sponsor },
-    { tone: 'profit' as const, value: Math.max(0, s.net) },
-    { tone: 'missing' as const, value: s.uncostedSales },
+    { tone: 'goods' as const, label: 'Goods', value: s.cogs },
+    { tone: 'sponsor' as const, label: 'Sponsors', value: s.sponsor },
+    { tone: 'profit' as const, label: 'Profit', value: Math.max(0, s.net) },
   ].filter((p) => p.value > 0);
-  const per = (v: number) => Math.round((v / (s.sales || 1)) * 1000);
+  const base = Math.max(s.costedSales, s.cogs + s.sponsor) || 1;
 
   return (
-    <Card className="grid items-center gap-4 p-4 sm:p-5 lg:grid-cols-[10.5rem_minmax(0,1fr)_minmax(0,16rem)] lg:gap-6">
-      <div>
-        <div className="text-xs font-bold uppercase tracking-wide text-ink-400">Of every 1,000 IQD sold</div>
-        <div className={cn('mt-0.5 text-sm font-semibold', loss ? 'text-rose-700' : 'text-emerald-700')}>
-          {s.sales <= 0
-            ? 'No sales yet'
-            : loss
-              ? s.costedSales > 0
-                ? `${iqd((spent / s.costedSales) * 1000 - 1000)} more spent than sold`
-                : 'Sponsors with no sales'
-              : `${per(s.net)} is your profit`}
-        </div>
+    <Card className="flex h-full flex-col">
+      <SectionHead title="Profit breakdown" sub="From sales to what you keep" />
+      <dl className="px-5 pt-2">
+        <Line label="Sales" sub={`${s.orders} ${s.orders === 1 ? 'order' : 'orders'}`} value={iqd(s.sales)} />
+        {s.uncostedSales > 0 && (
+          <Line
+            label="Left out — no cost yet"
+            sub={`${s.uncostedOrders} ${s.uncostedOrders === 1 ? 'order' : 'orders'}`}
+            value={minus(s.uncostedSales)}
+            tone="text-amber-700"
+          />
+        )}
+        <Line label="Cost of goods" value={minus(s.cogs)} />
+        <Line level="subtotal" label="Gross profit" sub={s.margin !== null ? `${percent(s.margin)} margin` : undefined} value={signed(s.gross)} />
+        <Line label="Sponsors" value={minus(s.sponsor)} />
+        <Line level="total" label="Net profit" value={`${signed(s.net)} IQD`} tone={signTone(s.net)} />
+      </dl>
+
+      <div className="mt-auto px-5 pb-5 pt-4">
+        {s.costedSales > 0 ? (
+          <>
+            <div className="text-xs font-medium text-ink-500">Of every 1,000 IQD sold</div>
+            <div className="mt-2 flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-slate-100">
+              {parts.map((p) => (
+                <div key={p.tone} className={MONEY[p.tone].bg} style={{ width: `${(p.value / base) * 100}%` }} />
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              {parts.map((p) => (
+                <span key={p.tone} className="inline-flex items-center gap-1.5 text-xs text-ink-500">
+                  <span className={cn('size-2 rounded-full', MONEY[p.tone].bg)} />
+                  {p.label} <b className="tabular-nums text-ink-700">{per(p.value)}</b>
+                </span>
+              ))}
+              {s.net < 0 && <span className="text-xs font-semibold text-rose-700">Spent {per(-s.net)} more than sold</span>}
+            </div>
+          </>
+        ) : (
+          <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-ink-500">
+            Once models have a cost, this shows where each 1,000 IQD of sales goes.
+          </p>
+        )}
       </div>
-      <div className="min-w-0">
-        <div className="flex h-8 gap-0.5 overflow-hidden rounded-lg bg-slate-100" role="img" aria-label={parts.map((p) => `${MONEY[p.tone].label} ${per(p.value)}`).join(', ')}>
-          {parts.map((p) => {
-            const share = p.value / base;
-            return (
-              <div
-                key={p.tone}
-                title={`${MONEY[p.tone].label}: ${per(p.value)} of every 1,000 IQD`}
-                className={cn(
-                  'flex min-w-0 items-center rounded-[4px] px-2 text-xs font-bold',
-                  MONEY[p.tone].bg,
-                  p.tone === 'missing' ? 'text-[#0f172a]' : 'text-white',
-                )}
-                style={{ width: `${share * 100}%` }}
-              >
-                {share >= 0.12 && <span className="truncate">{per(p.value)}</span>}
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-          {parts.map((p) => (
-            <span key={p.tone} className="inline-flex items-center gap-1.5 text-xs text-ink-500">
-              <span className={cn('size-2.5 rounded-sm', MONEY[p.tone].bg)} />
-              {p.tone === 'profit' ? 'Your profit' : MONEY[p.tone].label}
-              <b className="tabular-nums text-ink-700">{per(p.value)}</b>
+    </Card>
+  );
+}
+
+/** Some orders have no cost yet: they are left out of the profit until they do. */
+export function MissingCosts({ s, missingModels }: { s: ProfitSummary; missingModels: number }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <AlertTriangle width={20} height={20} className="shrink-0 text-amber-700" />
+      <p className="min-w-0 flex-1 basis-64 text-sm text-amber-900">
+        <b>
+          {s.uncostedOrders} {s.uncostedOrders === 1 ? 'order' : 'orders'} ({iqd(s.uncostedSales)} IQD)
+        </b>{' '}
+        {s.uncostedOrders === 1 ? 'has' : 'have'} no cost, so {s.uncostedOrders === 1 ? 'it is' : 'they are'} left out of the profit.
+        {missingModels > 0 && ` ${missingModels} ${missingModels === 1 ? 'model needs' : 'models need'} a cost.`}
+      </p>
+      <Link to={paths.profitModels} className={cn(linkButton.outline, 'border-amber-300 text-amber-900')}>
+        Add costs <ArrowRight width={15} height={15} />
+      </Link>
+    </div>
+  );
+}
+
+/** First visit, before any cost is set: the two things to fill in once. */
+export function SetupGuide({ models, sponsors }: { models: number; sponsors: number }) {
+  const steps = [
+    {
+      title: 'Add what each model costs you',
+      body: `${models} ${models === 1 ? 'model has' : 'models have'} been sold. Write each one’s cost once and every order, old and new, gets its profit.`,
+      to: paths.profitModels,
+      action: 'Add model costs',
+      primary: true,
+      done: false,
+    },
+    {
+      title: 'Add your sponsors',
+      body: 'Each paid post or ad, in dollars or dinars, with the days it ran. It is taken off the profit.',
+      to: paths.profitNewSponsor,
+      action: sponsors ? 'Add another' : 'Add a sponsor',
+      primary: false,
+      done: sponsors > 0,
+    },
+  ];
+  return (
+    <Card>
+      <SectionHead title="Set up profit tracking" sub="Two steps, once. The numbers below fill in as you go." />
+      <ol className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
+        {steps.map((step, i) => (
+          <li key={step.title} className="flex flex-wrap items-center gap-4 px-5 py-4">
+            <span
+              className={cn(
+                'grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold',
+                step.done ? 'bg-emerald-500 text-white' : 'border border-slate-300 text-ink-500',
+              )}
+            >
+              {step.done ? <Check width={16} height={16} /> : i + 1}
             </span>
-          ))}
-        </div>
-      </div>
-      {s.uncostedOrders > 0 ? (
-        <Link
-          to={paths.profitModels}
-          className="group flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 transition hover:border-amber-300"
-        >
-          <AlertTriangle width={18} height={18} className="shrink-0 text-amber-700" />
-          <span className="min-w-0 flex-1 text-sm">
-            <b className="block text-amber-900">
-              {s.uncostedOrders} {s.uncostedOrders === 1 ? 'order has' : 'orders have'} no cost
-            </b>
-            <span className="text-amber-800">
-              {missingModels > 0 ? `Add the cost of ${missingModels} ${missingModels === 1 ? 'model' : 'models'}` : 'Add their cost'}
-            </span>
-          </span>
-          <ArrowRight width={16} height={16} className="shrink-0 text-amber-700 transition group-hover:translate-x-0.5" />
-        </Link>
-      ) : (
-        <div className="flex items-center gap-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm">
-          <CheckCircle width={18} height={18} className="shrink-0 text-emerald-700" />
-          <span>
-            <b className="block text-emerald-800">Every order has a cost</b>
-            <span className="text-emerald-700">The profit is complete</span>
-          </span>
-        </div>
-      )}
+            <div className="min-w-0 flex-1 basis-60">
+              <div className="font-semibold text-ink-900">{step.title}</div>
+              <p className="text-sm text-ink-500">{step.body}</p>
+            </div>
+            <Link to={step.to} className={step.primary ? linkButton.primary : linkButton.outline}>
+              {step.action} <ArrowRight width={15} height={15} />
+            </Link>
+          </li>
+        ))}
+      </ol>
     </Card>
   );
 }

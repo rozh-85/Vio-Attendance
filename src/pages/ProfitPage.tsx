@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Button } from '@/components/ui/Button';
 import { CalendarDays, CheckCircle, Download, Wallet, X } from '@/components/icons';
-import { Equation, MoneySplit } from '@/components/orders/profit/Overview';
-import { DailyProfit, SponsorReturn } from '@/components/orders/profit/Charts';
-import { GettingStarted, SponsorList, TopModels } from '@/components/orders/profit/Lists';
+import { Breakdown, KeyFigures, MissingCosts, SetupGuide } from '@/components/orders/profit/Overview';
+import { TrendChart } from '@/components/orders/profit/Charts';
+import { SponsorList, TopModels } from '@/components/orders/profit/Lists';
 import { LoadProblem } from '@/components/orders/profit/parts';
 import { useProfitData } from '@/hooks/useProfitData';
 import { summarizeProfit } from '@/services/orders/profit';
@@ -31,10 +31,10 @@ const dateClass =
   'h-10 rounded-xl border border-slate-200 bg-card px-3 text-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
 
 /**
- * Profit on the social media orders, on its own page: sales − goods −
- * sponsors = net profit for a period, the day-by-day profit, whether the
- * sponsors pay off, the sponsors and the best models. Costs and sponsors are
- * changed on their own pages, reached from here.
+ * Profit on the social media orders, on its own page: the period's key
+ * figures, profit or sales over time, how sales become profit, the best
+ * selling models and the sponsors. Costs and sponsors are changed on their
+ * own pages, reached from here.
  */
 export function ProfitPage() {
   const { orders, profit, error, loading, reload } = useProfitData();
@@ -131,35 +131,37 @@ export function ProfitPage() {
         {error ? (
           <LoadProblem error={error} onRetry={() => void reload()} />
         ) : loading || !s || !profit ? (
-          <p className="py-16 text-center text-ink-400">Loading…</p>
+          <div className="space-y-4" aria-label="Loading">
+            <div className="grid grid-cols-2 gap-3 lg:gap-4 xl:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-28 animate-pulse rounded-2xl bg-slate-100" />
+              ))}
+            </div>
+            <div className="h-80 animate-pulse rounded-2xl bg-slate-100" />
+          </div>
         ) : (
           <>
-            {hasCosts ? (
-              <>
-                <Equation s={s} />
-                <MoneySplit s={s} missingModels={missingModels} />
-                <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
-                  <div className="min-w-0 lg:col-span-2">
-                    <DailyProfit s={s} />
-                  </div>
-                  <SponsorReturn s={s} />
-                </div>
-              </>
+            {!hasCosts ? (
+              <SetupGuide models={s.byModel.filter((r) => r.key).length} sponsors={profit.sponsors.length} />
             ) : (
-              <GettingStarted models={s.byModel.filter((r) => r.key).length} sponsors={profit.sponsors.length} />
+              s.uncostedOrders > 0 && <MissingCosts s={s} missingModels={missingModels} />
             )}
-            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-              <SponsorList
-                sponsors={profit.sponsors}
-                from={view.from}
-                to={view.to}
-                total={s.sponsor}
-                sales={s.sales}
-                days={s.trendUnit === 'day' ? s.trend.length : 0}
-              />
-              <TopModels s={s} />
+            <KeyFigures s={s} />
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+              <div className="min-w-0 lg:col-span-2">
+                <TrendChart s={s} />
+              </div>
+              <Breakdown s={s} />
             </div>
-            <p className="pt-2 text-sm text-ink-400">
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-5">
+              <div className="min-w-0 lg:col-span-3">
+                <TopModels s={s} />
+              </div>
+              <div className="min-w-0 lg:col-span-2">
+                <SponsorList s={s} sponsors={profit.sponsors} from={view.from} to={view.to} />
+              </div>
+            </div>
+            <p className="pt-1 text-xs text-ink-400">
               Cancelled and returned orders are not counted. Orders with no cost are left out until their cost is
               written, so they never count as profit. A sponsor over several days counts an equal share on each day.
             </p>

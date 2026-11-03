@@ -134,6 +134,27 @@ export function LoadProblem({ error, onRetry }: { error: ProfitLoadError; onRetr
   );
 }
 
+/** Links that look like the app's buttons. */
+export const linkButton = {
+  primary:
+    'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700',
+  outline:
+    'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-slate-300 bg-card px-3.5 text-sm font-semibold text-ink-700 transition-colors hover:bg-slate-50',
+};
+
+/** A card's heading row on the Profit page: title, a line under it, an action on the right. */
+export function SectionHead({ title, sub, action }: { title: string; sub?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
+      <div className="min-w-0">
+        <h2 className="text-base font-semibold text-ink-900">{title}</h2>
+        {sub && <p className="mt-0.5 text-sm text-ink-500">{sub}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
 /** Section heading inside a card: icon tile, title and a line under it. */
 export function CardTitle({
   icon,
