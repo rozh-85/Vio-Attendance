@@ -286,7 +286,12 @@ The unlisted `/catalog` route contains a single Master Catalog and a
 snapshot-based catalog builder. The reference products and local image assets
 were imported from the supplied Vio catalogue PDF; because that source is a
 no-price catalogue, retail and wholesale prices start blank and can be entered
-in the Master Catalog.
+in the Master Catalog. Products photographed in `Appliance images` but missing
+from the PDF were added by
+[`scripts/add-appliance-images.py`](scripts/add-appliance-images.py), also
+without prices, except the air fryers whose retail price is in the folder's
+price sheet. **Import reference** only adds what the Master Catalog lacks and
+fills blank prices and photos; prices and edits already there are kept.
 
 For shared catalog persistence, run [`supabase/catalog.sql`](supabase/catalog.sql)
 after [`supabase/schema.sql`](supabase/schema.sql). Without those optional

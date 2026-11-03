@@ -122,10 +122,37 @@ export function CatalogManagementPage() {
     }
   }
 
+  // Adds the reference products the Master Catalog lacks; products already there keep their edits.
   async function importReference() {
-    if (!master || (master.products.length > 0 && !window.confirm('Import the 124 Vio reference products into the existing Master Catalog?'))) return;
+    if (!master) return;
     const source = referenceMaster();
-    await saveMaster(source.categories, source.products);
+    const fromSource = new Map(source.products.map((product) => [product.id, product]));
+    const have = new Set(master.products.map((product) => product.id));
+    const adding = source.products.filter((product) => !have.has(product.id));
+    // Blank prices and photo lists are filled from the reference; nothing typed is replaced.
+    let filled = 0;
+    const products = master.products.map((product) => {
+      const original = fromSource.get(product.id);
+      const retailPrice = product.retailPrice ?? original?.retailPrice ?? null;
+      const additionalImages = !product.additionalImages.length && original?.additionalImages.length ? original.additionalImages : product.additionalImages;
+      if (retailPrice === product.retailPrice && additionalImages === product.additionalImages) return product;
+      filled += 1;
+      return { ...product, retailPrice, additionalImages };
+    });
+    if (!adding.length && !filled) {
+      showNotice('Every Vio reference product is already in the Master Catalog.');
+      return;
+    }
+    if (master.products.length > 0 && !window.confirm(`Add ${adding.length} new Vio reference products and fill ${filled} blank prices or photos? Prices and edits already in the Master Catalog are kept.`)) return;
+    const haveCategory = new Set(master.categories.map((category) => category.id));
+    const categories = [
+      ...master.categories,
+      ...source.categories
+        .filter((category) => !haveCategory.has(category.id))
+        .map((category, index) => ({ ...category, sortOrder: master.categories.length + index })),
+    ];
+    const last = Math.max(-1, ...products.map((product) => product.sortOrder));
+    await saveMaster(categories, [...products, ...adding.map((product, index) => ({ ...product, sortOrder: last + 1 + index }))]);
   }
 
   function openCreate(preset: Preset = 'custom') {
