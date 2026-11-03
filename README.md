@@ -236,31 +236,29 @@ insert statement for pointing the feature at the account UUID directly.
 
 > Sales − goods − sponsors = **net profit**
 
-- **Models & prices** (`/rozhadmin/profit/models`) — every model in one list:
-  the catalogue's products (with their photos) plus any model sellers have
-  written. Give each a **sale price**, a **cost** and a type once; the switch
-  says whether sellers can pick it. Spellings are merged (`V.502`, `v502`,
-  `V-502` and Kurdish digits are one model). Enter moves to the next box;
-  nothing is saved until **Save**. Orders where no model was written get a
-  cost of their own on the same page.
-- **Sellers pick, they do not type** — on the order form (`/orders`), the
-  seller searches the model number, taps the product card and sets the pieces
-  with − / +. Model, type and price fill in by themselves (price × pieces). A
-  different price for one customer, or an item not on the list, can still be
-  written by hand.
-- **Profit works itself out** — each order's cost is its model's cost × its
-  pieces, so every order, old and new, has a profit as soon as its model has a
-  cost.
-- **The Profit page** shows the sum as four tiles for a period, where each
-  1,000 IQD of sales went, net profit by day, whether each platform's sponsors
-  pay off, the period's sponsors and the most profitable models, and exports
-  it all to Excel.
+- **Products** (`/rozhadmin/profit/models`) — a short list of the products
+  you sell, empty until you add them. Add one from the catalogue (with its
+  photo) or write it yourself, with what one piece costs you. Edit or delete
+  any of them. Spellings are merged (`V.502`, `v502`, `V-502` and Kurdish
+  digits are one model).
+- **Sellers write the model and their own price** — on the order form
+  (`/orders`), nothing fills in by itself. Your products are suggested as the
+  seller writes the model, and a model on your list is ticked green.
+- **Profit = the seller's price − your cost × the pieces.** Only orders from
+  the start day count (the day the first product was added; *Change* on the
+  Products page). Older orders are left out of the profit altogether.
+- **A new cost is for new orders** — when a product's cost changes, or the
+  product is deleted, the orders already sold keep the cost they had.
+- **Orders to fix** — a counted order whose model is not on your list shows on
+  the Products page: pick the product it is, or add the model as a product.
+- **The Profit page** shows sales, goods, sponsors and net profit for a
+  period, profit or sales by day, how sales become profit, the best-selling
+  models and the sponsors, and exports it all to Excel.
 - **Sponsors** (`/rozhadmin/profit/sponsors/new`, or a sponsor's own page) —
   platform, amount in dollars (with the rate) or dinars, and the days it ran.
   Its cost is shared evenly over those days. Deleting asks on the page itself.
 - **One order's own cost** — on an order's page, *Cost & profit* takes a cost
-  for that order alone, or sets the model's cost for all its orders. The same
-  page has the pieces and a *Use it* button for the price-list price.
+  for that order alone (a different supplier price).
 - Orders with no cost are **left out** and flagged, so a missing cost never
   shows up as profit. Cancelled and returned orders count no sales and no cost.
 
@@ -273,11 +271,12 @@ safe to run again):
 1. [`supabase/social-orders.sql`](supabase/social-orders.sql) again — it adds
    the pieces (`quantity`) to orders. Until it is run, an order of two pieces
    is kept as one.
-2. [`supabase/social-profit.sql`](supabase/social-profit.sql) — the price list
-   (`social_model_costs`: sale price, cost, type, on sale), per-order costs and
-   sponsors, readable only by signed-in supervisors, plus
-   `social_price_list()`, which gives sellers each model's sale price and type —
-   never its cost. The logic lives in
+2. [`supabase/social-profit.sql`](supabase/social-profit.sql) — run it again
+   after every change. The products (`social_model_costs`: model, name, type,
+   cost), per-order costs, sponsors and the start day
+   (`social_profit_settings`), readable only by signed-in supervisors, plus
+   `social_price_list()`, which gives sellers the products' models, names and
+   types to suggest — never a cost. The logic lives in
    [`profit.ts`](src/services/orders/profit.ts).
 
 ## Catalog Management

@@ -1,17 +1,20 @@
 -- Profit on social media orders
 --
--- The Profit pages of /rozhadmin/profit keep three things here:
---   social_model_costs  every item model: its sale price, what one piece
---                       costs Vio, its type, and whether sellers can pick it
---   social_order_costs  an order's own cost, over its model's (a different
---                       supplier price …)
---   social_sponsors     paid sponsored posts / ads and the days they ran
+-- The Profit pages of /rozhadmin/profit keep four things here:
+--   social_model_costs      the owner's products: model, name, type and what
+--                           one piece costs Vio
+--   social_order_costs      an order's own cost, over its product's (set by
+--                           the owner, or kept when a product's cost changes
+--                           so orders already sold keep their profit)
+--   social_sponsors         paid sponsored posts / ads and the days they ran
+--   social_profit_settings  the first day whose orders count
 --
--- Net profit = sales − cost of the goods − sponsors. Only signed-in
--- supervisors reach these tables, and the app shows them only behind the
--- owner password. Sellers use the anon key: social_price_list() below gives
--- them each model's sale price and type so they can pick it on an order —
--- never its cost, and nothing about sponsors.
+-- Net profit = sales − cost of the goods − sponsors. Sellers write the model
+-- and their own price on each order. Only signed-in supervisors reach these
+-- tables, and the app shows them only behind the owner password. Sellers use
+-- the anon key: social_price_list() below gives them the products' models,
+-- names and types to suggest as they write — never a cost, and nothing about
+-- sponsors.
 --
 -- Run once in the Supabase SQL editor, after social-orders.sql. Safe to run
 -- again — run the whole file again after it changes. Nothing in
@@ -41,6 +44,17 @@ alter table public.social_model_costs add column if not exists sale_price numeri
   check (sale_price >= 0);
 alter table public.social_model_costs add column if not exists category text not null default '';
 alter table public.social_model_costs add column if not exists active boolean not null default true;
+-- Products: a name, and when it joined the list. The sale price above is no
+-- longer used — sellers write their own price.
+alter table public.social_model_costs add column if not exists product_name text not null default '';
+alter table public.social_model_costs add column if not exists created_at timestamptz not null default now();
+
+-- One row: orders from this day on count in the profit; older ones do not.
+create table if not exists public.social_profit_settings (
+  id         boolean primary key default true check (id),
+  starts_on  date,
+  updated_at timestamptz not null default now()
+);
 
 create table if not exists public.social_order_costs (
   order_id   uuid primary key references public.social_orders(id) on delete cascade,
@@ -74,6 +88,13 @@ create index if not exists social_sponsors_dates_idx
 alter table public.social_model_costs enable row level security;
 alter table public.social_order_costs enable row level security;
 alter table public.social_sponsors    enable row level security;
+alter table public.social_profit_settings enable row level security;
+
+drop policy if exists social_profit_settings_supervisor on public.social_profit_settings;
+create policy social_profit_settings_supervisor
+  on public.social_profit_settings for all to authenticated
+  using (lower(coalesce(auth.jwt() ->> 'email', '')) <> 'feedback@gmail.com')
+  with check (lower(coalesce(auth.jwt() ->> 'email', '')) <> 'feedback@gmail.com');
 
 drop policy if exists social_model_costs_supervisor on public.social_model_costs;
 create policy social_model_costs_supervisor
@@ -96,14 +117,16 @@ create policy social_sponsors_supervisor
 revoke all on public.social_model_costs from public, anon, authenticated;
 revoke all on public.social_order_costs from public, anon, authenticated;
 revoke all on public.social_sponsors    from public, anon, authenticated;
+revoke all on public.social_profit_settings from public, anon, authenticated;
 
 grant select, insert, update, delete on public.social_model_costs to authenticated;
 grant select, insert, update, delete on public.social_order_costs to authenticated;
 grant select, insert, update, delete on public.social_sponsors    to authenticated;
+grant select, insert, update, delete on public.social_profit_settings to authenticated;
 
--- ── Seller: the price list ──────────────────────────────────────────────────
--- Every model on sale, with its sale price and type, for the order form's
--- model search. Never the cost.
+-- ── Seller: the product list ────────────────────────────────────────────────
+-- The owner's products, with name and type, suggested on the order form as
+-- the seller writes the model. Never the cost.
 create or replace function public.social_price_list(p_token text)
 returns jsonb
 language plpgsql
@@ -123,11 +146,11 @@ begin
     select jsonb_agg(jsonb_build_object(
              'key', m.model_key,
              'model', m.model_label,
-             'category', m.category,
-             'price', m.sale_price)
+             'name', m.product_name,
+             'category', m.category)
            order by m.model_label)
       from public.social_model_costs as m
-     where m.active and m.sale_price > 0
+     where m.active
   ), '[]'::jsonb);
 end;
 $$;

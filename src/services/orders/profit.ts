@@ -18,10 +18,14 @@ import type { SalesOrder } from './types';
  *   Sales − cost of the goods = gross profit
  *   Gross profit − sponsors   = net profit
  *
- * A cost is set once per item model and every order of that model uses it;
- * one order can carry its own cost instead (two pieces, a different price
- * from the supplier). Orders with no cost are left out of the profit and
- * shown as "no cost yet", so a missing cost never reads as pure profit.
+ * The owner keeps a short list of products, each with what one piece costs.
+ * Sellers write the model and their own price on the order; an order whose
+ * model is on the list costs that product's cost × its pieces. One order can
+ * carry its own cost instead — set by the owner, or kept when a product's
+ * cost changes or the product is deleted, so a change reaches new orders
+ * only. Orders from before the start day are not counted at all; later ones
+ * with no product are left out of the profit until the owner fixes them, so
+ * a missing cost never reads as pure profit.
  */
 
 export type SponsorCurrency = 'IQD' | 'USD';
@@ -47,60 +51,69 @@ export interface Sponsor {
 
 export type SponsorInput = Omit<Sponsor, 'id' | 'createdAt'>;
 
-/** One item model on the owner's price list. */
+/** One product on the owner's list. */
 export interface ModelCost {
   /** `modelKey()` of the model. */
   key: string;
   /** The model as written, e.g. V-502. */
   label: string;
+  /** e.g. Air Fryer. */
+  name: string;
   /** What one piece costs Vio, in IQD; null until written. */
   cost: number | null;
-  /** What one piece sells for, in IQD; null until written. */
-  price: number | null;
   /** The item type its orders are saved under, e.g. هیتەر. */
   category: string;
-  /** Offered to sellers on the order form (once it has a price). */
-  active: boolean;
+  createdAt: string;
   updatedAt: string;
 }
 
-/** A model as it is saved: everything but the time. */
-export type ModelValues = Omit<ModelCost, 'updatedAt'>;
-
-/**
- * The model `key` as saved now, with `patch` laid over it — what a page
- * sends to save one change without losing the model's other fields.
- */
-export function modelWith(
-  data: ProfitData,
-  key: string,
-  label: string,
-  patch: Partial<Pick<ModelCost, 'cost' | 'price' | 'category' | 'active'>>,
-): ModelValues {
-  const m = data.models[key];
-  return {
-    key,
-    label: label.trim() || m?.label || key,
-    cost: patch.cost !== undefined ? patch.cost : (m?.cost ?? null),
-    price: patch.price !== undefined ? patch.price : (m?.price ?? null),
-    category: patch.category !== undefined ? patch.category.trim() : (m?.category ?? ''),
-    active: patch.active !== undefined ? patch.active : (m?.active ?? true),
-  };
-}
-
-/** A model with no price, no cost and no type of its own holds nothing worth keeping. */
-export const isEmptyModel = (m: Pick<ModelCost, 'cost' | 'price' | 'category' | 'active'>) =>
-  m.cost === null && m.price === null && !m.category.trim() && m.active;
+/** A product as it is saved: everything but the times. */
+export type ModelValues = Omit<ModelCost, 'createdAt' | 'updatedAt'>;
 
 export interface ProfitData {
-  /** By `modelKey()`. */
+  /** The owner's products, by `modelKey()`. */
   models: Record<string, ModelCost>;
-  /** Order id → that order's own cost in IQD, over the model's. */
+  /** Order id → that order's own cost in IQD, over the product's. */
   orderCosts: Record<string, number>;
   sponsors: Sponsor[];
+  /** `yyyy-MM-dd`: orders from this day on count; null before the first product. */
+  startDate: string | null;
 }
 
-export const EMPTY_PROFIT: ProfitData = { models: {}, orderCosts: {}, sponsors: [] };
+export const EMPTY_PROFIT: ProfitData = { models: {}, orderCosts: {}, sponsors: [], startDate: null };
+
+/** Whether an order is new enough to count: on or after the start day. */
+export function isTracked(order: SalesOrder, data: ProfitData): boolean {
+  return data.startDate !== null && orderDay(order) >= data.startDate;
+}
+
+/**
+ * Counted sales that have no cost: no product on the list matches what the
+ * seller wrote, and the owner has not given the order its own cost yet.
+ */
+export function ordersToFix(all: SalesOrder[], data: ProfitData): SalesOrder[] {
+  return all
+    .filter((o) => countsAsSale(o.status) && isTracked(o, data) && data.orderCosts[o.id] === undefined)
+    .filter((o) => !data.models[modelKey(o.itemModel)])
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * What each order of a product costs now, kept as the order's own cost —
+ * written before the product's cost changes or the product goes, so orders
+ * already sold keep their profit. Orders with their own cost are left alone.
+ */
+export function costsToKeep(all: SalesOrder[], data: ProfitData, key: string): Record<string, number> {
+  const product = data.models[key];
+  if (!product || product.cost === null) return {};
+  const kept: Record<string, number> = {};
+  for (const o of all) {
+    if (isTracked(o, data) && data.orderCosts[o.id] === undefined && modelKey(o.itemModel) === key) {
+      kept[o.id] = product.cost * (o.quantity || 1);
+    }
+  }
+  return kept;
+}
 
 /** The dollar rate a new sponsor starts with until the owner types another. */
 export const DEFAULT_USD_RATE = 1500;
@@ -435,10 +448,13 @@ function buildTrend(
 }
 
 /**
- * The profit of the orders between `from` and `to` (`yyyy-MM-dd`, '' = open),
- * less the part of every sponsor that ran in those days.
+ * The profit of the orders between `from` and `to` (`yyyy-MM-dd`, '' = open)
+ * that are on or after the start day, less the part of every sponsor that
+ * ran in those days.
  */
-export function summarizeProfit(all: SalesOrder[], data: ProfitData, from: string, to: string): ProfitSummary {
+export function summarizeProfit(everyOrder: SalesOrder[], data: ProfitData, from: string, to: string): ProfitSummary {
+  // Orders from before the start day are not part of the profit at all.
+  const all = everyOrder.filter((o) => isTracked(o, data));
   const sales = all.filter((o) => countsAsSale(o.status) && inPeriod(orderDay(o), from, to));
   const sponsors = data.sponsors.filter((s) => sponsorInRange(s, from, to).days > 0);
 

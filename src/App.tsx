@@ -11,7 +11,7 @@ import { CheckInLocationsPage } from '@/pages/CheckInLocationsPage';
 import { SocialOrdersPage } from '@/pages/SocialOrdersPage';
 import { OrderEditPage } from '@/pages/OrderEditPage';
 import { ProfitPage } from '@/pages/ProfitPage';
-import { ModelPricesPage } from '@/pages/ModelPricesPage';
+import { ProductsPage } from '@/pages/ProductsPage';
 import { SponsorPage } from '@/pages/SponsorPage';
 import { SellerOrderPage } from '@/pages/SellerOrderPage';
 import { OwnerGate } from '@/components/OwnerGate';
@@ -137,7 +137,7 @@ export default function App() {
               element={
                 <RequireAuth>
                   <OwnerGate title="Profit">
-                    <ModelPricesPage />
+                    <ProductsPage />
                   </OwnerGate>
                 </RequireAuth>
               }

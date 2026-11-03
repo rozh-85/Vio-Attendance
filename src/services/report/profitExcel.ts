@@ -72,7 +72,7 @@ function summarySheet({ summary: s, period }: ProfitExportInput): string {
 }
 
 function modelsSheet({ summary, data }: ProfitExportInput): string {
-  const header = ['Model', 'Type', 'Sold in period', 'Sold in all', 'Sale price', 'Usual price', 'Cost of one', 'Profit per piece', 'Margin', 'Profit in period'];
+  const header = ['Model', 'Type', 'Sold in period', 'Sold in all', 'Name', 'Usual price', 'Cost of one', 'Profit per piece', 'Margin', 'Profit in period'];
   const rows: Row[] = [{ cells: header.map((h) => text(h, S.header)), height: 22 }];
   for (const r of summary.byModel) {
     if (!r.key) continue;
@@ -83,7 +83,7 @@ function modelsSheet({ summary, data }: ProfitExportInput): string {
         text(r.category),
         num(r.orders, S.number),
         num(r.allOrders, S.number),
-        data.models[r.key]?.price != null ? num(data.models[r.key].price as number) : text(''),
+        text(data.models[r.key]?.name ?? ''),
         num(Math.round(r.avgPrice)),
         r.cost === null ? text('No cost yet') : num(r.cost),
         unit === null ? text('') : num(Math.round(unit)),

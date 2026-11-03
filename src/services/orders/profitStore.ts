@@ -4,7 +4,6 @@ import { LocalOrdersStore } from './localStore';
 import { OrdersError } from './errors';
 import {
   EMPTY_PROFIT,
-  isEmptyModel,
   type ModelCost,
   type ModelValues,
   type ProfitData,
@@ -13,35 +12,40 @@ import {
 } from './profit';
 
 /**
- * Where the price list (each model's sale price, cost and type), per-order
- * costs and sponsors are kept: owner-only tables next to the orders
+ * Where the owner's products (each with its cost), per-order costs, the start
+ * day and sponsors are kept: owner-only tables next to the orders
  * (supabase/social-profit.sql), or this browser in the local sandbox.
  * Sellers reach only `loadPriceList`, which never carries a cost.
  */
 export interface ProfitStore {
   load(): Promise<ProfitData>;
-  /** Saves these models whole, in one go; a model left with nothing is removed. */
+  /** Adds these products, or changes them, in one go. */
   saveModels(models: ModelValues[]): Promise<void>;
-  /** null goes back to the model's cost. */
+  deleteModels(keys: string[]): Promise<void>;
+  /** null goes back to the product's cost. */
   setOrderCost(orderId: string, cost: number | null): Promise<void>;
+  /** Several orders' own costs in one go. */
+  setOrderCosts(costs: Record<string, number>): Promise<void>;
+  /** The first day whose orders count. */
+  setStartDate(day: string): Promise<void>;
   /** Adds a sponsor, or changes the one with this id. */
   saveSponsor(input: SponsorInput, id?: string): Promise<Sponsor>;
   deleteSponsor(id: string): Promise<void>;
 }
 
-/** A model sellers can pick on the order form: its price and type, never its cost. */
+/** A product sellers see as they write the model: never its cost. */
 export interface PriceListItem {
   key: string;
   model: string;
+  name: string;
   category: string;
-  price: number;
 }
 
 export class ProfitNotSetUpError extends Error {
   constructor(again = false) {
     super(
       again
-        ? 'The price list needs the newest database script. Run supabase/social-profit.sql again in the Supabase SQL editor.'
+        ? 'The product list needs the newest database script. Run supabase/social-profit.sql again in the Supabase SQL editor.'
         : 'Profit is not set up in the database yet. Run supabase/social-profit.sql once in the Supabase SQL editor.',
     );
     this.name = 'ProfitNotSetUpError';
@@ -64,9 +68,9 @@ export function getProfitStore(): ProfitStore {
 }
 
 /**
- * The models on sale, for a signed-in seller's order form. An empty list
- * (nothing priced yet, or the database script not run) leaves the seller
- * typing the item and price as before.
+ * The owner's products, suggested to a signed-in seller as they write the
+ * model. An empty list (no product yet, or the database script not run)
+ * just means no suggestions.
  */
 export async function loadPriceList(token: string): Promise<PriceListItem[]> {
   const client = getSupabaseClient();
@@ -76,13 +80,17 @@ export async function loadPriceList(token: string): Promise<PriceListItem[]> {
       if (error.message === 'SESSION_EXPIRED') throw new OrdersError('SESSION_EXPIRED');
       return [];
     }
-    return ((data ?? []) as PriceListItem[]).map((p) => ({ ...p, price: Number(p.price) || 0 }));
+    return ((data ?? []) as Partial<PriceListItem>[]).map((p) => ({
+      key: p.key ?? '',
+      model: p.model ?? '',
+      name: p.name ?? '',
+      category: p.category ?? '',
+    }));
   }
   if (!(await new LocalOrdersStore().whoAmI(token))) throw new OrdersError('SESSION_EXPIRED');
   return Object.values(read().models)
-    .filter((m) => m.active && (m.price ?? 0) > 0)
-    .map((m) => ({ key: m.key, model: m.label, category: m.category, price: m.price ?? 0 }))
-    .sort((a, b) => a.model.localeCompare(b.model));
+    .map((m) => ({ key: m.key, model: m.label, name: m.name, category: m.category }))
+    .sort((a, b) => a.model.localeCompare(b.model, undefined, { numeric: true }));
 }
 
 // ── Supabase ─────────────────────────────────────────────────────────────────
@@ -90,10 +98,10 @@ export async function loadPriceList(token: string): Promise<PriceListItem[]> {
 interface ModelRow {
   model_key: string;
   model_label: string;
+  product_name: string;
   cost: number | string | null;
-  sale_price: number | string | null;
   category: string;
-  active: boolean;
+  created_at: string;
   updated_at: string;
 }
 
@@ -122,10 +130,10 @@ function toModel(row: ModelRow): ModelCost {
   return {
     key: row.model_key,
     label: row.model_label,
+    name: row.product_name ?? '',
     cost: money(row.cost),
-    price: money(row.sale_price),
     category: row.category ?? '',
-    active: row.active ?? true,
+    createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
@@ -160,11 +168,15 @@ function sponsorColumns(input: SponsorInput): Omit<SponsorRow, 'id' | 'created_a
 
 /**
  * A database that has not run social-profit.sql has none of the tables; one
- * that ran an older copy lacks the price columns.
+ * that ran an older copy lacks the product columns or the start day.
  */
 function translate(error: { code?: string; message?: string }): Error {
   const message = error.message ?? '';
-  if (error.code === '42703' || (error.code === 'PGRST204' && /sale_price|category|active/.test(message))) {
+  if (
+    error.code === '42703' ||
+    (error.code === 'PGRST204' && /product_name|created_at|category/.test(message)) ||
+    /social_profit_settings/.test(message)
+  ) {
     return new ProfitNotSetUpError(true);
   }
   if (error.code === '42P01' || error.code === 'PGRST205' || /does not exist|could not find the table/i.test(message)) {
@@ -194,45 +206,45 @@ class SupabaseProfitStore implements ProfitStore {
   }
 
   async load(): Promise<ProfitData> {
-    const [models, orderCosts, sponsors] = await Promise.all([
+    const [models, orderCosts, sponsors, settings] = await Promise.all([
       this.all<ModelRow>(
         'social_model_costs',
-        'model_key, model_label, cost, sale_price, category, active, updated_at',
+        'model_key, model_label, product_name, cost, category, created_at, updated_at',
         'model_key',
       ),
       this.all<OrderCostRow>('social_order_costs', 'order_id, cost', 'order_id'),
       this.all<SponsorRow>('social_sponsors', '*', 'id'),
+      this.all<{ starts_on: string | null }>('social_profit_settings', 'starts_on', 'id'),
     ]);
     return {
       models: Object.fromEntries(models.map((m) => [m.model_key, toModel(m)])),
       orderCosts: Object.fromEntries(orderCosts.map((o) => [o.order_id, Number(o.cost) || 0])),
       sponsors: sponsors.map(toSponsor).sort((a, b) => b.startDate.localeCompare(a.startDate)),
+      startDate: settings[0]?.starts_on ?? null,
     };
   }
 
   async saveModels(models: ModelValues[]): Promise<void> {
-    const keep = models.filter((m) => !isEmptyModel(m));
-    const drop = models.filter((m) => isEmptyModel(m)).map((m) => m.key);
-    const now = new Date().toISOString();
-    if (keep.length) {
-      const { error } = await this.client.from('social_model_costs').upsert(
-        keep.map((m) => ({
-          model_key: m.key,
-          model_label: m.label.trim(),
-          cost: m.cost === null ? null : Math.round(m.cost),
-          sale_price: m.price === null ? null : Math.round(m.price),
-          category: m.category.trim(),
-          active: m.active,
-          updated_at: now,
-        })),
-        { onConflict: 'model_key' },
-      );
-      if (error) throw translate(error);
-    }
-    if (drop.length) {
-      const { error } = await this.client.from('social_model_costs').delete().in('model_key', drop);
-      if (error) throw translate(error);
-    }
+    if (!models.length) return;
+    const { error } = await this.client.from('social_model_costs').upsert(
+      models.map((m) => ({
+        model_key: m.key,
+        model_label: m.label.trim(),
+        product_name: m.name.trim(),
+        cost: m.cost === null ? null : Math.round(m.cost),
+        category: m.category.trim(),
+        active: true,
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: 'model_key' },
+    );
+    if (error) throw translate(error);
+  }
+
+  async deleteModels(keys: string[]): Promise<void> {
+    if (!keys.length) return;
+    const { error } = await this.client.from('social_model_costs').delete().in('model_key', keys);
+    if (error) throw translate(error);
   }
 
   async setOrderCost(orderId: string, cost: number | null): Promise<void> {
@@ -243,6 +255,25 @@ class SupabaseProfitStore implements ProfitStore {
             { order_id: orderId, cost: Math.round(cost), updated_at: new Date().toISOString() },
             { onConflict: 'order_id' },
           );
+    if (error) throw translate(error);
+  }
+
+  async setOrderCosts(costs: Record<string, number>): Promise<void> {
+    const rows = Object.entries(costs).map(([order_id, cost]) => ({
+      order_id,
+      cost: Math.round(cost),
+      updated_at: new Date().toISOString(),
+    }));
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await this.client.from('social_order_costs').upsert(rows.slice(i, i + 500), { onConflict: 'order_id' });
+      if (error) throw translate(error);
+    }
+  }
+
+  async setStartDate(day: string): Promise<void> {
+    const { error } = await this.client
+      .from('social_profit_settings')
+      .upsert({ id: true, starts_on: day, updated_at: new Date().toISOString() }, { onConflict: 'id' });
     if (error) throw translate(error);
   }
 
@@ -269,10 +300,10 @@ function read(): ProfitData {
   try {
     const stored = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<ProfitData> | null;
     const data = { ...EMPTY_PROFIT, ...stored };
-    // Models saved before prices were kept: fill the new fields.
+    // Models saved before products had names: fill the new fields.
     const models: ProfitData['models'] = {};
     for (const [key, m] of Object.entries(data.models)) {
-      models[key] = { ...m, cost: m.cost ?? null, price: m.price ?? null, category: m.category ?? '', active: m.active ?? true };
+      models[key] = { ...m, name: m.name ?? '', cost: m.cost ?? null, category: m.category ?? '', createdAt: m.createdAt ?? m.updatedAt };
     }
     return { ...data, models };
   } catch {
@@ -295,18 +326,23 @@ class LocalProfitStore implements ProfitStore {
     const models = { ...data.models };
     const now = new Date().toISOString();
     for (const m of list) {
-      if (isEmptyModel(m)) delete models[m.key];
-      else {
-        models[m.key] = {
-          ...m,
-          label: m.label.trim(),
-          cost: m.cost === null ? null : Math.round(m.cost),
-          price: m.price === null ? null : Math.round(m.price),
-          category: m.category.trim(),
-          updatedAt: now,
-        };
-      }
+      models[m.key] = {
+        key: m.key,
+        label: m.label.trim(),
+        name: m.name.trim(),
+        cost: m.cost === null ? null : Math.round(m.cost),
+        category: m.category.trim(),
+        createdAt: models[m.key]?.createdAt ?? now,
+        updatedAt: now,
+      };
     }
+    write({ ...data, models });
+  }
+
+  async deleteModels(keys: string[]): Promise<void> {
+    const data = read();
+    const models = { ...data.models };
+    for (const key of keys) delete models[key];
     write({ ...data, models });
   }
 
@@ -316,6 +352,17 @@ class LocalProfitStore implements ProfitStore {
     if (cost === null) delete orderCosts[orderId];
     else orderCosts[orderId] = Math.round(cost);
     write({ ...data, orderCosts });
+  }
+
+  async setOrderCosts(costs: Record<string, number>): Promise<void> {
+    const data = read();
+    const orderCosts = { ...data.orderCosts };
+    for (const [id, cost] of Object.entries(costs)) orderCosts[id] = Math.round(cost);
+    write({ ...data, orderCosts });
+  }
+
+  async setStartDate(day: string): Promise<void> {
+    write({ ...read(), startDate: day });
   }
 
   async saveSponsor(input: SponsorInput, id?: string): Promise<Sponsor> {

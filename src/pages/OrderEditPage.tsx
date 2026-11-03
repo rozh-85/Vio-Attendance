@@ -26,7 +26,7 @@ import { sellerList, sellerOf } from '@/services/orders/report';
 import { markReportReturn } from '@/services/orders/reportMemory';
 import { getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { OrderStatus, SalesOrder, SalesOrderPatch } from '@/services/orders/types';
-import { modelKey, modelWith, parseIqd, type ProfitData } from '@/services/orders/profit';
+import { modelKey, parseIqd, type ProfitData } from '@/services/orders/profit';
 import { getProfitStore, profitErrorMessage } from '@/services/orders/profitStore';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
@@ -91,7 +91,6 @@ export function OrderEditPage() {
   const [profitData, setProfitData] = useState<ProfitData | null>(null);
   const [profitIssue, setProfitIssue] = useState<string | null>(null);
   const [costDraft, setCostDraft] = useState('');
-  const [applyToModel, setApplyToModel] = useState(false);
 
   // Opened from far down the report: start at the top of this page.
   useEffect(() => {
@@ -119,7 +118,6 @@ export function OrderEditPage() {
         setProfitData(data);
         const own = data.orderCosts[orderId];
         setCostDraft(own !== undefined ? own.toLocaleString('en-US') : '');
-        setApplyToModel(false);
       })
       .catch((err) => active && setProfitIssue(profitErrorMessage(err)));
     return () => {
@@ -132,22 +130,12 @@ export function OrderEditPage() {
   // What the cost box asks for, against what is saved.
   const costKey = form ? modelKey(form.itemModel) : '';
   const listModel = costKey && profitData ? profitData.models[costKey] : undefined;
-  /** What one piece of the model costs and sells for, from the price list. */
+  /** What one piece costs, from the owner's products. */
   const unitCost = listModel?.cost ?? null;
-  const unitPrice = listModel?.price ?? null;
   const pieces = form?.quantity || 1;
   const savedOwn = order && profitData ? profitData.orderCosts[order.id] : undefined;
   const typedCost = parseIqd(costDraft);
-  const toModel = applyToModel && !!costKey && typedCost !== null;
-  /** The typed cost shared over the pieces, as the model's cost of one. */
-  const typedUnit = typedCost === null ? null : Math.round(typedCost / pieces);
-  const costDirty =
-    !!profitData &&
-    (typedCost === null
-      ? savedOwn !== undefined
-      : toModel
-        ? unitCost !== typedUnit || savedOwn !== undefined
-        : savedOwn !== typedCost);
+  const costDirty = !!profitData && (typedCost === null ? savedOwn !== undefined : savedOwn !== typedCost);
   const dirty = orderDirty || costDirty;
 
   // Closing the tab or reloading with changes not saved asks first.
@@ -216,15 +204,7 @@ export function OrderEditPage() {
         createdAt: form.createdAt,
       };
       if (orderDirty) await getOrdersStore().updateOrder(form.id, patch);
-      if (costDirty) {
-        const profitStore = getProfitStore();
-        if (toModel && typedUnit !== null && profitData) {
-          await profitStore.saveModels([modelWith(profitData, costKey, form.itemModel, { cost: typedUnit })]);
-          if (savedOwn !== undefined) await profitStore.setOrderCost(form.id, null);
-        } else {
-          await profitStore.setOrderCost(form.id, typedCost);
-        }
-      }
+      if (costDirty) await getProfitStore().setOrderCost(form.id, typedCost);
       setOrder(form);
       markReportReturn(form.id, `Order #${form.orderNo} saved`);
       navigate(paths.socialOrders);
@@ -297,9 +277,13 @@ export function OrderEditPage() {
                 <b className="tabular-nums text-ink-700">{unitCost.toLocaleString('en-US')} IQD</b>
                 {pieces > 1 && <> · × {pieces} = {(unitCost * pieces).toLocaleString('en-US')} IQD</>}.
               </>
-            ) : (
+            ) : listModel ? (
               <>
                 No cost is set for <b className="font-mono text-ink-700">{form.itemModel.trim()}</b> yet.
+              </>
+            ) : (
+              <>
+                <b className="font-mono text-ink-700">{form.itemModel.trim()}</b> is not on your products list.
               </>
             )}
           </p>
@@ -314,8 +298,6 @@ export function OrderEditPage() {
                 onChange={(e) => {
                   const n = parseIqd(e.target.value);
                   setCostDraft(n === null ? '' : n.toLocaleString('en-US'));
-                  // A model with no cost yet: the first cost typed is most likely its cost.
-                  if (n !== null && !costDraft && costKey && unitCost === null && savedOwn === undefined) setApplyToModel(true);
                 }}
               />
               <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-semibold text-ink-400">
@@ -324,26 +306,10 @@ export function OrderEditPage() {
             </span>
             <span className="mt-1 block text-xs text-ink-500">
               {unitCost !== null
-                ? 'Leave empty to use the model’s cost × the pieces. Write one only for a different supplier price.'
+                ? 'Leave empty to use the product’s cost × the pieces. Write one only for a different supplier price.'
                 : 'What the goods of this order cost you.'}
             </span>
           </label>
-          {costKey && typedCost !== null && (
-            <label className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-3 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5 size-4 accent-[var(--color-brand-600)]"
-                checked={applyToModel}
-                onChange={(e) => setApplyToModel(e.target.checked)}
-              />
-              <span>
-                <b className="text-ink-900">Use for every {form.itemModel.trim()} order</b>
-                <span className="block text-ink-500">
-                  Sets one piece’s cost to {(typedUnit ?? 0).toLocaleString('en-US')} IQD instead of this order’s only.
-                </span>
-              </span>
-            </label>
-          )}
           <div
             className={cn(
               'rounded-xl px-4 py-3',
@@ -497,21 +463,6 @@ export function OrderEditPage() {
                 onChange={(e) => set('totalPrice', Number(e.target.value.replace(/\D/g, '')) || 0)}
               />
             </div>
-            {unitPrice !== null && unitPrice * pieces !== form.totalPrice && (
-              <div className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-ink-600">
-                <span>
-                  Price list: <b className="tabular-nums text-ink-900">{unitPrice.toLocaleString('en-US')}</b>
-                  {pieces > 1 && <> × {pieces} = <b className="tabular-nums text-ink-900">{(unitPrice * pieces).toLocaleString('en-US')}</b></>} IQD
-                </span>
-                <button
-                  type="button"
-                  className="rounded-lg bg-card px-3 py-1.5 font-semibold text-brand-700 shadow-sm"
-                  onClick={() => set('totalPrice', unitPrice * pieces)}
-                >
-                  Use it
-                </button>
-              </div>
-            )}
           </Section>
 
           <Section title="Sale">

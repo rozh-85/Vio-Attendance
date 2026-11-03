@@ -64,7 +64,7 @@ export function KeyFigures({ s }: { s: ProfitSummary }) {
         tone="goods"
         label="Cost of goods"
         value={s.costedOrders ? <Amount value={s.cogs} /> : '—'}
-        sub={s.costedOrders ? `${percent(s.cogs / (s.costedSales || 1))} of the sales it covers` : 'Add model costs to see it'}
+        sub={s.costedOrders ? `${percent(s.cogs / (s.costedSales || 1))} of the sales it covers` : 'Add your products to see it'}
       />
       <Stat
         tone="sponsor"
@@ -86,7 +86,7 @@ export function KeyFigures({ s }: { s: ProfitSummary }) {
             ? s.costedSales > 0
               ? `${percent(s.net / s.costedSales)} of sales kept`
               : 'Sponsors with no costed sales'
-            : 'Waiting for model costs'
+            : 'Waiting for your products'
         }
         note={
           s.uncostedOrders > 0 && s.costedOrders > 0
@@ -191,7 +191,7 @@ export function Breakdown({ s }: { s: ProfitSummary }) {
           </>
         ) : (
           <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-ink-500">
-            Once models have a cost, this shows where each 1,000 IQD of sales goes.
+            Once products have a cost, this shows where each 1,000 IQD of sales goes.
           </p>
         )}
       </div>
@@ -200,7 +200,7 @@ export function Breakdown({ s }: { s: ProfitSummary }) {
 }
 
 /** Some orders have no cost yet: they are left out of the profit until they do. */
-export function MissingCosts({ s, missingModels }: { s: ProfitSummary; missingModels: number }) {
+export function MissingCosts({ s }: { s: ProfitSummary }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
       <AlertTriangle width={20} height={20} className="shrink-0 text-amber-700" />
@@ -208,24 +208,23 @@ export function MissingCosts({ s, missingModels }: { s: ProfitSummary; missingMo
         <b>
           {s.uncostedOrders} {s.uncostedOrders === 1 ? 'order' : 'orders'} ({iqd(s.uncostedSales)} IQD)
         </b>{' '}
-        {s.uncostedOrders === 1 ? 'has' : 'have'} no cost, so {s.uncostedOrders === 1 ? 'it is' : 'they are'} left out of the profit.
-        {missingModels > 0 && ` ${missingModels} ${missingModels === 1 ? 'model needs' : 'models need'} a cost.`}
+        {s.uncostedOrders === 1 ? 'is' : 'are'} left out of the profit: the model is not on your products list, or has no cost yet.
       </p>
       <Link to={paths.profitModels} className={cn(linkButton.outline, 'border-amber-300 text-amber-900')}>
-        Add costs <ArrowRight width={15} height={15} />
+        Fix them <ArrowRight width={15} height={15} />
       </Link>
     </div>
   );
 }
 
-/** First visit, before any cost is set: the two things to fill in once. */
-export function SetupGuide({ models, sponsors }: { models: number; sponsors: number }) {
+/** First visit, before any product is added: the two things to fill in once. */
+export function SetupGuide({ sponsors }: { sponsors: number }) {
   const steps = [
     {
-      title: 'Add what each model costs you',
-      body: `${models} ${models === 1 ? 'model has' : 'models have'} been sold. Write each one’s cost once and every order, old and new, gets its profit.`,
+      title: 'Add your products',
+      body: 'The few products you sell, each with what one piece costs you. Orders from that day on get their profit: the seller’s price minus your cost.',
       to: paths.profitModels,
-      action: 'Add model costs',
+      action: 'Add products',
       primary: true,
       done: false,
     },
@@ -240,7 +239,7 @@ export function SetupGuide({ models, sponsors }: { models: number; sponsors: num
   ];
   return (
     <Card>
-      <SectionHead title="Set up profit tracking" sub="Two steps, once. The numbers below fill in as you go." />
+      <SectionHead title="Set up profit tracking" sub="Two steps, once. Older orders are not counted; the numbers below fill in as new orders come." />
       <ol className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
         {steps.map((step, i) => (
           <li key={step.title} className="flex flex-wrap items-center gap-4 px-5 py-4">

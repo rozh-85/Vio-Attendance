@@ -46,9 +46,8 @@ interface Draft extends Omit<NewSalesOrder, 'totalPrice' | 'purchase' | 'purchas
   orderDay: string;
   /** Pieces of the item. */
   quantity: number;
-  /** 'manual' when the item and price are written by hand, not picked from the price list. */
+  /** Left by older versions of the form, when the price came from a list. */
   itemMode?: 'list' | 'manual';
-  /** The seller set a price other than the price list's. */
   priceEdited?: boolean;
 }
 
@@ -400,8 +399,8 @@ function SellerWorkspace({
   const [mineError, setMineError] = useState<string | null>(null);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [formKey, setFormKey] = useState(0);
-  // The owner's price list, for the model search. Empty if nothing is priced
-  // or it cannot be read: the seller then writes the item and price.
+  // The owner's products, suggested as the seller writes the model. Empty if
+  // there are none or they cannot be read: nothing is suggested then.
   const [products, setProducts] = useState<PriceListItem[] | null>(null);
 
   const handleError = useCallback(
@@ -1142,7 +1141,7 @@ function validate(draft: Draft, savedDay?: string): Errors {
   if (draft.customerPhone.replace(/\D/g, '').length < 7) errors.customerPhone = 'Write a full phone number.';
   if (!draft.city.trim()) errors.city = 'Pick the city.';
   if (!draft.address.trim()) errors.address = 'Write the address for delivery.';
-  if (!draft.itemModel.trim() && !draft.itemCategory.trim()) errors.item = 'Pick the model, or write the item.';
+  if (!draft.itemModel.trim() && !draft.itemCategory.trim()) errors.item = 'Write the item model.';
   if (priceNumber(draft.price) <= 0) errors.price = 'Write the total price.';
   if (!draft.platform) errors.platform = 'Pick where it was sold.';
   if (draft.orderDay && draft.orderDay !== savedDay) {
@@ -1276,7 +1275,7 @@ function OrderForm({
   onSubmit: (order: NewSalesOrder) => Promise<string | null>;
   onCancel?: () => void;
   onDelete?: () => void;
-  /** The owner's price list: null while it loads, empty when nothing is priced. */
+  /** The owner's products: null while they load, empty when there are none. */
   products: PriceListItem[] | null;
 }) {
   const [draft, setDraft] = useState<Draft>(() => {

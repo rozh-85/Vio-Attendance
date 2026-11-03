@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { format, parseISO } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Button } from '@/components/ui/Button';
@@ -60,8 +61,7 @@ export function ProfitPage() {
     [orders, profit, view.from, view.to],
   );
   const periodText = describePeriod({ ...EMPTY_FILTERS, from: view.from, to: view.to });
-  const hasCosts = !!profit && (Object.keys(profit.models).length > 0 || Object.keys(profit.orderCosts).length > 0);
-  const missingModels = s ? s.byModel.filter((r) => r.key && r.cost === null && r.orders > 0).length : 0;
+  const hasProducts = !!profit && Object.keys(profit.models).length > 0;
 
   return (
     <AdminLayout>
@@ -141,10 +141,10 @@ export function ProfitPage() {
           </div>
         ) : (
           <>
-            {!hasCosts ? (
-              <SetupGuide models={s.byModel.filter((r) => r.key).length} sponsors={profit.sponsors.length} />
+            {!hasProducts ? (
+              <SetupGuide sponsors={profit.sponsors.length} />
             ) : (
-              s.uncostedOrders > 0 && <MissingCosts s={s} missingModels={missingModels} />
+              s.uncostedOrders > 0 && <MissingCosts s={s} />
             )}
             <KeyFigures s={s} />
             <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
@@ -162,6 +162,7 @@ export function ProfitPage() {
               </div>
             </div>
             <p className="pt-1 text-xs text-ink-400">
+              {profit.startDate && `Orders from ${format(parseISO(profit.startDate), 'd MMM yyyy')} on are counted; older ones are not. `}
               Cancelled and returned orders are not counted. Orders with no cost are left out until their cost is
               written, so they never count as profit. A sponsor over several days counts an equal share on each day.
             </p>

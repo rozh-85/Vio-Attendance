@@ -56,7 +56,7 @@ export function TopModels({ s }: { s: ProfitSummary }) {
         sub="Best sellers in this period"
         action={
           <Link to={paths.profitModels} className={linkButton.outline}>
-            Models &amp; prices <ArrowRight width={15} height={15} />
+            Products <ArrowRight width={15} height={15} />
           </Link>
         }
       />
