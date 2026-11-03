@@ -1,8 +1,10 @@
 -- Profit on social media orders
 --
 -- The Profit pages of /rozhadmin/profit keep four things here:
---   social_model_costs      the owner's products: model, name, type and what
---                           one piece costs Vio
+--   social_model_costs      the owner's products: model, name, picture, type
+--                           and what one piece costs Vio
+--   product-images          (storage) the pictures uploaded on Add from
+--                           pictures
 --   social_order_costs      an order's own cost, over its product's (set by
 --                           the owner, or kept when a product's cost changes
 --                           so orders already sold keep their profit)
@@ -13,8 +15,8 @@
 -- and their own price on each order. Only signed-in supervisors reach these
 -- tables, and the app shows them only behind the owner password. Sellers use
 -- the anon key: social_price_list() below gives them the products' models,
--- names and types to suggest as they write — never a cost, and nothing about
--- sponsors.
+-- names, types and pictures to suggest as they write — never a cost, and
+-- nothing about sponsors.
 --
 -- Run once in the Supabase SQL editor, after social-orders.sql. Safe to run
 -- again — run the whole file again after it changes. Nothing in
@@ -29,11 +31,11 @@ create table if not exists public.social_model_costs (
   model_label text not null default '',
   -- What one piece costs Vio; null until the owner writes it.
   cost        numeric(14, 0) check (cost >= 0),
-  -- What one piece sells for; sellers' orders take it automatically.
+  -- No longer used: sellers write their own price on each order.
   sale_price  numeric(14, 0) check (sale_price >= 0),
   -- The item type orders of it are saved under (هیتەر, چوپەر …).
   category    text not null default '',
-  -- Offered to sellers on the order form (when it has a sale price).
+  -- Suggested to sellers on the order form.
   active      boolean not null default true,
   updated_at  timestamptz not null default now()
 );
@@ -44,9 +46,11 @@ alter table public.social_model_costs add column if not exists sale_price numeri
   check (sale_price >= 0);
 alter table public.social_model_costs add column if not exists category text not null default '';
 alter table public.social_model_costs add column if not exists active boolean not null default true;
--- Products: a name, and when it joined the list. The sale price above is no
--- longer used — sellers write their own price.
-alter table public.social_model_costs add column if not exists product_name text not null default '';
+-- Products: a name and picture ('' uses the app's own catalogue), and when
+-- it joined the list. The sale price above is no longer used — sellers write
+-- their own price.
+alter table public.social_model_costs add column if not exists name text not null default '';
+alter table public.social_model_costs add column if not exists image_url text not null default '';
 alter table public.social_model_costs add column if not exists created_at timestamptz not null default now();
 
 -- One row: orders from this day on count in the profit; older ones do not.
@@ -125,8 +129,8 @@ grant select, insert, update, delete on public.social_sponsors    to authenticat
 grant select, insert, update, delete on public.social_profit_settings to authenticated;
 
 -- ── Seller: the product list ────────────────────────────────────────────────
--- The owner's products, with name and type, suggested on the order form as
--- the seller writes the model. Never the cost.
+-- The owner's products, with name, type and picture, suggested on the order
+-- form as the seller writes the model. Never the cost.
 create or replace function public.social_price_list(p_token text)
 returns jsonb
 language plpgsql
@@ -146,8 +150,9 @@ begin
     select jsonb_agg(jsonb_build_object(
              'key', m.model_key,
              'model', m.model_label,
-             'name', m.product_name,
-             'category', m.category)
+             'name', m.name,
+             'category', m.category,
+             'image', m.image_url)
            order by m.model_label)
       from public.social_model_costs as m
      where m.active
@@ -157,5 +162,25 @@ $$;
 
 revoke all on function public.social_price_list(text) from public;
 grant execute on function public.social_price_list(text) to anon, authenticated;
+
+-- ── Product pictures ────────────────────────────────────────────────────────
+-- Uploaded on the Add from pictures page. Anyone with a picture's address can
+-- see it (sellers' phones load them), but only signed-in supervisors add or
+-- remove pictures.
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists product_images_read on storage.objects;
+create policy product_images_read on storage.objects for select to authenticated
+  using (bucket_id = 'product-images');
+drop policy if exists product_images_write on storage.objects;
+create policy product_images_write on storage.objects for insert to authenticated
+  with check (bucket_id = 'product-images'
+              and lower(coalesce(auth.jwt() ->> 'email', '')) <> 'feedback@gmail.com');
+drop policy if exists product_images_delete on storage.objects;
+create policy product_images_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'product-images'
+         and lower(coalesce(auth.jwt() ->> 'email', '')) <> 'feedback@gmail.com');
 
 notify pgrst, 'reload schema';

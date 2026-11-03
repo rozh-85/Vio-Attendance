@@ -241,6 +241,13 @@ insert statement for pointing the feature at the account UUID directly.
   photo) or write it yourself, with what one piece costs you. Edit or delete
   any of them. Spellings are merged (`V.502`, `v502`, `V-502` and Kurdish
   digits are one model).
+- **Add from pictures** (`/rozhadmin/profit/models/add`, the *Add from
+  pictures* button on Products) — upload a whole folder of product pictures
+  (or many pictures from a phone). Each picture's **file name is its model
+  number**: `V-400.jpg` → V-400, `v-502 (2).jpg` → V-502; a camera name such
+  as `IMG_2041.jpg` asks for the model. Pictures are made small before upload.
+  A picture for a product already there replaces its picture. Costs are set
+  afterwards on Products.
 - **Sellers write the model and their own price** — on the order form
   (`/orders`), nothing fills in by itself. Your products are suggested as the
   seller writes the model, and a model on your list is ticked green.
@@ -272,11 +279,12 @@ safe to run again):
    the pieces (`quantity`) to orders. Until it is run, an order of two pieces
    is kept as one.
 2. [`supabase/social-profit.sql`](supabase/social-profit.sql) — run it again
-   after every change. The products (`social_model_costs`: model, name, type,
-   cost), per-order costs, sponsors and the start day
-   (`social_profit_settings`), readable only by signed-in supervisors, plus
-   `social_price_list()`, which gives sellers the products' models, names and
-   types to suggest — never a cost. The logic lives in
+   after every change. The products (`social_model_costs`: model, name,
+   picture, type, cost), per-order costs, sponsors and the start day
+   (`social_profit_settings`), readable only by signed-in supervisors; the
+   public `product-images` storage bucket the pictures go to (only supervisors
+   upload); and `social_price_list()`, which gives sellers the products'
+   models, names, types and pictures to suggest — never a cost. The logic lives in
    [`profit.ts`](src/services/orders/profit.ts).
 
 ## Catalog Management

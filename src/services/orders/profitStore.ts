@@ -12,9 +12,10 @@ import {
 } from './profit';
 
 /**
- * Where the owner's products (each with its cost), per-order costs, the start
- * day and sponsors are kept: owner-only tables next to the orders
- * (supabase/social-profit.sql), or this browser in the local sandbox.
+ * Where the owner's products (each with its cost and picture), per-order
+ * costs, the start day and sponsors are kept: owner-only tables next to the
+ * orders and the product-images bucket (supabase/social-profit.sql), or this
+ * browser in the local sandbox.
  * Sellers reach only `loadPriceList`, which never carries a cost.
  */
 export interface ProfitStore {
@@ -31,6 +32,8 @@ export interface ProfitStore {
   /** Adds a sponsor, or changes the one with this id. */
   saveSponsor(input: SponsorInput, id?: string): Promise<Sponsor>;
   deleteSponsor(id: string): Promise<void>;
+  /** Stores a product picture (already made small) and answers its address. */
+  uploadProductImage(image: Blob, model: string): Promise<string>;
 }
 
 /** A product sellers see as they write the model: never its cost. */
@@ -39,6 +42,8 @@ export interface PriceListItem {
   model: string;
   name: string;
   category: string;
+  /** The uploaded picture's address; '' to use the catalogue's. */
+  image: string;
 }
 
 export class ProfitNotSetUpError extends Error {
@@ -85,11 +90,12 @@ export async function loadPriceList(token: string): Promise<PriceListItem[]> {
       model: p.model ?? '',
       name: p.name ?? '',
       category: p.category ?? '',
+      image: p.image ?? '',
     }));
   }
   if (!(await new LocalOrdersStore().whoAmI(token))) throw new OrdersError('SESSION_EXPIRED');
   return Object.values(read().models)
-    .map((m) => ({ key: m.key, model: m.label, name: m.name, category: m.category }))
+    .map((m) => ({ key: m.key, model: m.label, name: m.name, category: m.category, image: m.image }))
     .sort((a, b) => a.model.localeCompare(b.model, undefined, { numeric: true }));
 }
 
@@ -98,7 +104,8 @@ export async function loadPriceList(token: string): Promise<PriceListItem[]> {
 interface ModelRow {
   model_key: string;
   model_label: string;
-  product_name: string;
+  name: string | null;
+  image_url: string | null;
   cost: number | string | null;
   category: string;
   created_at: string;
@@ -130,7 +137,8 @@ function toModel(row: ModelRow): ModelCost {
   return {
     key: row.model_key,
     label: row.model_label,
-    name: row.product_name ?? '',
+    name: row.name ?? '',
+    image: row.image_url ?? '',
     cost: money(row.cost),
     category: row.category ?? '',
     createdAt: row.created_at,
@@ -174,7 +182,7 @@ function translate(error: { code?: string; message?: string }): Error {
   const message = error.message ?? '';
   if (
     error.code === '42703' ||
-    (error.code === 'PGRST204' && /product_name|created_at|category/.test(message)) ||
+    (error.code === 'PGRST204' && /name|image_url|created_at|category/.test(message)) ||
     /social_profit_settings/.test(message)
   ) {
     return new ProfitNotSetUpError(true);
@@ -209,7 +217,7 @@ class SupabaseProfitStore implements ProfitStore {
     const [models, orderCosts, sponsors, settings] = await Promise.all([
       this.all<ModelRow>(
         'social_model_costs',
-        'model_key, model_label, product_name, cost, category, created_at, updated_at',
+        'model_key, model_label, name, image_url, cost, category, created_at, updated_at',
         'model_key',
       ),
       this.all<OrderCostRow>('social_order_costs', 'order_id, cost', 'order_id'),
@@ -230,7 +238,8 @@ class SupabaseProfitStore implements ProfitStore {
       models.map((m) => ({
         model_key: m.key,
         model_label: m.label.trim(),
-        product_name: m.name.trim(),
+        name: m.name.trim(),
+        image_url: m.image,
         cost: m.cost === null ? null : Math.round(m.cost),
         category: m.category.trim(),
         active: true,
@@ -290,6 +299,18 @@ class SupabaseProfitStore implements ProfitStore {
     const { error } = await this.client.from('social_sponsors').delete().eq('id', id);
     if (error) throw translate(error);
   }
+
+  async uploadProductImage(image: Blob, model: string): Promise<string> {
+    const safe = model.replace(/[^A-Za-z0-9-]/g, '').slice(0, 40) || 'product';
+    const path = `models/${safe}-${crypto.randomUUID().slice(0, 8)}.jpg`;
+    const bucket = this.client.storage.from('product-images');
+    const { error } = await bucket.upload(path, image, { contentType: image.type || 'image/jpeg', upsert: false });
+    if (error) {
+      if (/bucket not found/i.test(error.message)) throw new ProfitNotSetUpError(true);
+      throw new Error(error.message);
+    }
+    return bucket.getPublicUrl(path).data.publicUrl;
+  }
 }
 
 // ── This browser (local sandbox) ─────────────────────────────────────────────
@@ -303,7 +324,14 @@ function read(): ProfitData {
     // Models saved before products had names: fill the new fields.
     const models: ProfitData['models'] = {};
     for (const [key, m] of Object.entries(data.models)) {
-      models[key] = { ...m, name: m.name ?? '', cost: m.cost ?? null, category: m.category ?? '', createdAt: m.createdAt ?? m.updatedAt };
+      models[key] = {
+        ...m,
+        name: m.name ?? '',
+        image: m.image ?? '',
+        cost: m.cost ?? null,
+        category: m.category ?? '',
+        createdAt: m.createdAt ?? m.updatedAt,
+      };
     }
     return { ...data, models };
   } catch {
@@ -330,6 +358,7 @@ class LocalProfitStore implements ProfitStore {
         key: m.key,
         label: m.label.trim(),
         name: m.name.trim(),
+        image: m.image,
         cost: m.cost === null ? null : Math.round(m.cost),
         category: m.category.trim(),
         createdAt: models[m.key]?.createdAt ?? now,
@@ -381,5 +410,15 @@ class LocalProfitStore implements ProfitStore {
   async deleteSponsor(id: string): Promise<void> {
     const data = read();
     write({ ...data, sponsors: data.sponsors.filter((s) => s.id !== id) });
+  }
+
+  /** The sandbox keeps the picture itself, small, in this browser. */
+  async uploadProductImage(image: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('Could not read the picture.'));
+      reader.readAsDataURL(image);
+    });
   }
 }

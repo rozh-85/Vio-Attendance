@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { AlertTriangle, CalendarDays, Check, CheckCircle, Pencil, Plus, Search, Trash, X } from '@/components/icons';
+import { AlertTriangle, CalendarDays, Check, CheckCircle, ImageIcon, Pencil, Plus, Search, Trash, X } from '@/components/icons';
 import { BackLink, LoadProblem, iqd, signTone, signedIqd } from '@/components/orders/profit/parts';
 import { useProfitData } from '@/hooks/useProfitData';
 import { CATEGORIES } from '@/services/orders/options';
@@ -19,6 +19,7 @@ import {
   type ModelValues,
 } from '@/services/orders/profit';
 import { catalogItem, catalogItems, type CatalogItem } from '@/services/orders/products';
+import { clearProfitNotice, readProfitNotice } from '@/services/orders/profitMemory';
 import { getProfitStore, profitErrorMessage } from '@/services/orders/profitStore';
 import type { SalesOrder } from '@/services/orders/types';
 import { paths } from '@/routes';
@@ -34,10 +35,10 @@ const moneyText = (value: string) => {
 };
 const FIX_SHOWN = 8;
 
-/** The catalogue photo on white, or the model's first letters. */
-function Photo({ model, className }: { model: string; className?: string }) {
+/** The product's picture on white — uploaded, else the catalogue's — or the model's first letters. */
+function Photo({ model, image = '', className }: { model: string; image?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
-  const src = catalogItem(model)?.image ?? '';
+  const src = image || catalogItem(model)?.image || '';
   return (
     <span className={cn('grid shrink-0 place-items-center overflow-hidden rounded-lg border border-slate-200 bg-white', className)}>
       {src && !failed ? (
@@ -115,7 +116,7 @@ function AddProduct({
     const key = modelKey(form.label);
     if (!key) return setProblem('Write the model, e.g. V-400.');
     if (taken.has(key)) return setProblem(`${form.label.trim()} is already on your list.`);
-    onSave({ key, label: form.label.trim(), name: form.name.trim(), category: form.category.trim(), cost: parseIqd(form.cost) });
+    onSave({ key, label: form.label.trim(), name: form.name.trim(), image: '', category: form.category.trim(), cost: parseIqd(form.cost) });
   }
 
   return (
@@ -223,7 +224,7 @@ function ProductRow({
       <tr className="bg-brand-50/30">
         <td colSpan={6} className="px-5 py-4">
           <div className="flex items-center gap-3">
-            <Photo model={product.key} className="size-10" />
+            <Photo model={product.key} image={product.image} className="size-10" />
             <span className="font-mono text-sm font-bold text-ink-900">{product.label}</span>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
@@ -248,7 +249,14 @@ function ProductRow({
                 loading={busy}
                 leftIcon={<Check width={16} height={16} />}
                 onClick={() =>
-                  onSave({ key: product.key, label: product.label, name: form.name.trim(), category: form.category.trim(), cost: parseIqd(form.cost) })
+                  onSave({
+                    key: product.key,
+                    label: product.label,
+                    name: form.name.trim(),
+                    image: product.image,
+                    category: form.category.trim(),
+                    cost: parseIqd(form.cost),
+                  })
                 }
               >
                 Save
@@ -292,7 +300,7 @@ function ProductRow({
     <tr>
       <td className="py-3 pl-5 pr-3">
         <div className="flex items-center gap-3">
-          <Photo model={product.key} className="size-11" />
+          <Photo model={product.key} image={product.image} className="size-11" />
           <div className="min-w-0">
             <div className="truncate font-mono text-sm font-bold text-ink-900">{product.label}</div>
             {name && <div className="truncate text-xs text-ink-500">{name}</div>}
@@ -432,7 +440,8 @@ export function ProductsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  // The "added" message from Add from pictures shows here once.
+  const [notice, setNotice] = useState(readProfitNotice);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
@@ -440,6 +449,7 @@ export function ProductsPage() {
   }, []);
 
   useEffect(() => {
+    clearProfitNotice();
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 4500);
     return () => window.clearTimeout(timer);
@@ -539,9 +549,14 @@ export function ProductsPage() {
     });
 
   const addButton = (
-    <Button leftIcon={<Plus width={17} height={17} />} onClick={() => setAdding({ prefill: '' })}>
-      Add product
-    </Button>
+    <div className="flex flex-wrap justify-center gap-2">
+      <Link to={paths.profitAddProducts} className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 transition-colors hover:bg-slate-50">
+        <ImageIcon width={17} height={17} /> Add from pictures
+      </Link>
+      <Button leftIcon={<Plus width={17} height={17} />} onClick={() => setAdding({ prefill: '' })}>
+        Add product
+      </Button>
+    </div>
   );
 
   return (

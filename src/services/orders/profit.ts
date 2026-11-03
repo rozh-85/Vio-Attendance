@@ -57,8 +57,10 @@ export interface ModelCost {
   key: string;
   /** The model as written, e.g. V-502. */
   label: string;
-  /** e.g. Air Fryer. */
+  /** e.g. Air Fryer; '' to use the catalogue's. */
   name: string;
+  /** Its uploaded picture's address; '' to use the catalogue's. */
+  image: string;
   /** What one piece costs Vio, in IQD; null until written. */
   cost: number | null;
   /** The item type its orders are saved under, e.g. هیتەر. */
@@ -69,6 +71,27 @@ export interface ModelCost {
 
 /** A product as it is saved: everything but the times. */
 export type ModelValues = Omit<ModelCost, 'createdAt' | 'updatedAt'>;
+
+/**
+ * The product `key` as saved now, with `patch` laid over it — what a page
+ * sends to save one change without losing the product's other fields.
+ */
+export function modelWith(
+  data: ProfitData,
+  key: string,
+  label: string,
+  patch: Partial<Pick<ModelCost, 'cost' | 'category' | 'name' | 'image'>>,
+): ModelValues {
+  const m = data.models[key];
+  return {
+    key,
+    label: label.trim() || m?.label || key,
+    cost: patch.cost !== undefined ? patch.cost : (m?.cost ?? null),
+    category: patch.category !== undefined ? patch.category.trim() : (m?.category ?? ''),
+    name: patch.name !== undefined ? patch.name.trim() : (m?.name ?? ''),
+    image: patch.image !== undefined ? patch.image : (m?.image ?? ''),
+  };
+}
 
 export interface ProfitData {
   /** The owner's products, by `modelKey()`. */

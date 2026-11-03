@@ -3,7 +3,7 @@ import { modelKey } from './profit';
 
 /**
  * The Vio catalogue's products by model, for a photo and a name next to a
- * model on the price list and on the seller's model search. The photos ship
+ * model on the products list and on the seller's model search. The photos ship
  * with the app (public/catalog-assets), so sellers see them without reading
  * the owner's catalog.
  */

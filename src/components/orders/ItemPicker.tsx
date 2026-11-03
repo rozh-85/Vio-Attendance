@@ -24,9 +24,9 @@ const SUGGESTED = 6;
 const money = (n: number) => Math.round(n).toLocaleString('en-US');
 const priceNumber = (price: string) => Number(westernDigits(price).replace(/\D/g, '')) || 0;
 
-/** The product photo on white, as the catalogue shoots it, or the model's letters. */
-function Photo({ itemKey, model }: { itemKey: string; model: string }) {
-  const src = catalogItem(itemKey)?.image ?? '';
+/** The product's picture on white — the owner's, else the catalogue's — or the model's letters. */
+function Photo({ itemKey, model, image }: { itemKey: string; model: string; image: string }) {
+  const src = image || catalogItem(itemKey)?.image || '';
   return (
     <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
       {src ? (
@@ -132,7 +132,7 @@ export function ItemPicker({
                   onClick={() => onChange({ itemModel: p.model, itemCategory: fields.itemCategory.trim() || typeOf(p) })}
                   className="flex shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-card py-1.5 pl-1.5 pr-3 transition active:scale-[0.98]"
                 >
-                  <Photo itemKey={p.key} model={p.model} />
+                  <Photo itemKey={p.key} model={p.model} image={p.image} />
                   <span className="text-left leading-tight">
                     <span className="block font-mono text-sm font-bold text-ink-900">{p.model}</span>
                     <span dir="auto" className="block max-w-32 truncate text-xs text-ink-500">
