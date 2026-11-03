@@ -60,7 +60,7 @@ import { readCheckInLocation } from "@/utils/geolocation";
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
-import { HrCorridor, HrLobby, type RoomSign } from "@/components/hr/HrBuilding";
+import { HrCorridor, HrLobby, hrFloor, type RoomSign } from "@/components/hr/HrBuilding";
 import {
   hrTabLabel,
   isHrTab,
@@ -330,14 +330,10 @@ export function HrManagementPage() {
       legacyLeave,
     ],
   );
-  const totals = useMemo(
-    () => ({
-      hours: currentRows.reduce((n, r) => n + r.hours, 0),
-      overtime: currentRows.reduce((n, r) => n + r.overtime, 0),
-      late: currentRows.filter((r) => r.status === "Late").length,
-      absent: currentRows.filter((r) => r.status === "Absent").length,
-    }),
-    [currentRows],
+  const today = date();
+  const todayRows = useMemo(
+    () => attendanceRows(workspace, employees, attendance, today, today, legacyLeave),
+    [workspace, employees, attendance, today, legacyLeave],
   );
   const payroll = useMemo(() => {
     try {
@@ -350,18 +346,34 @@ export function HrManagementPage() {
   const draftPayroll = workspace.payrollEntries
     .filter((p) => p.period === workspace.payrollPeriod)
     .reduce((n, p) => n + p.netSalary, 0);
+  function interviewSign(): string {
+    const people = workspace.interviewCandidates ?? [];
+    const due = people.filter(
+      (c) =>
+        c.status === "Pending / Call Later" &&
+        c.callAgainDate &&
+        c.callAgainDate <= today,
+    ).length;
+    if (due > 0) return `${due} to call back`;
+    if (people.length === 0) return "No one yet";
+    return `${people.length} ${people.length === 1 ? "person" : "people"}`;
+  }
   const roomSigns: Partial<Record<Tab, RoomSign>> = {
     people: { value: `${activeEmployees.length} active` },
     "employee-details": { value: `${employees.length} on record` },
     organization: { value: `${workspace.departments.length} departments` },
-    time: { value: `${workspace.shifts.length} ${workspace.shifts.length === 1 ? "shift" : "shifts"} · ${totals.hours}h` },
+    time: {
+      value: `${workspace.shifts.length} ${workspace.shifts.length === 1 ? "shift" : "shifts"} · ${Math.round(todayRows.reduce((n, r) => n + r.hours, 0) * 10) / 10}h today`,
+    },
     leave:
       pendingRequests.length > 0
-        ? { value: `${pendingRequests.length} waiting`, alert: true }
+        ? { value: `${pendingRequests.length} waiting`, alert: true, count: pendingRequests.length }
         : { value: `${workspace.holidays.length} holidays` },
     payroll: { value: draftPayroll ? money(draftPayroll, workspace.settings.currency) : workspace.payrollPeriod },
-    hiring: { value: `${workspace.candidates.length} candidates` },
-    interviews: { value: "Calls & follow-ups" },
+    hiring: {
+      value: `${workspace.candidates.length} ${workspace.candidates.length === 1 ? "candidate" : "candidates"}`,
+    },
+    interviews: { value: interviewSign() },
     locations: { value: `${workspace.locations.length} sites · ${workspace.devices.length} devices` },
     rules: { value: `${workspace.rules.length} rules` },
     reports: { value: "Exports & audit log" },
@@ -566,15 +578,15 @@ export function HrManagementPage() {
 
   return (
     <AdminLayout>
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-brand-600">
-            Vio HR Department
-          </div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">HR building</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-500">
-            Manage people, attendance, leave, payroll, recruitment, and HR
-            operations from one organized workspace.
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">
+            {tab === "overview" ? "HR building" : hrTabLabel(tab)}
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {tab === "overview"
+              ? `${activeEmployees.length} active ${activeEmployees.length === 1 ? "person" : "people"} · ${workspace.departments.length} ${workspace.departments.length === 1 ? "department" : "departments"} · ${workspace.locations.length} ${workspace.locations.length === 1 ? "site" : "sites"}`
+              : `HR building · Floor ${hrFloor(tab).number}, ${hrFloor(tab).label}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -589,7 +601,7 @@ export function HrManagementPage() {
           </Button>
           <Button
             size="sm"
-            variant="secondary"
+            variant="outline"
             loading={saving}
             onClick={() => void reload()}
           >
@@ -598,7 +610,13 @@ export function HrManagementPage() {
         </div>
       </header>
       {tab === "overview" ? (
-        <HrLobby signs={roomSigns} onOpen={setTab} />
+        <HrLobby
+          workspace={workspace}
+          employees={employees}
+          today={todayRows}
+          signs={roomSigns}
+          onOpen={setTab}
+        />
       ) : (
         <HrCorridor active={tab} signs={roomSigns} onOpen={setTab} />
       )}
@@ -615,15 +633,6 @@ export function HrManagementPage() {
             </div>
           )}
 
-      {tab === "overview" && (
-        <Overview
-          employees={employees}
-          workspace={workspace}
-          activeEmployees={activeEmployees}
-          pendingRequests={pendingRequests}
-          totals={totals}
-        />
-      )}
       {tab === "people" && (
         <div className="space-y-5">
           <People
@@ -717,101 +726,6 @@ export function HrManagementPage() {
       )}
       </main>
     </AdminLayout>
-  );
-}
-
-function Overview({
-  employees,
-  workspace,
-  activeEmployees,
-  pendingRequests,
-  totals,
-}: {
-  employees: Employee[];
-  workspace: HrWorkspace;
-  activeEmployees: Employee[];
-  pendingRequests: HrLeaveRequest[];
-  totals: { hours: number; overtime: number; late: number; absent: number };
-}) {
-  const departmentCounts = workspace.departments
-    .map((d) => ({
-      ...d,
-      count: employees.filter(
-        (e) =>
-          workspace.profiles[e.id]?.departmentId === d.id &&
-          workspace.profiles[e.id]?.status !== "inactive",
-      ).length,
-    }))
-    .sort((a, b) => b.count - a.count);
-  return (
-    <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-        <StatCard
-          value={activeEmployees.length}
-          label="Active employees"
-          tone="info"
-        />
-        <StatCard
-          value={workspace.departments.length}
-          label="Departments"
-          tone="success"
-        />
-        <StatCard
-          value={pendingRequests.length}
-          label="Pending leave"
-          tone="warning"
-        />
-        <StatCard
-          value={money(
-            workspace.payrollEntries
-              .filter((p) => p.period === workspace.payrollPeriod)
-              .reduce((n, p) => n + p.netSalary, 0),
-            workspace.settings.currency,
-          )}
-          label="Payroll draft"
-          tone="info"
-        />
-        <StatCard
-          value={`${totals.hours}h`}
-          label="Attendance hours"
-          tone="success"
-        />
-      </div>
-      <div className="grid gap-5">
-        <Section
-          title="Department distribution"
-          description="Active employees by department"
-        >
-          <div className="p-5">
-            {departmentCounts.length === 0 ? (
-              <p className="text-sm text-ink-500">
-                No departments yet. Create the organization structure to assign
-                people.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {departmentCounts.map((d) => (
-                  <div key={d.id}>
-                    <div className="mb-1.5 flex justify-between text-sm">
-                      <span className="font-semibold">{d.name}</span>
-                      <span className="text-ink-500">{d.count}</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-100">
-                      <div
-                        className="h-2 rounded-full bg-brand-500"
-                        style={{
-                          width: `${Math.min(100, activeEmployees.length ? (d.count / activeEmployees.length) * 100 : 0)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Section>
-      </div>
-    </div>
   );
 }
 
