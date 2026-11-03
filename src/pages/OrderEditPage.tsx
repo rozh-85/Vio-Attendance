@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Input, Textarea } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ArrowLeft, Check, Trash } from '@/components/icons';
+import { ArrowLeft, Check, Tag, Trash } from '@/components/icons';
 import {
   CATEGORIES,
   CITIES,
@@ -26,6 +26,8 @@ import { sellerList, sellerOf } from '@/services/orders/report';
 import { markReportReturn } from '@/services/orders/reportMemory';
 import { getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { OrderStatus, SalesOrder, SalesOrderPatch } from '@/services/orders/types';
+import { modelKey, parseIqd, type ProfitData } from '@/services/orders/profit';
+import { getProfitStore, profitErrorMessage } from '@/services/orders/profitStore';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
 
@@ -85,6 +87,11 @@ export function OrderEditPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Cost of this order: its own, or its model's. Optional — the page works without it.
+  const [profitData, setProfitData] = useState<ProfitData | null>(null);
+  const [profitIssue, setProfitIssue] = useState<string | null>(null);
+  const [costDraft, setCostDraft] = useState('');
+  const [applyToModel, setApplyToModel] = useState(false);
 
   // Opened from far down the report: start at the top of this page.
   useEffect(() => {
@@ -105,12 +112,37 @@ export function OrderEditPage() {
       })
       .catch((err) => active && setLoadError(ordersErrorMessage(err)))
       .finally(() => active && setLoading(false));
+    getProfitStore()
+      .load()
+      .then((data) => {
+        if (!active) return;
+        setProfitData(data);
+        const own = data.orderCosts[orderId];
+        setCostDraft(own !== undefined ? own.toLocaleString('en-US') : '');
+        setApplyToModel(false);
+      })
+      .catch((err) => active && setProfitIssue(profitErrorMessage(err)));
     return () => {
       active = false;
     };
   }, [orderId]);
 
-  const dirty = !!order && !!form && JSON.stringify(order) !== JSON.stringify(form);
+  const orderDirty = !!order && !!form && JSON.stringify(order) !== JSON.stringify(form);
+
+  // What the cost box asks for, against what is saved.
+  const costKey = form ? modelKey(form.itemModel) : '';
+  const modelCost = costKey && profitData ? profitData.models[costKey] : undefined;
+  const savedOwn = order && profitData ? profitData.orderCosts[order.id] : undefined;
+  const typedCost = parseIqd(costDraft);
+  const toModel = applyToModel && !!costKey && typedCost !== null;
+  const costDirty =
+    !!profitData &&
+    (typedCost === null
+      ? savedOwn !== undefined
+      : toModel
+        ? modelCost?.cost !== typedCost || savedOwn !== undefined
+        : savedOwn !== typedCost);
+  const dirty = orderDirty || costDirty;
 
   // Closing the tab or reloading with changes not saved asks first.
   useEffect(() => {
@@ -176,7 +208,16 @@ export function OrderEditPage() {
         status: form.status,
         createdAt: form.createdAt,
       };
-      await getOrdersStore().updateOrder(form.id, patch);
+      if (orderDirty) await getOrdersStore().updateOrder(form.id, patch);
+      if (costDirty) {
+        const profitStore = getProfitStore();
+        if (toModel && typedCost !== null) {
+          await profitStore.setModelCost(costKey, form.itemModel, typedCost);
+          if (savedOwn !== undefined) await profitStore.setOrderCost(form.id, null);
+        } else {
+          await profitStore.setOrderCost(form.id, typedCost);
+        }
+      }
       setOrder(form);
       markReportReturn(form.id, `Order #${form.orderNo} saved`);
       navigate(paths.socialOrders);
@@ -223,6 +264,110 @@ export function OrderEditPage() {
       </Button>
     </Card>
   );
+  // What the goods of this order cost, and the profit left on it.
+  const effectiveCost = typedCost ?? modelCost?.cost ?? null;
+  const orderProfit = effectiveCost === null ? null : form.totalPrice - effectiveCost;
+  const costCard = (
+    <Card className="p-5">
+      <div className="flex items-center gap-2">
+        <span className="grid size-8 place-items-center rounded-lg bg-slate-100 text-ink-700">
+          <Tag width={16} height={16} />
+        </span>
+        <h2 className="font-bold text-ink-900">Cost &amp; profit</h2>
+      </div>
+      {profitIssue ? (
+        <p className="mt-3 text-sm text-amber-800">{profitIssue}</p>
+      ) : !profitData ? (
+        <p className="mt-3 text-sm text-ink-400">Loading…</p>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-ink-500">
+            {!costKey ? (
+              'No model is written on this order, so it needs its own cost.'
+            ) : modelCost ? (
+              <>
+                One <b className="font-mono text-ink-700">{form.itemModel.trim()}</b> costs{' '}
+                <b className="tabular-nums text-ink-700">{modelCost.cost.toLocaleString('en-US')} IQD</b>.
+              </>
+            ) : (
+              <>
+                No cost is set for <b className="font-mono text-ink-700">{form.itemModel.trim()}</b> yet.
+              </>
+            )}
+          </p>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-ink-900">This order’s cost</span>
+            <span className="relative block">
+              <input
+                inputMode="numeric"
+                className={cn(selectClass, 'pr-14 text-right font-semibold tabular-nums')}
+                placeholder={modelCost ? `${modelCost.cost.toLocaleString('en-US')} (model)` : 'Cost of the goods'}
+                value={costDraft}
+                onChange={(e) => {
+                  const n = parseIqd(e.target.value);
+                  setCostDraft(n === null ? '' : n.toLocaleString('en-US'));
+                  // A model with no cost yet: the first cost typed is most likely its cost.
+                  if (n !== null && !costDraft && costKey && !modelCost && savedOwn === undefined) setApplyToModel(true);
+                }}
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-semibold text-ink-400">
+                IQD
+              </span>
+            </span>
+            <span className="mt-1 block text-xs text-ink-500">
+              {modelCost
+                ? 'Leave empty to use the model’s cost. Write one for two pieces or a different price.'
+                : 'What the goods of this order cost you.'}
+            </span>
+          </label>
+          {costKey && typedCost !== null && (
+            <label className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 accent-[var(--color-brand-600)]"
+                checked={applyToModel}
+                onChange={(e) => setApplyToModel(e.target.checked)}
+              />
+              <span>
+                <b className="text-ink-900">Use for every {form.itemModel.trim()} order</b>
+                <span className="block text-ink-500">Sets the model’s cost instead of this order’s only.</span>
+              </span>
+            </label>
+          )}
+          <div
+            className={cn(
+              'rounded-xl px-4 py-3',
+              !countsAsSale(form.status)
+                ? 'bg-slate-50'
+                : orderProfit === null
+                  ? 'bg-amber-50'
+                  : orderProfit >= 0
+                    ? 'bg-emerald-50'
+                    : 'bg-rose-50',
+            )}
+          >
+            <div className="text-xs font-bold uppercase tracking-wide text-ink-500">Profit on this order</div>
+            {!countsAsSale(form.status) ? (
+              <div className="text-sm text-ink-500">{STATUS_LABEL[form.status]} — no profit counted</div>
+            ) : orderProfit === null ? (
+              <div className="text-sm font-semibold text-amber-800">Write a cost to see it</div>
+            ) : (
+              <div className="flex items-baseline gap-2">
+                <span className={cn('text-2xl font-bold tabular-nums', orderProfit >= 0 ? 'text-emerald-700' : 'text-rose-700')}>
+                  {orderProfit >= 0 ? '+' : '−'}
+                  {Math.abs(orderProfit).toLocaleString('en-US')}
+                </span>
+                <span className="text-sm text-ink-500">
+                  IQD{form.totalPrice > 0 && ` · ${Math.round((orderProfit / form.totalPrice) * 100)}%`}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+
   const seller = sellerOf(form);
   const savedLater =
     !!order.enteredAt && new Date(order.enteredAt).getTime() - new Date(order.createdAt).getTime() > 12 * 60 * 60 * 1000;
@@ -407,6 +552,8 @@ export function OrderEditPage() {
                 />
               </div>
             </Card>
+
+            {costCard}
 
             <div className="hidden space-y-2 xl:block">
               {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}

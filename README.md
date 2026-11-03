@@ -229,6 +229,37 @@ For the Gashben places page and its linked place orders, run
 Gashben seller account by username/display name; it also includes a marked
 insert statement for pointing the feature at the account UUID directly.
 
+## Profit on social media orders
+
+The **Profit** tab of `/rozhadmin/orders` (behind the owner password) works out
+what the orders really earned:
+
+> Sales − cost of the goods = **gross profit** · gross profit − sponsors = **net profit**
+
+- **Cost of each model** — write what one piece costs once, and every order of
+  that model, old and new, gets its profit. Spellings are merged (`V.502`,
+  `v502`, `V-502` and Kurdish digits are one model). Enter saves and moves to the
+  next model; **No cost yet** lists the ones still missing.
+- **Sponsors** — each paid post or ad, in dollars (with the rate) or dinars, and
+  the days it ran. Its cost is spread evenly over those days, so a period only
+  carries its own share.
+- **One order's own cost** — on an order's page, *Cost & profit* takes a cost
+  for that order alone (two pieces, a different supplier price), or sets the
+  model's cost for all its orders.
+- Orders with no cost are **left out** of the profit and counted as *No cost
+  yet*, so a missing cost never shows up as profit. Cancelled and returned
+  orders count no sales and no cost.
+
+The tab shows net profit for a period, the way from sales to it, profit by day,
+whether each platform's sponsors pay off, and exports it all to Excel. Once a
+cost is set, the orders table shows each order's profit under its price.
+
+Run [`supabase/social-profit.sql`](supabase/social-profit.sql) once, after
+`social-orders.sql`. It adds three tables — `social_model_costs`,
+`social_order_costs` and `social_sponsors` — readable only by signed-in
+supervisors; sellers can never see a cost or a sponsor. The logic lives in
+[`profit.ts`](src/services/orders/profit.ts).
+
 ## Catalog Management
 
 The unlisted `/catalog` route contains a single Master Catalog and a
