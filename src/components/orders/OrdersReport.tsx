@@ -363,16 +363,35 @@ function TrendChart({
   );
 }
 
+/** Price less cost under an order's price; a note when its cost is not known yet. */
+function ProfitLine({ order, profitOf }: { order: SalesOrder; profitOf?: (o: SalesOrder) => number | null }) {
+  if (!profitOf || !countsAsSale(order.status)) return null;
+  const profit = profitOf(order);
+  if (profit === null) return <div className="text-xs font-semibold text-amber-700">No cost yet</div>;
+  return (
+    <div
+      className={cn('text-xs font-semibold tabular-nums', profit >= 0 ? 'text-emerald-700' : 'text-rose-700')}
+      title="Price less the cost of the goods"
+    >
+      {profit >= 0 ? '+' : '\u2212'}
+      {Math.abs(Math.round(profit)).toLocaleString('en-US')} profit
+    </div>
+  );
+}
+
 export function OrdersReport({
   orders,
   sellers,
   colorOf,
+  profitOf,
   onChanged,
 }: {
   orders: SalesOrder[];
   /** Every seller name, accounts first, for the seller chips. */
   sellers: string[];
   colorOf: (seller: string) => string;
+  /** Each order's profit, once costs are set; leave out to show none. */
+  profitOf?: (order: SalesOrder) => number | null;
   onChanged: () => void;
 }) {
   // Coming back from an order's page restores where the owner was; a fresh
@@ -1150,6 +1169,7 @@ export function OrdersReport({
                           {o.totalPrice.toLocaleString('en-US')}
                         </div>
                         <div className="text-xs text-ink-400">IQD · {o.platform || '—'}</div>
+                        <ProfitLine order={o} profitOf={profitOf} />
                       </div>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
@@ -1272,6 +1292,7 @@ export function OrdersReport({
                             {formatIqd(o.totalPrice)}
                           </div>
                           <div className="text-xs text-ink-400">{o.platform || '—'}</div>
+                          <ProfitLine order={o} profitOf={profitOf} />
                           <div className="mt-1 md:hidden">{statusSelect(o)}</div>
                         </td>
                         <td className="hidden px-3 py-3 md:table-cell">{statusSelect(o)}</td>
