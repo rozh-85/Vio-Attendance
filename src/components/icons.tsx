@@ -403,3 +403,46 @@ export const Mail = (p: IconProps) => (
     <path d="m3 7 9 6 9-6" />
   </svg>
 );
+
+export const TrendingUp = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m3 17 6-6 4 4 8-8" />
+    <path d="M15 7h6v6" />
+  </svg>
+);
+
+export const TrendingDown = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m3 7 6 6 4-4 8 8" />
+    <path d="M15 17h6v-6" />
+  </svg>
+);
+
+/** A sponsored post or ad. */
+export const Megaphone = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z" />
+    <path d="M15 8.5a5 5 0 0 1 0 7M18 5.5a9 9 0 0 1 0 13" />
+  </svg>
+);
+
+/** A price tag: what one piece of a model costs. */
+export const Tag = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9Z" />
+    <circle cx="7.5" cy="7.5" r="1.5" />
+  </svg>
+);
+
+export const AlertTriangle = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+    <path d="M12 9v4M12 17h.01" />
+  </svg>
+);
+
+export const ChevronRight = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);

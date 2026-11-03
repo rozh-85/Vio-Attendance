@@ -138,6 +138,7 @@ export class LocalOrdersStore implements OrdersStore {
       {
         ...fields,
         totalPrice: Math.round(order.totalPrice),
+        quantity: Math.min(99, Math.max(1, Math.round(order.quantity || 1))),
         id: crypto.randomUUID(),
         orderNo,
         accountId: account.id,
@@ -229,6 +230,7 @@ export class LocalOrdersStore implements OrdersStore {
       added += 1;
       orders.push({
         ...row,
+        quantity: row.quantity || 1,
         id: crypto.randomUUID(),
         orderNo,
         enteredAt: row.createdAt,

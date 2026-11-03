@@ -18,6 +18,12 @@ export const paths = {
   // Behind the same owner password: the social media sellers' orders.
   socialOrders: '/rozhadmin/orders',
   socialOrder: (id: string) => `/rozhadmin/orders/${id}`,
+  // Same owner password: profit on those orders, with its own pages for
+  // each model's price and cost, and for adding or changing a sponsor.
+  profit: '/rozhadmin/profit',
+  profitModels: '/rozhadmin/profit/models',
+  profitNewSponsor: '/rozhadmin/profit/sponsors/new',
+  profitSponsor: (id: string) => `/rozhadmin/profit/sponsors/${id}`,
   // Public, unlisted: where social media sellers sign in and add orders.
   sellerOrders: '/orders',
   sellerPlaces: '/orders/places',
@@ -43,6 +49,12 @@ export const routePatterns = {
   oldCheckInLocations: '/rozhadmin/locations',
   socialOrders: '/rozhadmin/orders',
   socialOrder: '/rozhadmin/orders/:orderId',
+  profit: '/rozhadmin/profit',
+  profitModels: '/rozhadmin/profit/models',
+  // The page's first address, before prices joined the costs.
+  oldProfitCosts: '/rozhadmin/profit/costs',
+  // `new` for a new sponsor, else its id.
+  profitSponsor: '/rozhadmin/profit/sponsors/:sponsorId',
   sellerOrders: '/orders',
   sellerPlaces: '/orders/places',
   sellerPlace: '/orders/places/:placeId',

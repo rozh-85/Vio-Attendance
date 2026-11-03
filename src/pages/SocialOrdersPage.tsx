@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +12,10 @@ import { sellerColor } from '@/services/orders/options';
 import { sellerList } from '@/services/orders/report';
 import { OrdersError, getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { SalesOrder, SocialAccount } from '@/services/orders/types';
+import { profitOf, type ProfitData } from '@/services/orders/profit';
+import { getProfitStore } from '@/services/orders/profitStore';
+import { TrendingUp } from '@/components/icons';
+import { paths } from '@/routes';
 import type { Employee } from '@/types';
 import { cn } from '@/utils/cn';
 
@@ -31,15 +36,30 @@ const REFRESH_MS = 30_000;
  */
 export function SocialOrdersPage() {
   const data = useDataService();
-  const [tab, setTab] = useState<Tab>('report');
+  // In the address (?tab=accounts), so a refresh stays on the same tab.
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = TABS.some((t) => t.id === params.get('tab')) ? (params.get('tab') as Tab) : 'report';
+  const setTab = (next: Tab) => setParams(next === 'report' ? {} : { tab: next }, { replace: true });
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ setup: boolean; message: string } | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  // Model costs, for the profit under each price. The orders work without
+  // them (before supabase/social-profit.sql has been run, say).
+  const [profit, setProfit] = useState<ProfitData | null>(null);
+
+  const reloadProfit = useCallback(async () => {
+    try {
+      setProfit(await getProfitStore().load());
+    } catch {
+      setProfit(null);
+    }
+  }, []);
 
   const reload = useCallback(async () => {
+    void reloadProfit();
     const store = getOrdersStore();
     try {
       const [nextOrders, nextAccounts] = await Promise.all([store.listOrders(), store.listAccounts()]);
@@ -55,7 +75,7 @@ export function SocialOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [reloadProfit]);
 
   useEffect(() => {
     void reload();
@@ -77,6 +97,12 @@ export function SocialOrdersPage() {
   // Accounts first, in the order they were made, then any other name from the
   // old sheet by how many orders it has — so each seller keeps one colour.
   const sellers = useMemo(() => sellerList(orders, accounts.map((a) => a.displayName)), [orders, accounts]);
+
+  // Profit under each order's price, once at least one cost has been set.
+  const orderProfit = useMemo(() => {
+    if (!profit || (!Object.keys(profit.models).length && !Object.keys(profit.orderCosts).length)) return undefined;
+    return (order: SalesOrder) => profitOf(order, profit);
+  }, [profit]);
 
   const colorOf = useCallback(
     (seller: string) => {
@@ -103,6 +129,12 @@ export function SocialOrdersPage() {
               Live
             </span>
           )}
+          <Link
+            to={paths.profit}
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#047857] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#065f46]"
+          >
+            <TrendingUp width={16} height={16} /> Profit
+          </Link>
           <Button
             variant="outline"
             onClick={() => {
@@ -152,7 +184,13 @@ export function SocialOrdersPage() {
         ) : loading ? (
           <p className="py-10 text-center text-ink-400">Loading…</p>
         ) : tab === 'report' ? (
-          <OrdersReport orders={orders} sellers={sellers} colorOf={colorOf} onChanged={() => void reload()} />
+          <OrdersReport
+            orders={orders}
+            sellers={sellers}
+            colorOf={colorOf}
+            profitOf={orderProfit}
+            onChanged={() => void reload()}
+          />
         ) : tab === 'accounts' ? (
           <SellerAccounts
             accounts={accounts}
