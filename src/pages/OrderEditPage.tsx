@@ -558,7 +558,7 @@ export function OrderEditPage() {
         </aside>
 
         {/* Save bar on phones, tablets and laptops; wide screens use the side panel. */}
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-card/95 px-4 py-3 backdrop-blur lg:left-64 xl:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-card/95 px-4 py-3 backdrop-blur xl:hidden">
           <div className="mx-auto max-w-3xl">
             {error && <div className="mb-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>}
             <div className="flex gap-2">

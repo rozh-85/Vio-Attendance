@@ -21,7 +21,7 @@ export function LoginPage() {
   const location = useLocation() as {
     state?: { from?: { pathname?: string } };
   };
-  const from = location.state?.from?.pathname ?? paths.dashboard;
+  const from = location.state?.from?.pathname ?? paths.home;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

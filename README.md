@@ -327,9 +327,11 @@ src/
 
 | Path                     | Who        | Purpose                                |
 | ------------------------ | ---------- | -------------------------------------- |
-| `/`                      | Supervisor | Dashboard — add employees, start sessions |
+| `/`                      | Supervisor | Home — every part of the system as a square (no sidebar) |
+| `/attendance`            | Supervisor | Attendance dashboard — add employees, start sessions |
 | `/session/:id`           | Supervisor | Control panel + QR codes               |
 | `/employees`             | Supervisor | Employee report + PDF export           |
+| `/hr`                    | Supervisor | HR building: a lobby with 4 floors and 11 rooms (`?tab=` is the room) |
 | `/VioAdmin`             | Supervisor | Sign in (deliberately non-obvious)     |
 | `/rozhadmin`             | Owner      | Phones used by several employees (unlisted, own password) |
 | `/rozhadmin/locations`   | Owner      | Check-ins outside the work location, and VPNs (same password) |
