@@ -493,6 +493,32 @@ export function ProductsPage() {
       return `${product.label} added`;
     });
 
+  // Catalogue products not on the list yet: added all at once, with no cost.
+  const missingFromCatalog = useMemo(() => catalogItems().filter((c) => !taken.has(c.key)), [taken]);
+  const addAllCatalog = () =>
+    run(async () => {
+      if (!profit || !missingFromCatalog.length) return '';
+      const list: ModelValues[] = missingFromCatalog.map((c) => ({
+        key: c.key,
+        label: c.model,
+        name: c.name,
+        image: '',
+        cost: null,
+        category: c.typeKu || c.group,
+      }));
+      const store = getProfitStore();
+      await store.saveModels(list);
+      const startDate = profit.startDate ?? today();
+      if (!profit.startDate) await store.setStartDate(startDate);
+      const now = new Date().toISOString();
+      update((d) => {
+        const models = { ...d.models };
+        for (const m of list) models[m.key] = { ...m, createdAt: now, updatedAt: now };
+        return { ...d, startDate, models };
+      });
+      return `${list.length} catalogue products added — write what one piece costs you`;
+    });
+
   const saveProduct = (product: ModelValues) =>
     run(async () => {
       if (!profit || !orders) return '';
@@ -550,6 +576,11 @@ export function ProductsPage() {
 
   const addButton = (
     <div className="flex flex-wrap justify-center gap-2">
+      {missingFromCatalog.length > 0 && (
+        <Button variant="secondary" disabled={busy} loading={busy} leftIcon={<CheckCircle width={17} height={17} />} onClick={() => void addAllCatalog()}>
+          Add all {missingFromCatalog.length} catalogue products
+        </Button>
+      )}
       <Link to={paths.profitAddProducts} className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 transition-colors hover:bg-slate-50">
         <ImageIcon width={17} height={17} /> Add from pictures
       </Link>
