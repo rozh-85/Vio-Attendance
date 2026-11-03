@@ -30,7 +30,8 @@ import type { NewSalesOrder, OrderShift, OrderStatus, SellerOrder, SellerSession
 import { cn } from '@/utils/cn';
 import { FieldError, Label, inputClass } from '@/components/orders/SellerFormParts';
 import { ItemPicker } from '@/components/orders/ItemPicker';
-import { loadPriceList, type PriceListItem } from '@/services/orders/profitStore';
+import { loadPriceList } from '@/services/orders/profitStore';
+import { sellerProducts, type Product } from '@/services/orders/products';
 
 const SESSION_KEY = 'vio.sellerSession';
 const DRAFT_KEY = 'vio.sellerOrderDraft';
@@ -400,9 +401,9 @@ function SellerWorkspace({
   const [mineError, setMineError] = useState<string | null>(null);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [formKey, setFormKey] = useState(0);
-  // The owner's price list, for the model search. Empty if nothing is priced
-  // or it cannot be read: the seller then writes the item and price.
-  const [products, setProducts] = useState<PriceListItem[] | null>(null);
+  // Every product to pick from: the owner's list (with prices and pictures)
+  // over the catalogue. If the list cannot be read, the catalogue still is.
+  const [products, setProducts] = useState<Product[] | null>(null);
 
   const handleError = useCallback(
     (err: unknown): string | null => {
@@ -436,10 +437,10 @@ function SellerWorkspace({
   useEffect(() => {
     let active = true;
     loadPriceList(session.token)
-      .then((list) => active && setProducts(list))
+      .then((list) => active && setProducts(sellerProducts(list)))
       .catch((err) => {
         if (!active) return;
-        setProducts([]);
+        setProducts(sellerProducts([]));
         handleError(err);
       });
     return () => {
@@ -1276,8 +1277,8 @@ function OrderForm({
   onSubmit: (order: NewSalesOrder) => Promise<string | null>;
   onCancel?: () => void;
   onDelete?: () => void;
-  /** The owner's price list: null while it loads, empty when nothing is priced. */
-  products: PriceListItem[] | null;
+  /** Every product to pick from; null while it loads. */
+  products: Product[] | null;
 }) {
   const [draft, setDraft] = useState<Draft>(() => {
     if (initial) return draftFrom(initial);

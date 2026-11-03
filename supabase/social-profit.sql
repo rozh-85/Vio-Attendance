@@ -2,7 +2,9 @@
 --
 -- The Profit pages of /rozhadmin/profit keep three things here:
 --   social_model_costs  every item model: its sale price, what one piece
---                       costs Vio, its type, and whether sellers can pick it
+--                       costs Vio, its type, name and picture, and whether
+--                       sellers can pick it
+--   product-images      (storage) the pictures uploaded on Add products
 --   social_order_costs  an order's own cost, over its model's (a different
 --                       supplier price …)
 --   social_sponsors     paid sponsored posts / ads and the days they ran
@@ -30,7 +32,10 @@ create table if not exists public.social_model_costs (
   sale_price  numeric(14, 0) check (sale_price >= 0),
   -- The item type orders of it are saved under (هیتەر, چوپەر …).
   category    text not null default '',
-  -- Offered to sellers on the order form (when it has a sale price).
+  -- The product's name and picture; '' uses the app's own catalogue.
+  name        text not null default '',
+  image_url   text not null default '',
+  -- Offered to sellers on the order form.
   active      boolean not null default true,
   updated_at  timestamptz not null default now()
 );
@@ -41,6 +46,8 @@ alter table public.social_model_costs add column if not exists sale_price numeri
   check (sale_price >= 0);
 alter table public.social_model_costs add column if not exists category text not null default '';
 alter table public.social_model_costs add column if not exists active boolean not null default true;
+alter table public.social_model_costs add column if not exists name text not null default '';
+alter table public.social_model_costs add column if not exists image_url text not null default '';
 
 create table if not exists public.social_order_costs (
   order_id   uuid primary key references public.social_orders(id) on delete cascade,
@@ -102,8 +109,9 @@ grant select, insert, update, delete on public.social_order_costs to authenticat
 grant select, insert, update, delete on public.social_sponsors    to authenticated;
 
 -- ── Seller: the price list ──────────────────────────────────────────────────
--- Every model on sale, with its sale price and type, for the order form's
--- model search. Never the cost.
+-- Every model on the owner's list, with its sale price (null until written),
+-- type, name, picture and whether it is offered, for the order form's model
+-- search. Never the cost.
 create or replace function public.social_price_list(p_token text)
 returns jsonb
 language plpgsql
@@ -124,15 +132,37 @@ begin
              'key', m.model_key,
              'model', m.model_label,
              'category', m.category,
-             'price', m.sale_price)
+             'price', m.sale_price,
+             'name', m.name,
+             'image', m.image_url,
+             'active', m.active)
            order by m.model_label)
       from public.social_model_costs as m
-     where m.active and m.sale_price > 0
   ), '[]'::jsonb);
 end;
 $$;
 
 revoke all on function public.social_price_list(text) from public;
 grant execute on function public.social_price_list(text) to anon, authenticated;
+
+-- ── Product pictures ────────────────────────────────────────────────────────
+-- Uploaded on the Add products page. Anyone with a picture's address can see
+-- it (sellers' phones load them), but only signed-in supervisors add or
+-- remove pictures.
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists product_images_read on storage.objects;
+create policy product_images_read on storage.objects for select to authenticated
+  using (bucket_id = 'product-images');
+drop policy if exists product_images_write on storage.objects;
+create policy product_images_write on storage.objects for insert to authenticated
+  with check (bucket_id = 'product-images'
+              and lower(coalesce(auth.jwt() ->> 'email', '')) <> 'feedback@gmail.com');
+drop policy if exists product_images_delete on storage.objects;
+create policy product_images_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'product-images'
+         and lower(coalesce(auth.jwt() ->> 'email', '')) <> 'feedback@gmail.com');
 
 notify pgrst, 'reload schema';

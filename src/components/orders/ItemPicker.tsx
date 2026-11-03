@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { CATEGORIES } from '@/services/orders/options';
 import { modelKey, westernDigits } from '@/services/orders/profit';
-import { catalogItem } from '@/services/orders/products';
-import type { PriceListItem } from '@/services/orders/profitStore';
+import type { Product } from '@/services/orders/products';
 import { Check, Pencil, Plus, Search, X } from '@/components/icons';
 import { cn } from '@/utils/cn';
 import { FieldError, Label, inputClass } from './SellerFormParts';
@@ -44,9 +43,8 @@ function rememberRecent(key: string) {
 }
 
 /** The product photo on white, as the catalogue shoots it, or the model's letters. */
-function Photo({ itemKey, model, className }: { itemKey: string; model: string; className?: string }) {
+function Photo({ src, model, className }: { src: string; model: string; className?: string }) {
   const [failed, setFailed] = useState(false);
-  const src = catalogItem(itemKey)?.image ?? '';
   return (
     <span className={cn('grid place-items-center overflow-hidden bg-white', className)}>
       {src && !failed ? (
@@ -78,9 +76,11 @@ function Stepper({ value, onChange }: { value: number; onChange: (n: number) => 
 }
 
 /**
- * The item part of a seller's order. With a price list, the seller searches
- * the model number, taps the product and sets the pieces — the price fills in
- * by itself. An item not on the list is written by hand, as before.
+ * The item part of a seller's order. The seller types the model number and
+ * taps the product — every product the owner added, and the catalogue's,
+ * each with its picture. A product with a price fills the price in by
+ * itself (price × pieces); one without asks for the price. A model not on
+ * the list can be used just as typed.
  */
 export function ItemPicker({
   products,
@@ -88,8 +88,8 @@ export function ItemPicker({
   errors,
   onChange,
 }: {
-  /** null while it loads; empty when nothing is priced yet. */
-  products: PriceListItem[] | null;
+  /** null while it loads. */
+  products: Product[] | null;
   fields: ItemFields;
   errors: { item?: string; price?: string };
   onChange: (patch: Partial<ItemFields>) => void;
@@ -106,10 +106,10 @@ export function ItemPicker({
   const view: 'loading' | 'picked' | 'manual' | 'search' =
     products === null && fields.itemMode !== 'manual'
       ? 'loading'
-      : !listed || fields.itemMode === 'manual' || (!picked && fields.itemModel.trim())
-        ? 'manual'
-        : picked
-          ? 'picked'
+      : picked
+        ? 'picked'
+        : !listed || fields.itemMode === 'manual' || fields.itemModel.trim()
+          ? 'manual'
           : 'search';
 
   const types = useMemo(() => {
@@ -121,7 +121,7 @@ export function ItemPicker({
   const results = useMemo(() => {
     const q = modelKey(query);
     const text = query.trim().toLowerCase();
-    const rank = (p: PriceListItem) =>
+    const rank = (p: Product) =>
       !q ? 0 : p.key === q ? 0 : p.key.replace(/^[A-Z]+/, '').startsWith(q) || p.key.startsWith(q) ? 1 : 2;
     return (products ?? [])
       .filter((p) => !type || p.category === type)
@@ -130,18 +130,20 @@ export function ItemPicker({
           !text ||
           (q && p.key.includes(q)) ||
           p.category.toLowerCase().includes(text) ||
-          (catalogItem(p.key)?.name.toLowerCase().includes(text) ?? false),
+          p.name.toLowerCase().includes(text),
       )
       .sort((a, b) => rank(a) - rank(b) || a.model.localeCompare(b.model, undefined, { numeric: true }));
   }, [products, query, type]);
 
-  const recentItems = recent.map((k) => products?.find((p) => p.key === k)).filter((p): p is PriceListItem => !!p);
+  const recentItems = recent.map((k) => products?.find((p) => p.key === k)).filter((p): p is Product => !!p);
+  const typedKey = modelKey(query);
+  const exact = !!typedKey && (products ?? []).some((p) => p.key === typedKey);
 
-  function pick(p: PriceListItem) {
+  function pick(p: Product) {
     onChange({
       itemModel: p.model,
-      itemCategory: p.category || catalogItem(p.key)?.typeKu || catalogItem(p.key)?.group || '',
-      price: money(p.price),
+      itemCategory: p.category,
+      price: p.price !== null ? money(p.price) : '',
       quantity: 1,
       itemMode: 'list',
       priceEdited: false,
@@ -151,6 +153,12 @@ export function ItemPicker({
     setQuery('');
     setType('');
     setLimit(FIRST);
+  }
+
+  /** A model that is not on the list, kept just as the seller typed it. */
+  function useTyped() {
+    onChange({ itemModel: query.trim().toUpperCase(), itemCategory: '', price: '', quantity: 1, itemMode: 'manual', priceEdited: false });
+    setQuery('');
   }
 
   function clearPick() {
@@ -186,8 +194,8 @@ export function ItemPicker({
           >
             <Search width={18} height={18} className="shrink-0 text-brand-700" />
             <span className="min-w-0 flex-1 text-sm">
-              <b className="block text-brand-700">Pick from the price list</b>
-              <span className="text-ink-500">The price fills in by itself · نرخ خۆکار دادەنرێت</span>
+              <b className="block text-brand-700">Pick the model from the list</b>
+              <span className="text-ink-500">With its picture and price · لە لیستەکە هەڵیبژێرە</span>
             </span>
           </button>
         )}
@@ -260,10 +268,11 @@ export function ItemPicker({
 
   // ── The product picked ──────────────────────────────────────────────────
   if (view === 'picked' && picked) {
-    const listTotal = picked.price * quantity;
+    const unit = picked.price;
+    const listTotal = unit !== null ? unit * quantity : null;
     const total = priceNumber(fields.price);
-    const custom = fields.priceEdited ?? total !== listTotal;
-    const name = catalogItem(picked.key)?.name;
+    // With no price on the list the seller writes it; with one, only if they choose to.
+    const custom = listTotal === null || (fields.priceEdited ?? total !== listTotal);
     return (
       <div className="space-y-3">
         <div className="relative overflow-hidden rounded-3xl border-2 border-brand-500/70 bg-card shadow-sm">
@@ -277,7 +286,7 @@ export function ItemPicker({
             <X width={18} height={18} />
           </button>
           <div className="flex gap-3 p-3 pr-14">
-            <Photo itemKey={picked.key} model={picked.model} className="size-24 shrink-0 rounded-2xl border border-slate-100" />
+            <Photo src={picked.image} model={picked.model} className="size-24 shrink-0 rounded-2xl border border-slate-100" />
             <div className="min-w-0 flex-1 py-1">
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className="grid size-5 shrink-0 place-items-center rounded-full bg-brand-600 text-white">
@@ -286,10 +295,16 @@ export function ItemPicker({
                 <span className="truncate font-mono text-xl font-bold text-ink-900">{picked.model}</span>
               </span>
               <div dir="auto" className="mt-0.5 truncate text-left text-sm text-ink-500">
-                {[fields.itemCategory, name].filter(Boolean).join(' · ')}
+                {[fields.itemCategory, picked.name].filter(Boolean).join(' · ')}
               </div>
               <div className="mt-1.5 text-sm text-ink-700">
-                <b className="tabular-nums">{money(picked.price)}</b> IQD <span className="text-ink-400">each · دانەی</span>
+                {unit !== null ? (
+                  <>
+                    <b className="tabular-nums">{money(unit)}</b> IQD <span className="text-ink-400">each · دانەی</span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-amber-700">No price yet — write it below</span>
+                )}
               </div>
             </div>
           </div>
@@ -299,7 +314,9 @@ export function ItemPicker({
             </span>
             <Stepper
               value={quantity}
-              onChange={(n) => onChange(custom ? { quantity: n } : { quantity: n, price: money(picked.price * n), priceEdited: false })}
+              onChange={(n) =>
+                onChange(custom || unit === null ? { quantity: n } : { quantity: n, price: money(unit * n), priceEdited: false })
+              }
             />
           </div>
           <div className="flex items-center justify-between gap-3 bg-brand-600 px-4 py-3.5 text-white">
@@ -307,7 +324,7 @@ export function ItemPicker({
               Total <span dir="rtl">کۆی گشتی</span>
             </span>
             <span className="text-2xl font-bold tabular-nums">
-              {money(total)} <span className="text-sm font-semibold text-white/70">IQD</span>
+              {total > 0 ? money(total) : '—'} <span className="text-sm font-semibold text-white/70">IQD</span>
             </span>
           </div>
         </div>
@@ -315,10 +332,17 @@ export function ItemPicker({
         {custom ? (
           <div className="rounded-2xl bg-amber-50 p-3.5">
             <label className="block">
-              <Label en="Price for this customer" ku="نرخ بۆ ئەم کڕیارە" className="text-amber-900" />
+              <Label
+                en={listTotal === null ? 'Total price (IQD)' : 'Price for this customer'}
+                ku={listTotal === null ? 'نرخی گشتی' : 'نرخ بۆ ئەم کڕیارە'}
+                required={listTotal === null}
+                className="text-amber-900"
+              />
               <input
                 className={cn(inputClass, 'text-lg font-bold tabular-nums', errors.price ? 'border-rose-400' : 'border-amber-200')}
                 inputMode="numeric"
+                placeholder="95,000"
+                autoFocus={listTotal === null}
                 value={fields.price}
                 onChange={(e) => {
                   const n = priceNumber(e.target.value);
@@ -326,18 +350,20 @@ export function ItemPicker({
                 }}
               />
             </label>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-amber-800">
-              <span>
-                Price list: <b className="tabular-nums">{money(listTotal)}</b> IQD
-              </span>
-              <button
-                type="button"
-                className="rounded-lg bg-card px-3 py-1.5 font-semibold text-amber-800 shadow-sm"
-                onClick={() => onChange({ price: money(listTotal), priceEdited: false })}
-              >
-                Use the list price
-              </button>
-            </div>
+            {listTotal !== null && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-amber-800">
+                <span>
+                  Price list: <b className="tabular-nums">{money(listTotal)}</b> IQD
+                </span>
+                <button
+                  type="button"
+                  className="rounded-lg bg-card px-3 py-1.5 font-semibold text-amber-800 shadow-sm"
+                  onClick={() => onChange({ price: money(listTotal), priceEdited: false })}
+                >
+                  Use the list price
+                </button>
+              </div>
+            )}
             <FieldError message={errors.price} />
           </div>
         ) : (
@@ -353,11 +379,11 @@ export function ItemPicker({
     );
   }
 
-  // ── Search the price list ───────────────────────────────────────────────
+  // ── Type the model, pick it ─────────────────────────────────────────────
   const shown = results.slice(0, limit);
   return (
     <div>
-      <Label en="Find the model" ku="گەڕان بۆ مۆدێل" required />
+      <Label en="Item model" ku="مۆدێلی ئایتم" required />
       <div className="relative">
         <Search width={20} height={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-400" />
         <input
@@ -368,18 +394,19 @@ export function ItemPicker({
           autoCapitalize="characters"
           autoComplete="off"
           className={cn(inputClass, 'h-14 pl-12 pr-12 font-mono text-lg', errors.item ? 'border-rose-400' : 'border-slate-200')}
-          placeholder="e.g. 400 or V-502"
+          placeholder="Type the model · e.g. 400"
           value={query}
           onChange={(e) => {
             setQuery(westernDigits(e.target.value));
             setLimit(FIRST);
           }}
           onKeyDown={(e) => {
-            // Enter picks the only match, or an exact one.
+            // Enter picks the exact model or the only match, else keeps what was typed.
             if (e.key !== 'Enter') return;
             e.preventDefault();
-            const exact = results.find((p) => p.key === modelKey(query));
-            if (exact || results.length === 1) pick(exact ?? results[0]);
+            const match = results.find((p) => p.key === modelKey(query)) ?? (results.length === 1 ? results[0] : undefined);
+            if (match) pick(match);
+            else if (query.trim()) useTyped();
           }}
         />
         {query && (
@@ -408,10 +435,10 @@ export function ItemPicker({
                 onClick={() => pick(p)}
                 className="flex shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-card py-1.5 pl-1.5 pr-3 transition active:scale-[0.98]"
               >
-                <Photo itemKey={p.key} model={p.model} className="size-9 rounded-xl" />
+                <Photo src={p.image} model={p.model} className="size-9 rounded-xl" />
                 <span className="text-left leading-tight">
                   <span className="block font-mono text-sm font-bold text-ink-900">{p.model}</span>
-                  <span className="block text-xs tabular-nums text-ink-500">{money(p.price)}</span>
+                  <span className="block text-xs tabular-nums text-ink-500">{p.price !== null ? money(p.price) : 'No price'}</span>
                 </span>
               </button>
             ))}
@@ -441,11 +468,7 @@ export function ItemPicker({
         </div>
       )}
 
-      {shown.length === 0 ? (
-        <div className="mt-3 rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-ink-500">
-          No model matches <b className="font-mono text-ink-700">{query}</b>.
-        </div>
-      ) : (
+      {shown.length === 0 ? null : (
         <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
           {shown.map((p) => (
             <button
@@ -454,15 +477,19 @@ export function ItemPicker({
               onClick={() => pick(p)}
               className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-card text-left shadow-sm transition hover:border-brand-300 active:scale-[0.98]"
             >
-              <Photo itemKey={p.key} model={p.model} className="aspect-[4/3] w-full border-b border-slate-100" />
+              <Photo src={p.image} model={p.model} className="aspect-[4/3] w-full border-b border-slate-100" />
               <span className="flex flex-1 flex-col p-3">
                 <span className="truncate font-mono text-base font-bold text-ink-900">{p.model}</span>
                 <span dir="auto" className="truncate text-left text-xs text-ink-500">
-                  {p.category || catalogItem(p.key)?.name || '—'}
+                  {p.category || p.name || '—'}
                 </span>
-                <span className="mt-auto pt-2 text-sm font-bold tabular-nums text-brand-700">
-                  {money(p.price)} <span className="text-[10px] font-semibold text-ink-400">IQD</span>
-                </span>
+                {p.price !== null ? (
+                  <span className="mt-auto pt-2 text-sm font-bold tabular-nums text-brand-700">
+                    {money(p.price)} <span className="text-[10px] font-semibold text-ink-400">IQD</span>
+                  </span>
+                ) : (
+                  <span className="mt-auto pt-2 text-xs font-semibold text-ink-400">Price on order</span>
+                )}
               </span>
             </button>
           ))}
@@ -479,17 +506,41 @@ export function ItemPicker({
         </button>
       )}
 
-      <button
-        type="button"
-        onClick={() => onChange({ itemMode: 'manual' })}
-        className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-ink-500 transition hover:border-slate-400 hover:text-ink-900"
-      >
-        <Pencil width={16} height={16} className="shrink-0" />
-        <span className="text-left leading-tight">
-          <span className="block text-sm font-semibold">Not in the list? Write it yourself</span>
-          <span dir="rtl" className="block text-xs">لە لیستەکەدا نییە؟ خۆت بینووسە</span>
-        </span>
-      </button>
+      {/* A model not on the list: keep it just as typed. */}
+      {query.trim() && !exact && (shown.length === 0 || /\d/.test(query)) && (
+        <button
+          type="button"
+          onClick={useTyped}
+          className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-dashed border-brand-300 bg-brand-50/50 px-4 py-3 text-left transition active:scale-[0.99]"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card font-mono text-xs font-bold text-brand-700 shadow-sm">
+            <Plus width={18} height={18} />
+          </span>
+          <span className="min-w-0 flex-1 text-sm">
+            <b className="block truncate text-brand-700">
+              Use “<span className="font-mono">{query.trim().toUpperCase()}</span>”
+            </b>
+            <span className="text-ink-500">
+              {shown.length ? 'Not one of these? Keep it as typed' : 'Not in the list — keep it as typed'} ·{' '}
+              <span dir="rtl">وەک خۆی</span>
+            </span>
+          </span>
+        </button>
+      )}
+
+      {!query.trim() && (
+        <button
+          type="button"
+          onClick={() => onChange({ itemMode: 'manual' })}
+          className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-ink-500 transition hover:border-slate-400 hover:text-ink-900"
+        >
+          <Pencil width={16} height={16} className="shrink-0" />
+          <span className="text-left leading-tight">
+            <span className="block text-sm font-semibold">Not in the list? Write it yourself</span>
+            <span dir="rtl" className="block text-xs">لە لیستەکەدا نییە؟ خۆت بینووسە</span>
+          </span>
+        </button>
+      )}
     </div>
   );
 }

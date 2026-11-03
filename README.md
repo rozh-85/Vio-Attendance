@@ -243,11 +243,18 @@ insert statement for pointing the feature at the account UUID directly.
   `V-502` and Kurdish digits are one model). Enter moves to the next box;
   nothing is saved until **Save**. Orders where no model was written get a
   cost of their own on the same page.
+- **Add products** (`/rozhadmin/profit/models/add`, the *Add products* button
+  on Models & prices) — upload a whole folder of product pictures (or many
+  pictures from a phone). Each picture's **file name is its model number**:
+  `V-400.jpg` → V-400, `v-502 (2).jpg` → V-502; a camera name such as
+  `IMG_2041.jpg` asks for the model. Pictures are made small before upload. A
+  picture for a model already there replaces its picture. Prices are set later,
+  on Models & prices.
 - **Sellers pick, they do not type** — on the order form (`/orders`), the
-  seller searches the model number, taps the product card and sets the pieces
-  with − / +. Model, type and price fill in by themselves (price × pieces). A
-  different price for one customer, or an item not on the list, can still be
-  written by hand.
+  seller types the model number and taps the product card: every product
+  added, and the 124 catalogue products, each with its picture. Model, type
+  and price fill in by themselves (price × pieces); a product with no price yet
+  asks the seller for it. A model not on the list can be used just as typed.
 - **Profit works itself out** — each order's cost is its model's cost × its
   pieces, so every order, old and new, has a profit as soon as its model has a
   cost.
@@ -274,10 +281,11 @@ safe to run again):
    the pieces (`quantity`) to orders. Until it is run, an order of two pieces
    is kept as one.
 2. [`supabase/social-profit.sql`](supabase/social-profit.sql) — the price list
-   (`social_model_costs`: sale price, cost, type, on sale), per-order costs and
-   sponsors, readable only by signed-in supervisors, plus
-   `social_price_list()`, which gives sellers each model's sale price and type —
-   never its cost. The logic lives in
+   (`social_model_costs`: sale price, cost, type, name, picture, on sale),
+   per-order costs and sponsors, readable only by signed-in supervisors; the
+   public `product-images` storage bucket the pictures go to (only supervisors
+   upload); and `social_price_list()`, which gives sellers each model's sale
+   price, type, name and picture — never its cost. The logic lives in
    [`profit.ts`](src/services/orders/profit.ts).
 
 ## Catalog Management
