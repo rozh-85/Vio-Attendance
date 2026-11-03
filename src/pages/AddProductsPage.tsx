@@ -409,7 +409,7 @@ export function AddProductsPage() {
       </div>
 
       {/* Add bar: always in reach at the bottom. */}
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-card/95 px-4 py-3 backdrop-blur lg:left-64">
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-card/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1 text-sm">
             {progress ? (

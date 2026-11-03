@@ -7,7 +7,6 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Input } from "@/components/ui/Input";
 import {
   CalendarDays,
-  ChevronDown,
   Download,
   Pencil,
   Search,
@@ -61,8 +60,8 @@ import { readCheckInLocation } from "@/utils/geolocation";
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
+import { HrCorridor, HrLobby, type RoomSign } from "@/components/hr/HrBuilding";
 import {
-  HR_NAV_GROUPS,
   hrTabLabel,
   isHrTab,
   type HrTab,
@@ -157,49 +156,6 @@ function downloadJson(name: string, value: unknown) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 500);
-}
-
-function HrModuleSelector({
-  active,
-  onChange,
-  pendingCount,
-}: {
-  active: Tab;
-  onChange: (tab: Tab) => void;
-  pendingCount: number;
-}) {
-  return (
-      <div className="mb-5 rounded-2xl border border-slate-200 bg-card p-4 lg:hidden">
-        <label htmlFor="hr-module" className="mb-2 block text-xs font-bold uppercase tracking-wider text-ink-400">
-          HR module
-        </label>
-        <div className="relative">
-          <select
-            id="hr-module"
-            value={active}
-            onChange={(event) => onChange(event.target.value as Tab)}
-            className={`${fieldClass} appearance-none pr-10 font-semibold`}
-          >
-            {HR_NAV_GROUPS.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                    {item.id === "leave" && pendingCount > 0
-                      ? ` (${pendingCount} pending)`
-                      : ""}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <ChevronDown
-            width={17}
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-400"
-          />
-        </div>
-      </div>
-  );
 }
 
 export function HrManagementPage() {
@@ -390,6 +346,26 @@ export function HrManagementPage() {
       return [];
     }
   }, [workspace, employees, period]);
+  // What each HR room shows on its door in the lobby and the corridor.
+  const draftPayroll = workspace.payrollEntries
+    .filter((p) => p.period === workspace.payrollPeriod)
+    .reduce((n, p) => n + p.netSalary, 0);
+  const roomSigns: Partial<Record<Tab, RoomSign>> = {
+    people: { value: `${activeEmployees.length} active` },
+    "employee-details": { value: `${employees.length} on record` },
+    organization: { value: `${workspace.departments.length} departments` },
+    time: { value: `${workspace.shifts.length} ${workspace.shifts.length === 1 ? "shift" : "shifts"} · ${totals.hours}h` },
+    leave:
+      pendingRequests.length > 0
+        ? { value: `${pendingRequests.length} waiting`, alert: true }
+        : { value: `${workspace.holidays.length} holidays` },
+    payroll: { value: draftPayroll ? money(draftPayroll, workspace.settings.currency) : workspace.payrollPeriod },
+    hiring: { value: `${workspace.candidates.length} candidates` },
+    interviews: { value: "Calls & follow-ups" },
+    locations: { value: `${workspace.locations.length} sites · ${workspace.devices.length} devices` },
+    rules: { value: `${workspace.rules.length} rules` },
+    reports: { value: "Exports & audit log" },
+  };
   // The profile form is laid out down the page in these sections. Grouping is
   // the whole point of moving it out of a dialog: forty fields in one flat
   // grid is a wall, five named blocks is a form.
@@ -595,7 +571,7 @@ export function HrManagementPage() {
           <div className="text-xs font-bold uppercase tracking-wider text-brand-600">
             Vio HR Department
           </div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">HR Management</h1>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">HR building</h1>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-500">
             Manage people, attendance, leave, payroll, recruitment, and HR
             operations from one organized workspace.
@@ -621,11 +597,11 @@ export function HrManagementPage() {
           </Button>
         </div>
       </header>
-      <HrModuleSelector
-        active={tab}
-        onChange={setTab}
-        pendingCount={pendingRequests.length}
-      />
+      {tab === "overview" ? (
+        <HrLobby signs={roomSigns} onOpen={setTab} />
+      ) : (
+        <HrCorridor active={tab} signs={roomSigns} onOpen={setTab} />
+      )}
       <main className="min-w-0">
           {(notice || error) && (
             <div
@@ -646,7 +622,6 @@ export function HrManagementPage() {
           activeEmployees={activeEmployees}
           pendingRequests={pendingRequests}
           totals={totals}
-          onTab={setTab}
         />
       )}
       {tab === "people" && (
@@ -751,14 +726,12 @@ function Overview({
   activeEmployees,
   pendingRequests,
   totals,
-  onTab,
 }: {
   employees: Employee[];
   workspace: HrWorkspace;
   activeEmployees: Employee[];
   pendingRequests: HrLeaveRequest[];
   totals: { hours: number; overtime: number; late: number; absent: number };
-  onTab: (t: Tab) => void;
 }) {
   const departmentCounts = workspace.departments
     .map((d) => ({
@@ -804,68 +777,7 @@ function Overview({
           tone="success"
         />
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Section
-          title="HR coverage"
-          description="The workspace is ready for the complete people workflow. Add the records that match your company policy."
-        >
-          <div className="grid gap-3 p-5 sm:grid-cols-2">
-            {[
-              [
-                "People profiles",
-                "Personal, contract, salary, bank and emergency details",
-                "people",
-              ],
-              [
-                "Employee details",
-                "Current and former employees with today’s clocked status",
-                "employee-details",
-              ],
-              [
-                "Time policies",
-                "Day and overnight shifts, grace and overtime rules",
-                "time",
-              ],
-              [
-                "Leave approvals",
-                "Typed leave, balances, holidays and approval chain",
-                "leave",
-              ],
-              [
-                "Payroll",
-                "Adjustments, tax, insurance, unpaid leave and payroll drafts",
-                "payroll",
-              ],
-              [
-                "Recruitment",
-                "Candidates, stages, skills and CV links",
-                "hiring",
-              ],
-              [
-                "Interview tracking",
-                "Contact outcomes, follow-up dates and candidate history",
-                "interviews",
-              ],
-              [
-                "Location controls",
-                "Geofenced sites and ZK iFace / device attendance",
-                "locations",
-              ],
-            ].map(([title, text, target]) => (
-              <button
-                key={title}
-                type="button"
-                className="rounded-2xl border border-slate-200 p-4 text-left hover:border-brand-300 hover:bg-brand-50/50"
-                onClick={() => onTab(target as Tab)}
-              >
-                <div className="font-semibold">{title}</div>
-                <div className="mt-1 text-sm leading-relaxed text-ink-500">
-                  {text}
-                </div>
-              </button>
-            ))}
-          </div>
-        </Section>
+      <div className="grid gap-5">
         <Section
           title="Department distribution"
           description="Active employees by department"

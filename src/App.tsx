@@ -5,6 +5,7 @@ import { AuthProvider } from '@/services/auth/context';
 import { RequireAuth } from '@/components/RequireAuth';
 import { paths, routePatterns } from '@/routes';
 import { SupervisorDashboard } from '@/pages/SupervisorDashboard';
+import { HomePage } from '@/pages/HomePage';
 import { EmployeeReportPage } from '@/pages/EmployeeReportPage';
 import { SharedDevicesPage } from '@/pages/SharedDevicesPage';
 import { CheckInLocationsPage } from '@/pages/CheckInLocationsPage';
@@ -33,6 +34,14 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             {/* Supervisor-only — gated behind sign in. */}
+            <Route
+              path={routePatterns.home}
+              element={
+                <RequireAuth>
+                  <HomePage />
+                </RequireAuth>
+              }
+            />
             <Route
               path={routePatterns.dashboard}
               element={
@@ -79,7 +88,7 @@ export default function App() {
               path={routePatterns.devices}
               element={
                 <RequireAuth>
-                  <OwnerGate landOn={paths.dashboard}>
+                  <OwnerGate landOn={paths.home}>
                     <SharedDevicesPage />
                   </OwnerGate>
                 </RequireAuth>

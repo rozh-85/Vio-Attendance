@@ -1,6 +1,9 @@
 /** Centralised route paths + builders so links never drift out of sync. */
 export const paths = {
-  dashboard: '/',
+  // Home: every part of the admin area as a square.
+  home: '/',
+  // Attendance sessions (it used to be the first page, at /).
+  dashboard: '/attendance',
   // Admin sign-in lives at a non-obvious path so employees never stumble onto
   // it. Everything else employees might guess (/login, /register, unknown URLs)
   // falls through to the neutral NotFound page.
@@ -38,7 +41,8 @@ export const paths = {
 } as const;
 
 export const routePatterns = {
-  dashboard: '/',
+  home: '/',
+  dashboard: '/attendance',
   admin: '/VioAdmin',
   employees: '/employees',
   leave: '/leave',
