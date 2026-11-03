@@ -181,7 +181,7 @@ export function HomePage() {
                 {name && <span className="text-white/75">, {name}</span>}
               </div>
               <p className="mt-2 max-w-md text-sm text-white/75 sm:text-base">
-                Pick a square to go in. The squares button at the top brings you back here.
+                Pick a square to go in. The Vio logo at the top brings you back here.
               </p>
             </div>
             <div className="relative mt-5 flex flex-wrap gap-2">

@@ -58,7 +58,7 @@ export function GashbenReportPage() {
   }
 
   if (loading) return <AdminLayout><p className="p-10 text-ink-500">Loading Gashben report…</p></AdminLayout>;
-  return <AdminLayout><div className="mx-auto max-w-7xl space-y-5">
+  return <AdminLayout><div className="space-y-5">
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p className="text-sm font-semibold text-brand-600">Owner report</p>

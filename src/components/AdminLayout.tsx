@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, LayoutGrid, Logout } from './icons';
+import { ChevronRight, Logout } from './icons';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 import { appFor } from './apps';
@@ -8,13 +8,11 @@ import { APP_NAME } from '@/brand';
 import { paths } from '@/routes';
 import { useAuth } from '@/services/auth/context';
 import { hrTabLabel, isHrTab } from '@/services/hr/navigation';
-import { cn } from '@/utils/cn';
 
 /**
  * Shared admin chrome: no sidebar, just a slim bar across the top — the logo
- * and the squares button go Home, where every part of the system is a square;
- * next to them, where you are. The page itself gets the full width, kept to a
- * comfortable reading width on large screens.
+ * goes Home, where every part of the system is a square; next to it, where you
+ * are. The page itself fills the whole width of the screen.
  */
 export function AdminLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -29,21 +27,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen w-full">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-card/90 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-3 sm:gap-3 sm:px-6">
-          <Link to={paths.home} className="flex shrink-0 items-center gap-2 rounded-xl pr-1" aria-label={`${APP_NAME} home`}>
+        <div className="flex h-14 w-full items-center gap-2 px-3 sm:gap-3 sm:px-6 lg:px-8">
+          <Link to={paths.home} title="Home" className="flex shrink-0 items-center gap-2 rounded-xl pr-1" aria-label={`${APP_NAME} home`}>
             <Logo size={32} className="rounded-lg" />
             <span className="hidden text-sm font-bold text-ink-900 md:inline">{APP_NAME}</span>
-          </Link>
-          <Link
-            to={paths.home}
-            title="Home — every part of the system"
-            aria-label="Home — every part of the system"
-            className={cn(
-              'grid size-10 shrink-0 place-items-center rounded-xl transition',
-              isHome ? 'bg-brand-600 text-white' : 'text-ink-600 hover:bg-slate-100 hover:text-ink-900',
-            )}
-          >
-            <LayoutGrid width={19} height={19} />
           </Link>
 
           {/* Where you are: Home › Page › Room. */}
@@ -52,10 +39,11 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <span className="truncate font-semibold text-ink-900">Home</span>
             ) : (
               <>
-                <Link to={paths.home} className="hidden shrink-0 text-ink-500 hover:text-ink-900 sm:inline">
+                {/* "Home" shows on a phone too: with the logo, it is the way back. */}
+                <Link to={paths.home} className="shrink-0 text-ink-500 hover:text-ink-900">
                   Home
                 </Link>
-                <ChevronRight width={15} height={15} className="hidden shrink-0 text-ink-300 sm:block" />
+                <ChevronRight width={15} height={15} className="shrink-0 text-ink-300" />
                 {app ? (
                   roomLabel ? (
                     <>
@@ -96,7 +84,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className="mx-auto w-full min-w-0 max-w-7xl px-4 py-5 sm:px-6 sm:py-6">{children}</div>
+      <div className="w-full min-w-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">{children}</div>
     </div>
   );
 }
