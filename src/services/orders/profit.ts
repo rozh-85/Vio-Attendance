@@ -59,7 +59,11 @@ export interface ModelCost {
   price: number | null;
   /** The item type its orders are saved under, e.g. هیتەر. */
   category: string;
-  /** Offered to sellers on the order form (once it has a price). */
+  /** The product's name, e.g. Air Fryer; '' to use the catalogue's. */
+  name: string;
+  /** Its picture's address; '' to use the catalogue's. */
+  image: string;
+  /** Offered to sellers on the order form. */
   active: boolean;
   updatedAt: string;
 }
@@ -75,7 +79,7 @@ export function modelWith(
   data: ProfitData,
   key: string,
   label: string,
-  patch: Partial<Pick<ModelCost, 'cost' | 'price' | 'category' | 'active'>>,
+  patch: Partial<Pick<ModelCost, 'cost' | 'price' | 'category' | 'name' | 'image' | 'active'>>,
 ): ModelValues {
   const m = data.models[key];
   return {
@@ -84,13 +88,15 @@ export function modelWith(
     cost: patch.cost !== undefined ? patch.cost : (m?.cost ?? null),
     price: patch.price !== undefined ? patch.price : (m?.price ?? null),
     category: patch.category !== undefined ? patch.category.trim() : (m?.category ?? ''),
+    name: patch.name !== undefined ? patch.name.trim() : (m?.name ?? ''),
+    image: patch.image !== undefined ? patch.image : (m?.image ?? ''),
     active: patch.active !== undefined ? patch.active : (m?.active ?? true),
   };
 }
 
-/** A model with no price, no cost and no type of its own holds nothing worth keeping. */
-export const isEmptyModel = (m: Pick<ModelCost, 'cost' | 'price' | 'category' | 'active'>) =>
-  m.cost === null && m.price === null && !m.category.trim() && m.active;
+/** A model with no price, cost, type, name or picture of its own holds nothing worth keeping. */
+export const isEmptyModel = (m: Pick<ModelCost, 'cost' | 'price' | 'category' | 'name' | 'image' | 'active'>) =>
+  m.cost === null && m.price === null && !m.category.trim() && !m.name.trim() && !m.image && m.active;
 
 export interface ProfitData {
   /** By `modelKey()`. */

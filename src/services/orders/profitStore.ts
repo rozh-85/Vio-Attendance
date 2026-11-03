@@ -27,14 +27,23 @@ export interface ProfitStore {
   /** Adds a sponsor, or changes the one with this id. */
   saveSponsor(input: SponsorInput, id?: string): Promise<Sponsor>;
   deleteSponsor(id: string): Promise<void>;
+  /** Stores a product picture (already made small) and answers its address. */
+  uploadProductImage(image: Blob, model: string): Promise<string>;
 }
 
-/** A model sellers can pick on the order form: its price and type, never its cost. */
+/**
+ * A model on the owner's list as a seller sees it: its price (null until
+ * the owner writes it), type, name and picture — never its cost.
+ */
 export interface PriceListItem {
   key: string;
   model: string;
   category: string;
-  price: number;
+  price: number | null;
+  name: string;
+  image: string;
+  /** Off: the owner took it off the sellers' list. */
+  active: boolean;
 }
 
 export class ProfitNotSetUpError extends Error {
@@ -64,9 +73,9 @@ export function getProfitStore(): ProfitStore {
 }
 
 /**
- * The models on sale, for a signed-in seller's order form. An empty list
- * (nothing priced yet, or the database script not run) leaves the seller
- * typing the item and price as before.
+ * Every model on the owner's list, for a signed-in seller's order form. An
+ * empty list (the database script not run yet) still leaves the catalogue's
+ * products to pick from — see `sellerProducts`.
  */
 export async function loadPriceList(token: string): Promise<PriceListItem[]> {
   const client = getSupabaseClient();
@@ -76,13 +85,26 @@ export async function loadPriceList(token: string): Promise<PriceListItem[]> {
       if (error.message === 'SESSION_EXPIRED') throw new OrdersError('SESSION_EXPIRED');
       return [];
     }
-    return ((data ?? []) as PriceListItem[]).map((p) => ({ ...p, price: Number(p.price) || 0 }));
+    return ((data ?? []) as Partial<PriceListItem>[]).map((p) => ({
+      key: p.key ?? '',
+      model: p.model ?? '',
+      category: p.category ?? '',
+      price: p.price === null || p.price === undefined ? null : Number(p.price) || null,
+      name: p.name ?? '',
+      image: p.image ?? '',
+      active: p.active ?? true,
+    }));
   }
   if (!(await new LocalOrdersStore().whoAmI(token))) throw new OrdersError('SESSION_EXPIRED');
-  return Object.values(read().models)
-    .filter((m) => m.active && (m.price ?? 0) > 0)
-    .map((m) => ({ key: m.key, model: m.label, category: m.category, price: m.price ?? 0 }))
-    .sort((a, b) => a.model.localeCompare(b.model));
+  return Object.values(read().models).map((m) => ({
+    key: m.key,
+    model: m.label,
+    category: m.category,
+    price: m.price,
+    name: m.name,
+    image: m.image,
+    active: m.active,
+  }));
 }
 
 // ── Supabase ─────────────────────────────────────────────────────────────────
@@ -93,6 +115,8 @@ interface ModelRow {
   cost: number | string | null;
   sale_price: number | string | null;
   category: string;
+  name?: string | null;
+  image_url?: string | null;
   active: boolean;
   updated_at: string;
 }
@@ -125,6 +149,8 @@ function toModel(row: ModelRow): ModelCost {
     cost: money(row.cost),
     price: money(row.sale_price),
     category: row.category ?? '',
+    name: row.name ?? '',
+    image: row.image_url ?? '',
     active: row.active ?? true,
     updatedAt: row.updated_at,
   };
@@ -164,7 +190,7 @@ function sponsorColumns(input: SponsorInput): Omit<SponsorRow, 'id' | 'created_a
  */
 function translate(error: { code?: string; message?: string }): Error {
   const message = error.message ?? '';
-  if (error.code === '42703' || (error.code === 'PGRST204' && /sale_price|category|active/.test(message))) {
+  if (error.code === '42703' || (error.code === 'PGRST204' && /sale_price|category|active|image_url|name/.test(message))) {
     return new ProfitNotSetUpError(true);
   }
   if (error.code === '42P01' || error.code === 'PGRST205' || /does not exist|could not find the table/i.test(message)) {
@@ -197,7 +223,7 @@ class SupabaseProfitStore implements ProfitStore {
     const [models, orderCosts, sponsors] = await Promise.all([
       this.all<ModelRow>(
         'social_model_costs',
-        'model_key, model_label, cost, sale_price, category, active, updated_at',
+        'model_key, model_label, cost, sale_price, category, name, image_url, active, updated_at',
         'model_key',
       ),
       this.all<OrderCostRow>('social_order_costs', 'order_id, cost', 'order_id'),
@@ -222,6 +248,8 @@ class SupabaseProfitStore implements ProfitStore {
           cost: m.cost === null ? null : Math.round(m.cost),
           sale_price: m.price === null ? null : Math.round(m.price),
           category: m.category.trim(),
+          name: m.name.trim(),
+          image_url: m.image,
           active: m.active,
           updated_at: now,
         })),
@@ -259,6 +287,18 @@ class SupabaseProfitStore implements ProfitStore {
     const { error } = await this.client.from('social_sponsors').delete().eq('id', id);
     if (error) throw translate(error);
   }
+
+  async uploadProductImage(image: Blob, model: string): Promise<string> {
+    const safe = model.replace(/[^A-Za-z0-9-]/g, '').slice(0, 40) || 'product';
+    const path = `models/${safe}-${crypto.randomUUID().slice(0, 8)}.jpg`;
+    const bucket = this.client.storage.from('product-images');
+    const { error } = await bucket.upload(path, image, { contentType: image.type || 'image/jpeg', upsert: false });
+    if (error) {
+      if (/bucket not found/i.test(error.message)) throw new ProfitNotSetUpError(true);
+      throw new Error(error.message);
+    }
+    return bucket.getPublicUrl(path).data.publicUrl;
+  }
 }
 
 // ── This browser (local sandbox) ─────────────────────────────────────────────
@@ -272,7 +312,15 @@ function read(): ProfitData {
     // Models saved before prices were kept: fill the new fields.
     const models: ProfitData['models'] = {};
     for (const [key, m] of Object.entries(data.models)) {
-      models[key] = { ...m, cost: m.cost ?? null, price: m.price ?? null, category: m.category ?? '', active: m.active ?? true };
+      models[key] = {
+        ...m,
+        cost: m.cost ?? null,
+        price: m.price ?? null,
+        category: m.category ?? '',
+        name: m.name ?? '',
+        image: m.image ?? '',
+        active: m.active ?? true,
+      };
     }
     return { ...data, models };
   } catch {
@@ -303,6 +351,7 @@ class LocalProfitStore implements ProfitStore {
           cost: m.cost === null ? null : Math.round(m.cost),
           price: m.price === null ? null : Math.round(m.price),
           category: m.category.trim(),
+          name: m.name.trim(),
           updatedAt: now,
         };
       }
@@ -334,5 +383,15 @@ class LocalProfitStore implements ProfitStore {
   async deleteSponsor(id: string): Promise<void> {
     const data = read();
     write({ ...data, sponsors: data.sponsors.filter((s) => s.id !== id) });
+  }
+
+  /** The sandbox keeps the picture itself, small, in this browser. */
+  async uploadProductImage(image: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('Could not read the picture.'));
+      reader.readAsDataURL(image);
+    });
   }
 }

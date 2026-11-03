@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Check, Search, Tag } from '@/components/icons';
+import { Check, Plus, Search, Tag } from '@/components/icons';
 import { BackLink, CardTitle, LeaveNotice, LoadProblem, iqd, percent, signTone, signedIqd } from '@/components/orders/profit/parts';
 import { useProfitData } from '@/hooks/useProfitData';
 import { CATEGORIES, countsAsSale } from '@/services/orders/options';
@@ -182,8 +182,8 @@ export function ModelPricesPage() {
       return {
         key,
         label: saved?.label || label,
-        name: '',
-        image: '',
+        name: saved?.name ?? '',
+        image: saved?.image ?? '',
         sold: 0,
         avgPrice: 0,
         suggestType: topType(key),
@@ -195,8 +195,8 @@ export function ModelPricesPage() {
     };
     for (const item of catalogItems()) {
       const row = base(item.key, item.model);
-      row.name = item.name;
-      row.image = item.image;
+      row.name = row.name || item.name;
+      row.image = row.image || item.image;
       row.suggestType = row.suggestType || item.typeKu || item.group;
       map.set(item.key, row);
     }
@@ -262,7 +262,7 @@ export function ModelPricesPage() {
 
   const counts = {
     all: rows.length,
-    onSale: rows.filter((r) => r.price !== null && r.price > 0 && r.active).length,
+    onSale: rows.filter((r) => r.active).length,
     noPrice: rows.filter((r) => r.price === null).length,
     noCost: rows.filter((r) => r.cost === null).length,
     sold: rows.filter((r) => r.sold > 0).length,
@@ -272,7 +272,7 @@ export function ModelPricesPage() {
   const shownAll = rows
     .filter((r) =>
       filter === 'onSale'
-        ? r.price !== null && r.price > 0 && r.active
+        ? r.active
         : filter === 'noPrice'
           ? r.price === null
           : filter === 'noCost'
@@ -371,13 +371,21 @@ export function ModelPricesPage() {
           </div>
         )}
 
-        <div className="mt-5">
-          <h1 className="text-3xl font-bold text-ink-900">Models &amp; prices</h1>
-          <p className="mt-1 max-w-3xl text-ink-500">
-            Write each model’s <b className="text-ink-700">sale price</b> and <b className="text-ink-700">cost</b> once.
-            Sellers search the model on their order form and the price fills in by itself; every order then works out
-            its own profit.
-          </p>
+        <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-ink-900">Models &amp; prices</h1>
+            <p className="mt-1 max-w-3xl text-ink-500">
+              Write each model’s <b className="text-ink-700">sale price</b> and <b className="text-ink-700">cost</b> once.
+              Sellers search the model on their order form and the price fills in by itself; every order then works
+              out its own profit.
+            </p>
+          </div>
+          <Link
+            to={paths.profitAddProducts}
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+          >
+            <Plus width={18} height={18} /> Add products
+          </Link>
         </div>
 
         {error ? (
@@ -488,14 +496,11 @@ export function ModelPricesPage() {
                         </div>
                         {/* Phones: the switch beside the name; wide screens: its own column. */}
                         <div className="flex items-center justify-end lg:order-last lg:justify-center">
-                          <span title={price === null ? 'Give it a sale price first' : undefined}>
-                            <Switch
-                              on={on && price !== null}
-                              disabled={price === null}
-                              label={`${r.label} on the sellers’ list`}
-                              onChange={(next) => edit(r.key, { active: next })}
-                            />
-                          </span>
+                          <Switch
+                            on={on}
+                            label={`${r.label} on the sellers’ list`}
+                            onChange={(next) => edit(r.key, { active: next })}
+                          />
                         </div>
                         <label className="col-span-3 block min-w-0 lg:col-span-1">
                           <span className="sr-only">Type of {r.label}</span>

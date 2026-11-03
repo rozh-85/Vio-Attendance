@@ -65,3 +65,43 @@ export function catalogItems(): CatalogItem[] {
 export function catalogItem(keyOrModel: string): CatalogItem | undefined {
   return index().get(modelKey(keyOrModel));
 }
+
+/** A product a seller can pick: the owner's list laid over the catalogue. */
+export interface Product {
+  key: string;
+  model: string;
+  name: string;
+  image: string;
+  category: string;
+  /** null until the owner writes it: the seller then writes the price. */
+  price: number | null;
+}
+
+/**
+ * Every product a seller can pick: each model on the owner's list that is
+ * switched on, then every catalogue product the owner has not listed. A
+ * product with a price comes first.
+ */
+export function sellerProducts(list: { key: string; model: string; category: string; price: number | null; name: string; image: string; active: boolean }[]): Product[] {
+  const listed = new Map(list.map((p) => [p.key, p]));
+  const out: Product[] = [];
+  for (const p of list) {
+    if (!p.active || !p.key) continue;
+    const cat = index().get(p.key);
+    out.push({
+      key: p.key,
+      model: p.model || cat?.model || p.key,
+      name: p.name || cat?.name || '',
+      image: p.image || cat?.image || '',
+      category: p.category || cat?.typeKu || cat?.group || '',
+      price: p.price !== null && p.price > 0 ? p.price : null,
+    });
+  }
+  for (const cat of index().values()) {
+    if (listed.has(cat.key)) continue;
+    out.push({ key: cat.key, model: cat.model, name: cat.name, image: cat.image, category: cat.typeKu || cat.group, price: null });
+  }
+  return out.sort(
+    (a, b) => Number(b.price !== null) - Number(a.price !== null) || a.model.localeCompare(b.model, undefined, { numeric: true }),
+  );
+}

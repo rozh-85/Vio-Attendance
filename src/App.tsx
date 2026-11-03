@@ -12,6 +12,7 @@ import { SocialOrdersPage } from '@/pages/SocialOrdersPage';
 import { OrderEditPage } from '@/pages/OrderEditPage';
 import { ProfitPage } from '@/pages/ProfitPage';
 import { ModelPricesPage } from '@/pages/ModelPricesPage';
+import { AddProductsPage } from '@/pages/AddProductsPage';
 import { SponsorPage } from '@/pages/SponsorPage';
 import { SellerOrderPage } from '@/pages/SellerOrderPage';
 import { OwnerGate } from '@/components/OwnerGate';
@@ -138,6 +139,16 @@ export default function App() {
                 <RequireAuth>
                   <OwnerGate title="Profit">
                     <ModelPricesPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={routePatterns.profitAddProducts}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="Profit">
+                    <AddProductsPage />
                   </OwnerGate>
                 </RequireAuth>
               }
