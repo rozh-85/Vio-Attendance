@@ -1,4 +1,5 @@
 import reference from '@/services/catalog/reference.json';
+import catalog2026Data from '@/services/catalog/catalog2026.json';
 import { modelKey } from './profit';
 
 /**
@@ -64,4 +65,22 @@ export function catalogItems(): CatalogItem[] {
 
 export function catalogItem(keyOrModel: string): CatalogItem | undefined {
   return index().get(modelKey(keyOrModel));
+}
+
+/** One product of "Vio Catalog 2026 – Showroom Prices": model, name and type, no price. */
+export interface Catalog2026Item {
+  key: string;
+  model: string;
+  name: string;
+  type: string;
+}
+
+/** Every model of the 2026 showroom catalogue (scripts/import-catalog-2026.py), in its page order. */
+export function catalog2026(): Catalog2026Item[] {
+  return (catalog2026Data as { products: { model: string; name: string; type: string }[] }).products.map((p) => ({
+    key: modelKey(p.model),
+    model: p.model,
+    name: p.name,
+    type: p.type,
+  }));
 }

@@ -18,7 +18,7 @@ import {
   type ModelRow,
   type ModelValues,
 } from '@/services/orders/profit';
-import { catalogItem, catalogItems, type CatalogItem } from '@/services/orders/products';
+import { catalog2026, catalogItem, catalogItems, type CatalogItem } from '@/services/orders/products';
 import { clearProfitNotice, readProfitNotice } from '@/services/orders/profitMemory';
 import { getProfitStore, profitErrorMessage } from '@/services/orders/profitStore';
 import type { SalesOrder } from '@/services/orders/types';
@@ -493,8 +493,10 @@ export function ProductsPage() {
       return `${product.label} added`;
     });
 
-  // Catalogue products not on the list yet: added all at once, with no cost.
-  const missingFromCatalog = useMemo(() => catalogItems().filter((c) => !taken.has(c.key)), [taken]);
+  // The 2026 catalogue's models not on the list yet: added all at once, with
+  // no cost and no picture of their own — the owner writes the costs and
+  // attaches the pictures.
+  const missingFromCatalog = useMemo(() => catalog2026().filter((c) => !taken.has(c.key)), [taken]);
   const addAllCatalog = () =>
     run(async () => {
       if (!profit || !missingFromCatalog.length) return '';
@@ -504,7 +506,7 @@ export function ProductsPage() {
         name: c.name,
         image: '',
         cost: null,
-        category: c.typeKu || c.group,
+        category: c.type,
       }));
       const store = getProfitStore();
       await store.saveModels(list);
@@ -516,7 +518,7 @@ export function ProductsPage() {
         for (const m of list) models[m.key] = { ...m, createdAt: now, updatedAt: now };
         return { ...d, startDate, models };
       });
-      return `${list.length} catalogue products added — write what one piece costs you`;
+      return `${list.length} products of the 2026 catalogue added — write what one piece costs you`;
     });
 
   const saveProduct = (product: ModelValues) =>
@@ -578,7 +580,7 @@ export function ProductsPage() {
     <div className="flex flex-wrap justify-center gap-2">
       {missingFromCatalog.length > 0 && (
         <Button variant="secondary" disabled={busy} loading={busy} leftIcon={<CheckCircle width={17} height={17} />} onClick={() => void addAllCatalog()}>
-          Add all {missingFromCatalog.length} catalogue products
+          Add {missingFromCatalog.length} products from the 2026 catalogue
         </Button>
       )}
       <Link to={paths.profitAddProducts} className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 transition-colors hover:bg-slate-50">

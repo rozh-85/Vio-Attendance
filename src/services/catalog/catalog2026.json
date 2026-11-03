@@ -1,0 +1,776 @@
+{
+ "source": "bcf19c28-Vio_Catalog_2026_-_Showroom_Prices.pdf",
+ "note": "Models, names and types only: no prices, no pictures.",
+ "products": [
+  {
+   "model": "V-400",
+   "name": "Air Fryer",
+   "section": "Air Fryers",
+   "type": "ئایەرفرای",
+   "page": 3
+  },
+  {
+   "model": "V-401",
+   "name": "Air Fryer",
+   "section": "Air Fryers",
+   "type": "ئایەرفرای",
+   "page": 3
+  },
+  {
+   "model": "V-402",
+   "name": "Air Fryer",
+   "section": "Air Fryers",
+   "type": "ئایەرفرای",
+   "page": 3
+  },
+  {
+   "model": "V-403",
+   "name": "Dualfry Grill",
+   "section": "Air Fryers",
+   "type": "ئایەرفرای",
+   "page": 3
+  },
+  {
+   "model": "VAF6502A2",
+   "name": "Air Fryer",
+   "section": "Air Fryers",
+   "type": "ئایەرفرای",
+   "page": 4
+  },
+  {
+   "model": "VAF810D",
+   "name": "Air Fryer",
+   "section": "Air Fryers",
+   "type": "ئایەرفرای",
+   "page": 4
+  },
+  {
+   "model": "VAF820D",
+   "name": "Air Fryer",
+   "section": "Air Fryers",
+   "type": "ئایەرفرای",
+   "page": 4
+  },
+  {
+   "model": "V-450",
+   "name": "Steak Machine",
+   "section": "Grill",
+   "type": "گریل و ستەیک",
+   "page": 5
+  },
+  {
+   "model": "V-226",
+   "name": "Blender and Grinder",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 6
+  },
+  {
+   "model": "V-228",
+   "name": "Juice Extractor",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 6
+  },
+  {
+   "model": "V-225",
+   "name": "Juicer and Blender",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 6
+  },
+  {
+   "model": "V-229",
+   "name": "Food Processor",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 7
+  },
+  {
+   "model": "V-230",
+   "name": "Juice Extractor",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 7
+  },
+  {
+   "model": "V-231",
+   "name": "Table Blender",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 7
+  },
+  {
+   "model": "V-232",
+   "name": "Slow Juicer & Ice Cream",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 7
+  },
+  {
+   "model": "V-806",
+   "name": "Blender, Chopper & Grinder",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 8
+  },
+  {
+   "model": "V-233BLUE",
+   "name": "Gym Blender · Blue",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 8
+  },
+  {
+   "model": "V-233B",
+   "name": "Gym Blender · Black",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 8
+  },
+  {
+   "model": "V-233W",
+   "name": "Gym Blender · White",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 8
+  },
+  {
+   "model": "V-233P",
+   "name": "Gym Blender · Pink",
+   "section": "Blenders & Juicers",
+   "type": "عەسارە و بلێندەر",
+   "page": 8
+  },
+  {
+   "model": "V-801B",
+   "name": "Food Chopper · Black",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 9
+  },
+  {
+   "model": "V-801K",
+   "name": "Food Chopper · Beige",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 9
+  },
+  {
+   "model": "V-801W",
+   "name": "Food Chopper · White",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 9
+  },
+  {
+   "model": "V-802B",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 9
+  },
+  {
+   "model": "V-802K",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 9
+  },
+  {
+   "model": "V-803B",
+   "name": "Food Chopper · Black",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 9
+  },
+  {
+   "model": "V-803K",
+   "name": "Food Chopper · Beige",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 9
+  },
+  {
+   "model": "V-804B",
+   "name": "Food Chopper · Black",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 10
+  },
+  {
+   "model": "V-804K",
+   "name": "Food Chopper · Beige",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 10
+  },
+  {
+   "model": "V-805",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 10
+  },
+  {
+   "model": "VMB01",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 10
+  },
+  {
+   "model": "VMB02W",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 10
+  },
+  {
+   "model": "VMB04 K",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 10
+  },
+  {
+   "model": "VMC03",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 11
+  },
+  {
+   "model": "VMC04",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 11
+  },
+  {
+   "model": "VMH01",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 11
+  },
+  {
+   "model": "VMH02",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 11
+  },
+  {
+   "model": "VMH04",
+   "name": "Food Chopper",
+   "section": "Choppers",
+   "type": "چوپەر",
+   "page": 11
+  },
+  {
+   "model": "V-863W",
+   "name": "Fully Automatic Espresso",
+   "section": "Coffee Makers",
+   "type": "جیهازی قاوە",
+   "page": 12
+  },
+  {
+   "model": "V-861",
+   "name": "Espresso Coffee Maker",
+   "section": "Coffee Makers",
+   "type": "جیهازی قاوە",
+   "page": 12
+  },
+  {
+   "model": "V-864",
+   "name": "Vio Capsule Pro",
+   "section": "Coffee Makers",
+   "type": "جیهازی قاوە",
+   "page": 12
+  },
+  {
+   "model": "V-863B",
+   "name": "Fully Automatic Espresso",
+   "section": "Coffee Makers",
+   "type": "جیهازی قاوە",
+   "page": 12
+  },
+  {
+   "model": "V-200",
+   "name": "Electric Pressure Cooker",
+   "section": "Cookers",
+   "type": "مەنجەڵی کارەبایی",
+   "page": 13
+  },
+  {
+   "model": "V-1001",
+   "name": "Vio Luxmix",
+   "section": "Hand Blenders",
+   "type": "بلێندەری دەستی",
+   "page": 14
+  },
+  {
+   "model": "V-1002",
+   "name": "Vio Blend",
+   "section": "Hand Blenders",
+   "type": "بلێندەری دەستی",
+   "page": 14
+  },
+  {
+   "model": "V-807-A",
+   "name": "Hand Blender Set",
+   "section": "Hand Blenders",
+   "type": "بلێندەری دەستی",
+   "page": 14
+  },
+  {
+   "model": "V-652",
+   "name": "Electric Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 15
+  },
+  {
+   "model": "V-653",
+   "name": "Crystal Carbon Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 15
+  },
+  {
+   "model": "V-654B",
+   "name": "Electric Quartz Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 15
+  },
+  {
+   "model": "V-654W",
+   "name": "Electric Quartz Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 15
+  },
+  {
+   "model": "V-655",
+   "name": "Ceramic Electric Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 15
+  },
+  {
+   "model": "V-656",
+   "name": "Ceramic Electric Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 16
+  },
+  {
+   "model": "V-657",
+   "name": "Ceramic Electric Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 16
+  },
+  {
+   "model": "V-658",
+   "name": "Ceramic Electric Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 16
+  },
+  {
+   "model": "V-1101B",
+   "name": "Ceramic Electric Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 16
+  },
+  {
+   "model": "V-1101W",
+   "name": "Ceramic Electric Heater",
+   "section": "Heaters",
+   "type": "هیتەر",
+   "page": 16
+  },
+  {
+   "model": "V-305P",
+   "name": "Upright Garment Steamer",
+   "section": "Irons & Steamers",
+   "type": "ئوتو و ئامێری هەڵم",
+   "page": 17
+  },
+  {
+   "model": "V-308",
+   "name": "Garment Steamer",
+   "section": "Irons & Steamers",
+   "type": "ئوتو و ئامێری هەڵم",
+   "page": 17
+  },
+  {
+   "model": "V-306G",
+   "name": "Steam Station",
+   "section": "Irons & Steamers",
+   "type": "ئوتو و ئامێری هەڵم",
+   "page": 17
+  },
+  {
+   "model": "V-306P",
+   "name": "Steam Station",
+   "section": "Irons & Steamers",
+   "type": "ئوتو و ئامێری هەڵم",
+   "page": 17
+  },
+  {
+   "model": "V-307P",
+   "name": "Steam Station · Purple",
+   "section": "Irons & Steamers",
+   "type": "ئوتو و ئامێری هەڵم",
+   "page": 17
+  },
+  {
+   "model": "V-307G",
+   "name": "Steam Station · Cream",
+   "section": "Irons & Steamers",
+   "type": "ئوتو و ئامێری هەڵم",
+   "page": 17
+  },
+  {
+   "model": "V-309",
+   "name": "Steamepro X90",
+   "section": "Steam Cleaner",
+   "type": "پاککەرەوەی هەڵمی",
+   "page": 18
+  },
+  {
+   "model": "V-603",
+   "name": "Meat Grinder",
+   "section": "Meat Grinder",
+   "type": "مەکینەی قیمە",
+   "page": 19
+  },
+  {
+   "model": "VTOV-56H B",
+   "name": "Electric Oven · Black",
+   "section": "Electric Ovens",
+   "type": "فرن",
+   "page": 20
+  },
+  {
+   "model": "VTOV-56H G",
+   "name": "Electric Oven · Grey",
+   "section": "Electric Ovens",
+   "type": "فرن",
+   "page": 20
+  },
+  {
+   "model": "V-106G",
+   "name": "Stand Mixer",
+   "section": "Stand Mixers",
+   "type": "عەجانە",
+   "page": 21
+  },
+  {
+   "model": "V-106W",
+   "name": "Stand Mixer",
+   "section": "Stand Mixers",
+   "type": "عەجانە",
+   "page": 21
+  },
+  {
+   "model": "V-100 10L LG PRO",
+   "name": "Stand Mixer · Light Grey",
+   "section": "Stand Mixers",
+   "type": "عەجانە",
+   "page": 21
+  },
+  {
+   "model": "V-100 10L W PRO",
+   "name": "Stand Mixer · White",
+   "section": "Stand Mixers",
+   "type": "عەجانە",
+   "page": 21
+  },
+  {
+   "model": "V-100 B PRO",
+   "name": "Stand Mixer · Black",
+   "section": "Stand Mixers",
+   "type": "عەجانە",
+   "page": 21
+  },
+  {
+   "model": "V-100 DG PRO",
+   "name": "Stand Mixer · Dark Grey",
+   "section": "Stand Mixers",
+   "type": "عەجانە",
+   "page": 21
+  },
+  {
+   "model": "V-104 W",
+   "name": "Stand Mixer with Bowl",
+   "section": "Stand Mixers",
+   "type": "عەجانە",
+   "page": 21
+  },
+  {
+   "model": "V-502",
+   "name": "Tea Maker",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 22
+  },
+  {
+   "model": "V-507",
+   "name": "Tea Maker",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 22
+  },
+  {
+   "model": "V-508",
+   "name": "Tea Maker",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 22
+  },
+  {
+   "model": "V-510",
+   "name": "Cool Touch Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 23
+  },
+  {
+   "model": "V-511",
+   "name": "Cool Touch Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 23
+  },
+  {
+   "model": "V-512",
+   "name": "Cool Touch Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 23
+  },
+  {
+   "model": "V-513",
+   "name": "Cool Touch Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 23
+  },
+  {
+   "model": "V-514",
+   "name": "Cool Touch Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 23
+  },
+  {
+   "model": "V-515",
+   "name": "Cool Touch Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 23
+  },
+  {
+   "model": "V-516",
+   "name": "Tea Maker",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 24
+  },
+  {
+   "model": "V-517A",
+   "name": "Electric Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 24
+  },
+  {
+   "model": "V-518A",
+   "name": "Electric Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 24
+  },
+  {
+   "model": "V-519A",
+   "name": "Electric Kettle",
+   "section": "Tea Makers & Kettles",
+   "type": "کرتی و چایساز",
+   "page": 24
+  },
+  {
+   "model": "V-517B",
+   "name": "2-Slice Toaster",
+   "section": "Toasters",
+   "type": "تۆستەر",
+   "page": 25
+  },
+  {
+   "model": "V-518B",
+   "name": "2-Slice Toaster",
+   "section": "Toasters",
+   "type": "تۆستەر",
+   "page": 25
+  },
+  {
+   "model": "V-519B",
+   "name": "2-Slice Toaster",
+   "section": "Toasters",
+   "type": "تۆستەر",
+   "page": 25
+  },
+  {
+   "model": "V-625",
+   "name": "Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 26
+  },
+  {
+   "model": "V-627",
+   "name": "Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 26
+  },
+  {
+   "model": "V-628",
+   "name": "Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 27
+  },
+  {
+   "model": "V-629",
+   "name": "Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 27
+  },
+  {
+   "model": "V-630",
+   "name": "Sweep Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 27
+  },
+  {
+   "model": "V-631",
+   "name": "Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 28
+  },
+  {
+   "model": "V-632",
+   "name": "Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 28
+  },
+  {
+   "model": "VK806 S",
+   "name": "Vacuum Cleaner",
+   "section": "Vacuum Cleaners",
+   "type": "گسکی کارەبایی",
+   "page": 28
+  },
+  {
+   "model": "V-1202",
+   "name": "Vio Air Conditioner",
+   "section": "Air Coolers & ACs",
+   "type": "فێنککەرەوە و سپلیت",
+   "page": 29
+  },
+  {
+   "model": "V-1201",
+   "name": "Vio Air Conditioner",
+   "section": "Air Coolers & ACs",
+   "type": "فێنککەرەوە و سپلیت",
+   "page": 29
+  },
+  {
+   "model": "V-1203G",
+   "name": "Vio Air Cooler · Grey",
+   "section": "Air Coolers & ACs",
+   "type": "فێنککەرەوە و سپلیت",
+   "page": 29
+  },
+  {
+   "model": "V-1203W",
+   "name": "Vio Air Cooler · White",
+   "section": "Air Coolers & ACs",
+   "type": "فێنککەرەوە و سپلیت",
+   "page": 29
+  },
+  {
+   "model": "V-1204",
+   "name": "Vio Air Cooler",
+   "section": "Air Coolers & ACs",
+   "type": "فێنککەرەوە و سپلیت",
+   "page": 29
+  },
+  {
+   "model": "V-1205",
+   "name": "Vio Air Cooler",
+   "section": "Air Coolers & ACs",
+   "type": "فێنککەرەوە و سپلیت",
+   "page": 29
+  },
+  {
+   "model": "V-750",
+   "name": "Vio Aircleaner Mini",
+   "section": "Air Purifiers",
+   "type": "هەوا پاککەرەوە",
+   "page": 30
+  },
+  {
+   "model": "V-751",
+   "name": "Vio Aircleaner Max",
+   "section": "Air Purifiers",
+   "type": "هەوا پاککەرەوە",
+   "page": 30
+  },
+  {
+   "model": "V-753",
+   "name": "Vio Aircleaner Pro",
+   "section": "Air Purifiers",
+   "type": "هەوا پاککەرەوە",
+   "page": 30
+  },
+  {
+   "model": "V-752",
+   "name": "Vio Aircleaner Ultra",
+   "section": "Air Purifiers",
+   "type": "هەوا پاککەرەوە",
+   "page": 30
+  },
+  {
+   "model": "V-900B",
+   "name": "Icecraft Pro",
+   "section": "Cooling & Ice",
+   "type": "ساردکەرەوە و سەهۆڵ",
+   "page": 31
+  },
+  {
+   "model": "V-903W",
+   "name": "Vio Slushie",
+   "section": "Cooling & Ice",
+   "type": "ساردکەرەوە و سەهۆڵ",
+   "page": 31
+  },
+  {
+   "model": "V-903B",
+   "name": "Vio Slushie",
+   "section": "Cooling & Ice",
+   "type": "ساردکەرەوە و سەهۆڵ",
+   "page": 31
+  }
+ ]
+}
