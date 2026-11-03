@@ -11,7 +11,7 @@ import { CheckInLocationsPage } from '@/pages/CheckInLocationsPage';
 import { SocialOrdersPage } from '@/pages/SocialOrdersPage';
 import { OrderEditPage } from '@/pages/OrderEditPage';
 import { ProfitPage } from '@/pages/ProfitPage';
-import { ModelCostsPage } from '@/pages/ModelCostsPage';
+import { ModelPricesPage } from '@/pages/ModelPricesPage';
 import { SponsorPage } from '@/pages/SponsorPage';
 import { SellerOrderPage } from '@/pages/SellerOrderPage';
 import { OwnerGate } from '@/components/OwnerGate';
@@ -133,15 +133,16 @@ export default function App() {
               }
             />
             <Route
-              path={routePatterns.profitCosts}
+              path={routePatterns.profitModels}
               element={
                 <RequireAuth>
                   <OwnerGate title="Profit">
-                    <ModelCostsPage />
+                    <ModelPricesPage />
                   </OwnerGate>
                 </RequireAuth>
               }
             />
+            <Route path={routePatterns.oldProfitCosts} element={<Navigate to={paths.profitModels} replace />} />
             <Route
               path={routePatterns.profitSponsor}
               element={

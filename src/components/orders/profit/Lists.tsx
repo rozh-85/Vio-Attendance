@@ -165,15 +165,15 @@ export function TopModels({ s }: { s: ProfitSummary }) {
         title="Models"
         sub="The most profitable in this period"
         action={
-          <Link to={paths.profitCosts} className={cn(actionLink, 'border border-slate-200 bg-card text-ink-700 hover:bg-slate-50')}>
-            Model costs <ArrowRight width={15} height={15} />
+          <Link to={paths.profitModels} className={cn(actionLink, 'border border-slate-200 bg-card text-ink-700 hover:bg-slate-50')}>
+            Models &amp; prices <ArrowRight width={15} height={15} />
           </Link>
         }
       />
 
       {missing.length > 0 && (
         <Link
-          to={paths.profitCosts}
+          to={paths.profitModels}
           className="mt-4 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 transition hover:bg-amber-100"
         >
           <AlertTriangle width={16} height={16} className="shrink-0" />
@@ -246,12 +246,12 @@ export function TopModels({ s }: { s: ProfitSummary }) {
 export function GettingStarted({ models, sponsors }: { models: number; sponsors: number }) {
   const steps = [
     {
-      to: paths.profitCosts,
+      to: paths.profitModels,
       icon: <Tag width={24} height={24} />,
       tone: 'bg-slate-100 text-ink-700',
-      title: 'Write the cost of each model',
-      body: `${models} ${models === 1 ? 'model has' : 'models have'} been sold. Write what one piece costs you, and every order of it gets its profit — old and new.`,
-      action: 'Open model costs',
+      title: 'Price each model',
+      body: `Write each model’s sale price and cost once. Sellers pick the model and the price fills in; every order — ${models} ${models === 1 ? 'model' : 'models'} sold so far — gets its profit.`,
+      action: 'Open models & prices',
       done: false,
     },
     {

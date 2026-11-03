@@ -229,41 +229,56 @@ For the Gashben places page and its linked place orders, run
 Gashben seller account by username/display name; it also includes a marked
 insert statement for pointing the feature at the account UUID directly.
 
-## Profit on social media orders
+## Prices and profit on social media orders
 
 **Profit** has its own page at `/rozhadmin/profit`, in the sidebar next to
 *Social media orders* once the owner password is entered:
 
 > Sales − goods − sponsors = **net profit**
 
-- **The Profit page** shows that sum as four tiles for the chosen period, where
-  each 1,000 IQD of sales went, net profit day by day, whether each platform's
-  sponsors pay off, the period's sponsors and the most profitable models, and
-  exports it all to Excel.
-- **Model costs** (`/rozhadmin/profit/costs`) — its own page, with a back arrow
-  and a Save bar. Write what one piece of a model costs once and every order of
-  it, old and new, gets its profit. Spellings are merged (`V.502`, `v502`,
+- **Models & prices** (`/rozhadmin/profit/models`) — every model in one list:
+  the catalogue's products (with their photos) plus any model sellers have
+  written. Give each a **sale price**, a **cost** and a type once; the switch
+  says whether sellers can pick it. Spellings are merged (`V.502`, `v502`,
   `V-502` and Kurdish digits are one model). Enter moves to the next box;
-  nothing is saved until **Save**. Orders where no model was written get a cost
-  of their own on the same page.
+  nothing is saved until **Save**. Orders where no model was written get a
+  cost of their own on the same page.
+- **Sellers pick, they do not type** — on the order form (`/orders`), the
+  seller searches the model number, taps the product card and sets the pieces
+  with − / +. Model, type and price fill in by themselves (price × pieces). A
+  different price for one customer, or an item not on the list, can still be
+  written by hand.
+- **Profit works itself out** — each order's cost is its model's cost × its
+  pieces, so every order, old and new, has a profit as soon as its model has a
+  cost.
+- **The Profit page** shows the sum as four tiles for a period, where each
+  1,000 IQD of sales went, net profit by day, whether each platform's sponsors
+  pay off, the period's sponsors and the most profitable models, and exports
+  it all to Excel.
 - **Sponsors** (`/rozhadmin/profit/sponsors/new`, or a sponsor's own page) —
   platform, amount in dollars (with the rate) or dinars, and the days it ran.
-  Its cost is shared evenly over those days, so a period carries only its own
-  share. Deleting asks on the page itself.
+  Its cost is shared evenly over those days. Deleting asks on the page itself.
 - **One order's own cost** — on an order's page, *Cost & profit* takes a cost
-  for that order alone (two pieces, a different supplier price), or sets the
-  model's cost for all its orders.
+  for that order alone, or sets the model's cost for all its orders. The same
+  page has the pieces and a *Use it* button for the price-list price.
 - Orders with no cost are **left out** and flagged, so a missing cost never
   shows up as profit. Cancelled and returned orders count no sales and no cost.
 
 No pop-ups: going back with something not saved shows a notice on the page
 with *Save and go back* or *Leave without saving*.
 
-Run [`supabase/social-profit.sql`](supabase/social-profit.sql) once, after
-`social-orders.sql`. It adds three tables — `social_model_costs`,
-`social_order_costs` and `social_sponsors` — readable only by signed-in
-supervisors; sellers can never see a cost or a sponsor. The logic lives in
-[`profit.ts`](src/services/orders/profit.ts).
+**Database — run both, in this order, in the Supabase SQL editor** (both are
+safe to run again):
+
+1. [`supabase/social-orders.sql`](supabase/social-orders.sql) again — it adds
+   the pieces (`quantity`) to orders. Until it is run, an order of two pieces
+   is kept as one.
+2. [`supabase/social-profit.sql`](supabase/social-profit.sql) — the price list
+   (`social_model_costs`: sale price, cost, type, on sale), per-order costs and
+   sponsors, readable only by signed-in supervisors, plus
+   `social_price_list()`, which gives sellers each model's sale price and type —
+   never its cost. The logic lives in
+   [`profit.ts`](src/services/orders/profit.ts).
 
 ## Catalog Management
 

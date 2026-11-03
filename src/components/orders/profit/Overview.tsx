@@ -220,7 +220,7 @@ export function MoneySplit({ s, missingModels }: { s: ProfitSummary; missingMode
       </div>
       {s.uncostedOrders > 0 ? (
         <Link
-          to={paths.profitCosts}
+          to={paths.profitModels}
           className="group flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 transition hover:border-amber-300"
         >
           <AlertTriangle width={18} height={18} className="shrink-0 text-amber-700" />
@@ -229,7 +229,7 @@ export function MoneySplit({ s, missingModels }: { s: ProfitSummary; missingMode
               {s.uncostedOrders} {s.uncostedOrders === 1 ? 'order has' : 'orders have'} no cost
             </b>
             <span className="text-amber-800">
-              {missingModels > 0 ? `Set ${missingModels} model ${missingModels === 1 ? 'cost' : 'costs'}` : 'Set their cost'}
+              {missingModels > 0 ? `Add the cost of ${missingModels} ${missingModels === 1 ? 'model' : 'models'}` : 'Add their cost'}
             </span>
           </span>
           <ArrowRight width={16} height={16} className="shrink-0 text-amber-700 transition group-hover:translate-x-0.5" />

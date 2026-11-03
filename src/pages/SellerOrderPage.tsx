@@ -13,7 +13,6 @@ import { AuthField, AuthShell, PasswordField } from '@/components/auth/AuthShell
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ArrowRight, Building, CalendarDays, Check, CheckCircle, Clock, Eye, FileText, Logout, Menu, Pencil, Plus, Search, Trash, User, X } from '@/components/icons';
 import {
-  CATEGORIES,
   CITIES,
   GENDER_LABEL,
   MAX_BACKDATE_DAYS,
@@ -29,6 +28,9 @@ import {
 import { OrdersError, getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { NewSalesOrder, OrderShift, OrderStatus, SellerOrder, SellerSession } from '@/services/orders/types';
 import { cn } from '@/utils/cn';
+import { FieldError, Label, inputClass } from '@/components/orders/SellerFormParts';
+import { ItemPicker } from '@/components/orders/ItemPicker';
+import { loadPriceList, type PriceListItem } from '@/services/orders/profitStore';
 
 const SESSION_KEY = 'vio.sellerSession';
 const DRAFT_KEY = 'vio.sellerOrderDraft';
@@ -37,11 +39,17 @@ const DRAFT_KEY = 'vio.sellerOrderDraft';
  * The form keeps the price and the times bought as typed text, so "95,000"
  * can show commas and the count can be cleared while typing.
  */
-interface Draft extends Omit<NewSalesOrder, 'totalPrice' | 'purchase' | 'purchaseCount' | 'orderDate'> {
+interface Draft extends Omit<NewSalesOrder, 'totalPrice' | 'purchase' | 'purchaseCount' | 'orderDate' | 'quantity'> {
   price: string;
   timesBought: string;
   /** `yyyy-MM-dd` of an earlier day for a forgotten order; '' means today. */
   orderDay: string;
+  /** Pieces of the item. */
+  quantity: number;
+  /** 'manual' when the item and price are written by hand, not picked from the price list. */
+  itemMode?: 'list' | 'manual';
+  /** The seller set a price other than the price list's. */
+  priceEdited?: boolean;
 }
 
 function emptyDraft(keep?: Pick<Draft, 'platform' | 'shift'>): Draft {
@@ -54,6 +62,7 @@ function emptyDraft(keep?: Pick<Draft, 'platform' | 'shift'>): Draft {
     itemModel: '',
     itemCategory: '',
     price: '',
+    quantity: 1,
     gender: '',
     platform: keep?.platform ?? '',
     timesBought: '1',
@@ -73,6 +82,7 @@ function draftFrom(order: SellerOrder): Draft {
     itemModel: order.itemModel,
     itemCategory: order.itemCategory,
     price: order.totalPrice ? order.totalPrice.toLocaleString('en-US') : '',
+    quantity: order.quantity || 1,
     gender: order.gender,
     platform: order.platform,
     timesBought: order.purchaseCount
@@ -115,7 +125,7 @@ function orderDateIso(day: string, shift: Draft['shift']): string {
  * today, or an edit that keeps its day, sends no date and the server keeps it.
  */
 function orderFrom(draft: Draft, savedDay?: string): NewSalesOrder {
-  const { price, timesBought, orderDay, ...rest } = draft;
+  const { price, timesBought, orderDay, quantity, itemMode: _mode, priceEdited: _edited, ...rest } = draft;
   const purchaseCount = timesNumber(timesBought);
   const day = orderDay || todayKey();
   const unchanged = day === (savedDay ?? todayKey());
@@ -125,6 +135,7 @@ function orderFrom(draft: Draft, savedDay?: string): NewSalesOrder {
     customerPhone: rest.customerPhone.trim(),
     secondPhone: rest.secondPhone.trim(),
     totalPrice: priceNumber(price),
+    quantity: Math.min(99, Math.max(1, quantity || 1)),
     purchaseCount,
     purchase: purchaseFromCount(purchaseCount),
     orderDate: unchanged ? null : orderDateIso(day, rest.shift),
@@ -164,8 +175,6 @@ const chipClass = (selected: boolean) =>
       : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
   );
 
-const inputClass =
-  'h-12 w-full rounded-xl border bg-card px-4 text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
 
 const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'> = {
   new: 'info',
@@ -174,24 +183,6 @@ const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'
   returned: 'warning',
 };
 
-/** A label in English with the Kurdish the sellers know from the old form. */
-function Label({ en, ku, required }: { en: string; ku: string; required?: boolean }) {
-  return (
-    <span className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-ink-900">
-      <span>
-        {en}
-        {required && <span className="ml-0.5 text-rose-500">*</span>}
-      </span>
-      <span dir="rtl" className="font-medium text-ink-400">
-        {ku}
-      </span>
-    </span>
-  );
-}
-
-function FieldError({ message }: { message?: string }) {
-  return message ? <span className="mt-1.5 block text-sm text-rose-600">{message}</span> : null;
-}
 
 function Section({ step, title, ku, children }: { step: number; title: string; ku: string; children: ReactNode }) {
   return (
@@ -409,6 +400,9 @@ function SellerWorkspace({
   const [mineError, setMineError] = useState<string | null>(null);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [formKey, setFormKey] = useState(0);
+  // The owner's price list, for the model search. Empty if nothing is priced
+  // or it cannot be read: the seller then writes the item and price.
+  const [products, setProducts] = useState<PriceListItem[] | null>(null);
 
   const handleError = useCallback(
     (err: unknown): string | null => {
@@ -438,6 +432,20 @@ function SellerWorkspace({
   useEffect(() => {
     void loadMine();
   }, [loadMine]);
+
+  useEffect(() => {
+    let active = true;
+    loadPriceList(session.token)
+      .then((list) => active && setProducts(list))
+      .catch((err) => {
+        if (!active) return;
+        setProducts([]);
+        handleError(err);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session.token, handleError]);
 
   // Sellers see how many orders they have, old sheet included; money totals
   // are for the owner's report only.
@@ -773,7 +781,8 @@ function SellerWorkspace({
                 {flash.order && (
                   <div className="truncate text-sm opacity-80">
                     <span dir="auto">{flash.order.customerName}</span> ·{' '}
-                    <span dir="auto">{flash.order.itemModel || flash.order.itemCategory}</span> ·{' '}
+                    <span dir="auto">{flash.order.itemModel || flash.order.itemCategory}</span>
+                    {(flash.order.quantity ?? 1) > 1 && ` ×${flash.order.quantity}`} ·{' '}
                     {formatIqd(flash.order.totalPrice)}
                   </div>
                 )}
@@ -800,13 +809,14 @@ function SellerWorkspace({
           )}
 
           {!placesPage && view.kind === 'new' && (
-            <OrderForm key={`new-${formKey}`} mode="new" sellerName={session.displayName} onSubmit={saveNew} />
+            <OrderForm key={`new-${formKey}`} mode="new" sellerName={session.displayName} onSubmit={saveNew} products={products} />
           )}
           {!placesPage && view.kind === 'edit' && (
             <OrderForm
               key={`edit-${view.order.id}`}
               mode="edit"
               sellerName={session.displayName}
+              products={products}
               initial={view.order}
               onSubmit={(order) => saveEdit(view.order.id, view.order.orderNo, order)}
               onCancel={() => go({ kind: 'mine' })}
@@ -829,7 +839,7 @@ function SellerWorkspace({
               <OrderForm key={place.id} mode="new" sellerName={session.displayName}
                 draftKey={`vio.placeOrderDraft.${place.id}`}
                 prefill={{ customerName: place.person_name, customerPhone: place.phone, city: place.city, address: place.name }}
-                onSubmit={onSubmit} onCancel={onCancel} />
+                onSubmit={onSubmit} onCancel={onCancel} products={products} />
             } />)}
         </main>
       </div>
@@ -1025,11 +1035,13 @@ function MyOrders({
                         </div>
                         <div className="max-w-[10rem] truncate font-mono text-xs text-ink-400 xl:hidden" title={o.itemModel}>
                           {o.itemModel}
+                          {(o.quantity ?? 1) > 1 && ` ×${o.quantity}`}
                         </div>
                       </td>
                       <td className={cn(cell, 'hidden xl:table-cell')}>
                         <div className="max-w-[10rem] truncate font-mono text-xs font-semibold text-ink-900" title={o.itemModel}>
                           {o.itemModel || '—'}
+                          {(o.quantity ?? 1) > 1 && <span className="text-brand-700"> ×{o.quantity}</span>}
                         </div>
                         <div dir="auto" className="max-w-[10rem] truncate text-left text-xs text-ink-500" title={o.itemCategory}>
                           {o.itemCategory}
@@ -1130,7 +1142,7 @@ function validate(draft: Draft, savedDay?: string): Errors {
   if (draft.customerPhone.replace(/\D/g, '').length < 7) errors.customerPhone = 'Write a full phone number.';
   if (!draft.city.trim()) errors.city = 'Pick the city.';
   if (!draft.address.trim()) errors.address = 'Write the address for delivery.';
-  if (!draft.itemModel.trim() && !draft.itemCategory.trim()) errors.item = 'Write the item model or its type.';
+  if (!draft.itemModel.trim() && !draft.itemCategory.trim()) errors.item = 'Pick the model, or write the item.';
   if (priceNumber(draft.price) <= 0) errors.price = 'Write the total price.';
   if (!draft.platform) errors.platform = 'Pick where it was sold.';
   if (draft.orderDay && draft.orderDay !== savedDay) {
@@ -1253,6 +1265,7 @@ function OrderForm({
   onSubmit,
   onCancel,
   onDelete,
+  products,
 }: {
   draftKey?: string;
   prefill?: Partial<Draft>;
@@ -1263,10 +1276,15 @@ function OrderForm({
   onSubmit: (order: NewSalesOrder) => Promise<string | null>;
   onCancel?: () => void;
   onDelete?: () => void;
+  /** The owner's price list: null while it loads, empty when nothing is priced. */
+  products: PriceListItem[] | null;
 }) {
-  const [draft, setDraft] = useState<Draft>(() =>
-    initial ? draftFrom(initial) : (loadJson<Draft>(draftKey) ?? { ...emptyDraft(), ...prefill }),
-  );
+  const [draft, setDraft] = useState<Draft>(() => {
+    if (initial) return draftFrom(initial);
+    const saved = loadJson<Draft>(draftKey);
+    // A draft kept from before the price list has no pieces yet.
+    return saved ? { ...emptyDraft(), ...saved } : { ...emptyDraft(), ...prefill };
+  });
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1320,8 +1338,8 @@ function OrderForm({
   const summaryTitle = mode === 'new' ? 'Order summary' : `Order #${initial?.orderNo}`;
 
   return (
-    <form onSubmit={submit} noValidate className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-      <div className="space-y-4 pb-28 xl:pb-0">
+    <form onSubmit={submit} noValidate className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="min-w-0 space-y-4 pb-28 xl:pb-0">
         <OrderDatePicker value={draft.orderDay ?? ''} onChange={(day) => set('orderDay', day)} error={errors.orderDay} />
 
         <Section step={1} title="Customer" ku="کڕیار">
@@ -1428,63 +1446,19 @@ function OrderForm({
         </Section>
 
         <Section step={3} title="Item" ku="ئایتم">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <Label en="Item model" ku="جۆری ئایتم" />
-              <input
-                className={cn(inputClass, 'font-mono', errors.item ? 'border-rose-400' : 'border-slate-200')}
-                placeholder="e.g. V.502"
-                autoCapitalize="characters"
-                value={draft.itemModel}
-                onChange={(e) => set('itemModel', e.target.value)}
-              />
-            </label>
-            <label className="block">
-              <Label en="Item type" ku="کەتەگۆری ئایتم" />
-              <input
-                className={cn(inputClass, errors.item ? 'border-rose-400' : 'border-slate-200')}
-                dir="auto"
-                list="order-categories"
-                placeholder="سەماوەر، هیتەر…"
-                value={draft.itemCategory}
-                onChange={(e) => set('itemCategory', e.target.value)}
-              />
-              <datalist id="order-categories">
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-            </label>
-          </div>
-          <FieldError message={errors.item} />
-          <label className="block">
-            <Label en="Total price (IQD)" ku="نرخی گشتی" required />
-            <input
-              className={cn(inputClass, 'text-lg font-bold tabular-nums', errors.price ? 'border-rose-400' : 'border-slate-200')}
-              inputMode="numeric"
-              placeholder="95,000"
-              value={draft.price}
-              onChange={(e) => {
-                const n = priceNumber(westernDigits(e.target.value));
-                set('price', n ? n.toLocaleString('en-US') : '');
-              }}
-            />
-            <FieldError message={errors.price} />
-          </label>
-          {price > 0 && price < 1000 && (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <span>
-                Did you mean <b>{formatIqd(price * 1000)}</b>?
-              </span>
-              <button
-                type="button"
-                className="rounded-lg bg-card px-3 py-1.5 font-semibold text-amber-800 shadow-sm"
-                onClick={() => set('price', (price * 1000).toLocaleString('en-US'))}
-              >
-                Use {(price * 1000).toLocaleString('en-US')}
-              </button>
-            </div>
-          )}
+          <ItemPicker
+            products={products}
+            fields={draft}
+            errors={{ item: errors.item, price: errors.price }}
+            onChange={(patch) => {
+              setDraft((d) => ({ ...d, ...patch }));
+              setErrors((e) => ({
+                ...e,
+                item: 'itemModel' in patch || 'itemCategory' in patch ? undefined : e.item,
+                price: 'price' in patch ? undefined : e.price,
+              }));
+            }}
+          />
         </Section>
 
         <Section step={4} title="Sale" ku="فرۆشتن">
@@ -1721,7 +1695,12 @@ function OrderSummary({
         />
         {full && <SummaryRow full label="Gender" value={draft.gender ? GENDER_LABEL[draft.gender].en : ''} />}
         <SummaryRow full={full} label="Deliver to" value={draft.city} sub={draft.address} />
-        <SummaryRow full={full} label="Item" value={[draft.itemModel, draft.itemCategory].filter(Boolean).join(' · ')} />
+        <SummaryRow
+          full={full}
+          label="Item"
+          value={[draft.itemModel, draft.itemCategory].filter(Boolean).join(' · ')}
+          sub={(draft.quantity || 1) > 1 ? `${draft.quantity} pieces` : undefined}
+        />
         <SummaryRow
           full={full}
           label="Sold on"

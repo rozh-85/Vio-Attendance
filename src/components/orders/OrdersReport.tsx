@@ -1162,6 +1162,7 @@ export function OrdersReport({
                         <div className="truncate text-xs text-ink-400">
                           <span dir="auto">{o.city}</span>
                           {o.itemModel && <span className="font-mono"> · {o.itemModel}</span>}
+                          {o.quantity > 1 && <span className="font-semibold text-ink-700"> ×{o.quantity}</span>}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
@@ -1271,6 +1272,7 @@ export function OrdersReport({
                             title={[o.itemModel, o.itemCategory, o.note].filter(Boolean).join(' · ')}
                           >
                             <span className="font-mono">{o.itemModel}</span>
+                            {o.quantity > 1 && <b className="text-ink-700"> ×{o.quantity}</b>}
                             {o.itemCategory && <> · <bdi>{o.itemCategory}</bdi></>}
                           </div>
                           {((o.purchaseCount ?? 0) > 1 || (!o.purchaseCount && o.purchase && o.purchase !== 'first')) && (

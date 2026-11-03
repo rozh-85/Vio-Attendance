@@ -52,6 +52,8 @@ create table if not exists public.social_orders (
   item_model     text not null default '',
   item_category  text not null default '',
   total_price    numeric(14, 0) not null default 0 check (total_price >= 0),
+  -- Pieces of the item; total_price is for all of them together.
+  quantity       integer not null default 1 check (quantity between 1 and 99),
   gender         text not null default '' check (gender in ('', 'female', 'male')),
   platform       text not null default '',
   purchase       text not null default '' check (purchase in ('', 'first', 'second', 'repeat')),
@@ -78,6 +80,8 @@ alter table public.social_orders add column if not exists edited_at timestamptz;
 alter table public.social_orders add column if not exists purchase_count integer
   check (purchase_count between 1 and 1000);
 alter table public.social_orders add column if not exists entered_at timestamptz;
+alter table public.social_orders add column if not exists quantity integer not null default 1
+  check (quantity between 1 and 99);
 -- Orders from before this column were saved on their own date.
 update public.social_orders set entered_at = created_at where entered_at is null;
 alter table public.social_orders alter column entered_at set default now();
@@ -230,6 +234,7 @@ declare
   v_row   public.social_orders;
   v_price numeric;
   v_count integer;
+  v_qty   integer;
   v_date  timestamptz;
 begin
   -- An optional earlier day, for an order the seller forgot to save: up to
@@ -258,6 +263,12 @@ begin
   if v_count not between 1 and 1000 then
     v_count := null;
   end if;
+  -- Pieces: 1 to 99, and 1 when left out or not a number.
+  v_qty := case
+    when coalesce(p_order ->> 'quantity', '') ~ '^[0-9]{1,2}$'
+      then greatest(1, (p_order ->> 'quantity')::integer)
+    else 1
+  end;
 
   if nullif(btrim(p_order ->> 'customerName'), '') is null
      or nullif(btrim(p_order ->> 'customerPhone'), '') is null
@@ -275,6 +286,7 @@ begin
   v_row.item_model     := left(btrim(coalesce(p_order ->> 'itemModel', '')), 100);
   v_row.item_category  := left(btrim(coalesce(p_order ->> 'itemCategory', '')), 200);
   v_row.total_price    := v_price;
+  v_row.quantity       := v_qty;
   v_row.gender         := case when p_order ->> 'gender' in ('female', 'male')
                                then p_order ->> 'gender' else '' end;
   v_row.platform       := left(btrim(p_order ->> 'platform'), 50);
@@ -317,13 +329,13 @@ begin
   insert into public.social_orders (
     created_at, entered_at,
     account_id, seller_name, customer_name, customer_phone, second_phone,
-    city, address, item_model, item_category, total_price, gender, platform,
+    city, address, item_model, item_category, total_price, quantity, gender, platform,
     purchase, purchase_count, shift, note)
   values (
     coalesce(v_clean.created_at, now()), now(),
     v_account.id, v_account.display_name, v_clean.customer_name,
     v_clean.customer_phone, v_clean.second_phone, v_clean.city, v_clean.address,
-    v_clean.item_model, v_clean.item_category, v_clean.total_price,
+    v_clean.item_model, v_clean.item_category, v_clean.total_price, v_clean.quantity,
     v_clean.gender, v_clean.platform, v_clean.purchase, v_clean.purchase_count,
     v_clean.shift, v_clean.note)
   returning * into v_row;
@@ -369,6 +381,7 @@ begin
              'itemModel', o.item_model,
              'itemCategory', o.item_category,
              'totalPrice', o.total_price,
+             'quantity', o.quantity,
              'gender', o.gender,
              'platform', o.platform,
              'purchase', o.purchase,
@@ -412,6 +425,7 @@ begin
          item_model     = v_clean.item_model,
          item_category  = v_clean.item_category,
          total_price    = v_clean.total_price,
+         quantity       = v_clean.quantity,
          gender         = v_clean.gender,
          platform       = v_clean.platform,
          purchase       = v_clean.purchase,

@@ -199,6 +199,7 @@ const ORDER_COLUMNS: { title: string; width: number; cell: (o: SalesOrder) => Ce
   { title: 'City', width: 12, cell: (o) => text(o.city) },
   { title: 'Address', width: 32, cell: (o) => text(o.address) },
   { title: 'Item model', width: 14, cell: (o) => text(o.itemModel) },
+  { title: 'Pieces', width: 8, cell: (o) => num(o.quantity || 1, S.number) },
   { title: 'Category', width: 20, cell: (o) => text(o.itemCategory) },
   { title: 'Price (IQD)', width: 14, cell: (o) => num(o.totalPrice) },
   { title: 'Platform', width: 12, cell: (o) => text(o.platform) },

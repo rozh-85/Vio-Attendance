@@ -71,8 +71,8 @@ function summarySheet({ summary: s, period }: ProfitExportInput): string {
   return sheetXml(rows, [40, 16, 16, 16, 16], { merges: ['A1:C1'] });
 }
 
-function modelsSheet({ summary }: ProfitExportInput): string {
-  const header = ['Model', 'Type', 'Sold in period', 'Sold in all', 'Usual price', 'Cost of one', 'Profit per piece', 'Margin', 'Profit in period'];
+function modelsSheet({ summary, data }: ProfitExportInput): string {
+  const header = ['Model', 'Type', 'Sold in period', 'Sold in all', 'Sale price', 'Usual price', 'Cost of one', 'Profit per piece', 'Margin', 'Profit in period'];
   const rows: Row[] = [{ cells: header.map((h) => text(h, S.header)), height: 22 }];
   for (const r of summary.byModel) {
     if (!r.key) continue;
@@ -83,6 +83,7 @@ function modelsSheet({ summary }: ProfitExportInput): string {
         text(r.category),
         num(r.orders, S.number),
         num(r.allOrders, S.number),
+        data.models[r.key]?.price != null ? num(data.models[r.key].price as number) : text(''),
         num(Math.round(r.avgPrice)),
         r.cost === null ? text('No cost yet') : num(r.cost),
         unit === null ? text('') : num(Math.round(unit)),
@@ -91,7 +92,7 @@ function modelsSheet({ summary }: ProfitExportInput): string {
       ],
     });
   }
-  return sheetXml(rows, [16, 22, 14, 12, 14, 14, 16, 10, 16], { freezeHeader: true, autoFilterColumns: header.length });
+  return sheetXml(rows, [16, 22, 14, 12, 13, 14, 14, 16, 10, 16], { freezeHeader: true, autoFilterColumns: header.length });
 }
 
 function sponsorsSheet({ data, from, to }: ProfitExportInput): string {
@@ -119,7 +120,7 @@ function sponsorsSheet({ data, from, to }: ProfitExportInput): string {
 }
 
 function ordersSheet({ orders, data, from, to }: ProfitExportInput): string {
-  const header = ['Order #', 'Date', 'Seller', 'Customer', 'Model', 'Type', 'Platform', 'Status', 'Price', 'Cost', 'Cost from', 'Profit'];
+  const header = ['Order #', 'Date', 'Seller', 'Customer', 'Model', 'Pieces', 'Type', 'Platform', 'Status', 'Price', 'Cost', 'Cost from', 'Profit'];
   const rows: Row[] = [{ cells: header.map((h) => text(h, S.header)), height: 22 }];
   const inPeriod = orders
     .filter((o) => {
@@ -136,6 +137,7 @@ function ordersSheet({ orders, data, from, to }: ProfitExportInput): string {
         text(sellerOf(o)),
         text(o.customerName),
         text(o.itemModel),
+        num(o.quantity || 1, S.number),
         text(o.itemCategory),
         text(o.platform),
         text(STATUS_LABEL[o.status]),
@@ -146,7 +148,7 @@ function ordersSheet({ orders, data, from, to }: ProfitExportInput): string {
       ],
     });
   }
-  return sheetXml(rows, [9, 12, 16, 22, 14, 18, 12, 11, 13, 13, 11, 13], {
+  return sheetXml(rows, [9, 12, 16, 22, 14, 8, 18, 12, 11, 13, 13, 11, 13], {
     freezeHeader: true,
     autoFilterColumns: header.length,
   });
@@ -161,10 +163,10 @@ function filterNames({ summary, orders, from, to }: ProfitExportInput): string {
   }).length;
   const names = [
     models
-      ? `<definedName name="_xlnm._FilterDatabase" localSheetId="1" hidden="1">'Model costs'!$A$1:$I$${models + 1}</definedName>`
+      ? `<definedName name="_xlnm._FilterDatabase" localSheetId="1" hidden="1">'Model costs'!$A$1:$J$${models + 1}</definedName>`
       : '',
     periodOrders
-      ? `<definedName name="_xlnm._FilterDatabase" localSheetId="3" hidden="1">Orders!$A$1:$L$${periodOrders + 1}</definedName>`
+      ? `<definedName name="_xlnm._FilterDatabase" localSheetId="3" hidden="1">Orders!$A$1:$M$${periodOrders + 1}</definedName>`
       : '',
   ].join('');
   return names ? `<definedNames>${names}</definedNames>` : '';
