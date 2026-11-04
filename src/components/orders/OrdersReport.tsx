@@ -13,7 +13,6 @@ import {
   FileText,
   Pencil,
   Search,
-  Sliders,
   Trash,
   X,
 } from '@/components/icons';
@@ -136,7 +135,7 @@ const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'
 /** One step of the period switch: a quiet track, the chosen period lifted out of it. */
 const periodStep = (on: boolean) =>
   cn(
-    'h-9 shrink-0 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition',
+    'h-9 flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition',
     on ? 'bg-raised text-ink-900 shadow-sm ring-1 ring-slate-200/80' : 'text-ink-500 hover:text-ink-900',
   );
 
@@ -812,15 +811,16 @@ export function OrdersReport({
 
   return (
     <div className="space-y-6">
-      {/* ── Filters: the period and a search on top, the list filters under them. ── */}
-      <Card>
-        <div className="flex flex-col gap-3 p-3 sm:p-4 xl:flex-row xl:items-center">
+      {/* ── Filters: two rows that each run the full width — the period and a
+          search on top, the seven list filters as equal fields under them. ── */}
+      <Card className="space-y-3 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           {/* On a phone the period switch slides sideways rather than wrap. */}
           <div
             ref={periodTrack}
             className="relative -m-1 min-w-0 overflow-x-auto p-1 [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,transparent,#000_1.25rem,#000_calc(100%-1.25rem),transparent)] [&::-webkit-scrollbar]:hidden"
           >
-            <div role="group" aria-label="Period" className="flex w-max gap-0.5 rounded-xl bg-slate-100 p-1">
+            <div role="group" aria-label="Period" className="flex w-max min-w-full gap-0.5 rounded-xl bg-slate-100 p-1">
               {PERIODS.map((p) => (
                 <button
                   key={p.id}
@@ -835,7 +835,7 @@ export function OrdersReport({
               <button
                 type="button"
                 aria-pressed={period === 'custom'}
-                className={cn(periodStep(period === 'custom'), 'inline-flex items-center gap-1.5')}
+                className={cn(periodStep(period === 'custom'), 'inline-flex items-center justify-center gap-1.5')}
                 onClick={() => setPeriod('custom')}
               >
                 <CalendarDays width={15} height={15} /> Dates
@@ -859,7 +859,7 @@ export function OrdersReport({
         </div>
 
         {period === 'custom' && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-3 py-3 sm:px-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-ink-700">
               From
               <input
@@ -881,10 +881,14 @@ export function OrdersReport({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-3 sm:px-4">
-          <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-400">
-            <Sliders width={16} height={16} /> Filter
-          </span>
+        {/* Two across on a phone (an odd last one takes the whole row), four
+            on a tablet, all seven in one row from a laptop up. */}
+        <div
+          className={cn(
+            'grid grid-cols-2 gap-2 sm:grid-cols-4 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2',
+            activeFilterCount(filters) > 0 ? 'lg:grid-cols-[repeat(7,minmax(0,1fr))_auto]' : 'lg:grid-cols-7',
+          )}
+        >
           <MultiSelect
             label="Platform"
             options={options.platforms}
@@ -940,7 +944,7 @@ export function OrdersReport({
             <button
               type="button"
               onClick={() => update({ ...EMPTY_FILTERS, from: filters.from, to: filters.to })}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50"
             >
               <X width={15} height={15} /> Clear all
             </button>

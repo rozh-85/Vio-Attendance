@@ -70,14 +70,14 @@ export function MultiSelect({
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative min-w-0">
       <button
         type="button"
         onClick={toggleOpen}
         aria-expanded={open}
         aria-haspopup="listbox"
         className={cn(
-          'inline-flex h-9 max-w-[17rem] items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition',
+          'flex h-11 w-full min-w-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-semibold transition',
           summary
             ? 'border-brand-600 bg-brand-50 text-brand-700'
             : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
@@ -93,7 +93,7 @@ export function MultiSelect({
             </span>
           </>
         )}
-        <ChevronDown width={15} height={15} className={cn('shrink-0 opacity-60 transition', open && 'rotate-180')} />
+        <ChevronDown width={15} height={15} className={cn('ml-auto shrink-0 opacity-60 transition', open && 'rotate-180')} />
       </button>
 
       {open && (
