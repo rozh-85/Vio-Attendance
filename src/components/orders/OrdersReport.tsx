@@ -1,10 +1,22 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { CheckCircle, ChevronDown, ChevronUp, Download, FileText, Pencil, Search, Trash, X } from '@/components/icons';
+import {
+  CalendarDays,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  FileText,
+  Pencil,
+  Search,
+  Sliders,
+  Trash,
+  X,
+} from '@/components/icons';
 import {
   GENDER_LABEL,
   PURCHASE_LABEL,
@@ -30,6 +42,7 @@ import {
   type Facet,
   type OrderFilters,
   type PeriodId,
+  type TrendPoint,
 } from '@/services/orders/report';
 import { getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { OrderStatus, SalesOrder } from '@/services/orders/types';
@@ -120,62 +133,173 @@ const STATUS_TONE: Record<OrderStatus, 'info' | 'success' | 'danger' | 'warning'
   returned: 'warning',
 };
 
-const chip = (selected: boolean) =>
+/** One step of the period switch: a quiet track, the chosen period lifted out of it. */
+const periodStep = (on: boolean) =>
   cn(
-    'inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold transition',
-    selected
-      ? 'border-brand-600 bg-brand-50 text-brand-700'
-      : 'border-slate-200 bg-card text-ink-700 hover:border-slate-300 hover:bg-slate-50',
+    'h-9 shrink-0 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition',
+    on ? 'bg-raised text-ink-900 shadow-sm ring-1 ring-slate-200/80' : 'text-ink-500 hover:text-ink-900',
   );
 
 const selectClass =
   'h-11 w-full rounded-xl border border-slate-200 bg-card px-3 text-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
 
-/** One labelled row of the filter panel; the label sits on the left on wide screens. */
-function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+/** The small heading over each part of the totals. */
+const capsLabel = 'text-xs font-bold uppercase tracking-wide text-ink-400';
+
+/** Order status colours: waiting, done, came back, called off. */
+const STATUS_COLOR: Record<OrderStatus, string> = {
+  new: '#0284c7',
+  delivered: '#059669',
+  returned: '#d97706',
+  cancelled: '#e11d48',
+};
+
+/** One line of the totals: what it is on the left, the number on the right. */
+function StatLine({ label, note, value, unit }: { label: string; note?: string; value: string; unit?: string }) {
   return (
-    <div className="flex flex-col gap-2 px-5 py-4 md:flex-row md:gap-5">
-      <div className="text-xs font-bold uppercase tracking-wide text-ink-400 md:w-16 md:shrink-0 md:pt-2.5">{label}</div>
-      <div className="min-w-0 flex-1">{children}</div>
+    <div className="flex min-w-0 items-center justify-between gap-4 bg-card px-4 py-3.5 sm:px-5">
+      <div className="min-w-0">
+        <div className="font-semibold text-ink-700">{label}</div>
+        {note && <div className="truncate text-sm text-ink-400">{note}</div>}
+      </div>
+      <div className="flex shrink-0 items-baseline gap-1 text-2xl font-bold tabular-nums text-ink-900 sm:text-[1.75rem]">
+        {value}
+        {unit && <span className="text-sm font-semibold text-ink-400">{unit}</span>}
+      </div>
     </div>
   );
 }
 
-function Kpi({
-  label,
-  value,
-  unit,
-  sub,
-  tone,
-  className,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  sub?: string;
-  tone?: 'brand';
-  className?: string;
-}) {
+/** Sales by day (or month) under the total — one thin column each; hover for the numbers. */
+function SalesSpark({ points, unit }: { points: TrendPoint[]; unit: 'day' | 'month' }) {
+  const max = Math.max(1, ...points.map((p) => p.sales));
   return (
-    <div
-      className={cn(
-        'min-w-0 rounded-2xl border p-4 sm:p-5',
-        tone === 'brand' ? 'border-brand-100 bg-brand-50/70' : 'border-slate-200 bg-card',
-        className,
-      )}
-    >
-      <div className="text-xs font-bold uppercase tracking-wide text-ink-400">{label}</div>
-      {/* Long amounts drop the unit to the next line rather than spill out. */}
+    <div className="mt-auto pt-5">
       <div
-        className={cn(
-          'mt-1 flex flex-wrap items-baseline gap-x-1 text-2xl font-bold tabular-nums [overflow-wrap:anywhere] sm:text-3xl lg:text-2xl xl:text-3xl',
-          tone === 'brand' ? 'text-brand-700' : 'text-ink-900',
-        )}
+        role="img"
+        aria-label={`Sales by ${unit}, ${points[0].label} to ${points[points.length - 1].label}`}
+        className="flex h-14 items-end gap-[2px]"
       >
-        <span className="min-w-0">{value}</span>
-        {unit && <span className="text-sm font-semibold opacity-60">{unit}</span>}
+        {points.map((p) => (
+          <div
+            key={p.key}
+            title={`${p.label}: ${formatIqd(p.sales)} · ${p.orders} ${p.orders === 1 ? 'order' : 'orders'}`}
+            className="group flex h-full min-w-0 flex-1 items-end"
+          >
+            <div
+              className={cn(
+                'w-full rounded-t-[3px] transition-colors',
+                p.sales ? 'bg-brand-600/30 group-hover:bg-brand-600' : 'bg-slate-200',
+              )}
+              style={{ height: p.sales ? `${Math.max(6, (p.sales / max) * 100)}%` : '2px' }}
+            />
+          </div>
+        ))}
       </div>
-      {sub && <div className="mt-0.5 text-sm text-ink-500">{sub}</div>}
+      <div className="mt-1.5 flex justify-between text-xs text-ink-400">
+        <span>{points[0].label}</span>
+        <span>Sales by {unit}</span>
+        <span>{points[points.length - 1].label}</span>
+      </div>
+    </div>
+  );
+}
+
+interface Share {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
+/**
+ * How the orders split — one thin bar, its parts in proportion, and below it
+ * a legend whose names are also the filter: tap one to see only those orders.
+ */
+function ShareBar({
+  title,
+  items,
+  picked,
+  onPick,
+  onClear,
+}: {
+  title: string;
+  items: Share[];
+  picked: string[];
+  onPick: (key: string) => void;
+  onClear: () => void;
+}) {
+  const total = items.reduce((sum, i) => sum + i.count, 0);
+  const some = picked.length > 0;
+  const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+  const faded = (key: string) => some && !picked.includes(key);
+  return (
+    <div className="min-w-0 bg-card p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <span className={capsLabel}>{title}</span>
+        {some ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="-my-1 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
+          >
+            <X width={13} height={13} /> Show all
+          </button>
+        ) : (
+          <span className="truncate text-xs text-ink-400">Tap one to filter</span>
+        )}
+      </div>
+      <div
+        role="img"
+        aria-label={`${title}: ${items.map((i) => `${i.label} ${i.count}`).join(', ')}`}
+        className="mt-3 flex h-2 gap-[2px] overflow-hidden rounded-full"
+      >
+        {total === 0 ? (
+          <div className="flex-1 bg-slate-100" />
+        ) : (
+          items
+            .filter((i) => i.count > 0)
+            .map((i) => (
+              <div
+                key={i.key}
+                title={`${i.label}: ${i.count.toLocaleString('en-US')} · ${pct(i.count)}%`}
+                className="h-full min-w-[3px] transition-opacity"
+                style={{ flex: `${i.count} 1 0`, background: i.color, opacity: faded(i.key) ? 0.22 : 1 }}
+              />
+            ))
+        )}
+      </div>
+      <div className="-mx-2 mt-3 flex flex-wrap gap-0.5">
+        {items.map((i) => {
+          const on = picked.includes(i.key);
+          return (
+            <button
+              key={i.key}
+              type="button"
+              aria-pressed={on}
+              title={on ? `Stop showing only ${i.label}` : `Show only ${i.label}`}
+              onClick={() => onPick(i.key)}
+              className={cn(
+                'inline-flex h-8 max-w-full items-center gap-2 rounded-lg px-2 text-sm transition',
+                on ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200' : 'hover:bg-slate-100',
+                faded(i.key) ? 'text-ink-400' : !on && 'text-ink-700',
+              )}
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ background: i.color, opacity: faded(i.key) ? 0.4 : 1 }}
+              />
+              <span dir="auto" className="truncate font-semibold">
+                {i.label}
+              </span>
+              <span className="tabular-nums text-ink-400">
+                {i.count.toLocaleString('en-US')}
+                {total > 0 && <span className="ml-1 text-xs">{pct(i.count)}%</span>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -464,6 +588,16 @@ export function OrdersReport({
     navigate(paths.socialOrder(o.id));
   };
 
+  // Keep the chosen period in sight when the switch slides sideways (phones).
+  const periodTrack = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const track = periodTrack.current;
+    const on = track?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (track && on && track.scrollWidth > track.clientWidth) {
+      track.scrollLeft = Math.max(0, on.offsetLeft - (track.clientWidth - on.offsetWidth) / 2);
+    }
+  }, [period]);
+
   const pickPeriod = (id: PeriodId) => {
     setPeriod(id);
     update(periodRange(id));
@@ -626,8 +760,6 @@ export function OrdersReport({
         ? summary.trend.length
         : 0;
 
-  const pct = (n: number) => (summary.orders ? `${Math.round((n / summary.orders) * 100)}% of orders` : '—');
-
   const filterText = [
     filters.sellers.length ? `Sellers: ${filters.sellers.join(', ')}` : 'All sellers',
     filters.platforms.length > 0 && `Platform: ${filters.platforms.join(', ')}`,
@@ -680,152 +812,145 @@ export function OrdersReport({
 
   return (
     <div className="space-y-6">
-      {/* ── Filters ─────────────────────────────────────────────────────── */}
-      <Card className="divide-y divide-slate-100">
-        <FilterRow label="Period">
-          <div className="flex flex-wrap gap-2">
-            {PERIODS.map((p) => (
-              <button key={p.id} type="button" className={chip(period === p.id)} onClick={() => pickPeriod(p.id)}>
-                {p.label}
-              </button>
-            ))}
-            <button type="button" className={chip(period === 'custom')} onClick={() => setPeriod('custom')}>
-              Custom dates
-            </button>
-          </div>
-          {period === 'custom' && (
-            <div className="mt-3 grid gap-3 sm:max-w-md sm:grid-cols-2">
-              <label className="text-sm font-semibold text-ink-700">
-                From
-                <input
-                  type="date"
-                  className={cn(selectClass, 'mt-1')}
-                  value={filters.from}
-                  onChange={(e) => update({ from: e.target.value })}
-                />
-              </label>
-              <label className="text-sm font-semibold text-ink-700">
-                To
-                <input
-                  type="date"
-                  className={cn(selectClass, 'mt-1')}
-                  value={filters.to}
-                  onChange={(e) => update({ to: e.target.value })}
-                />
-              </label>
-            </div>
-          )}
-        </FilterRow>
-
-        <FilterRow label="Sellers">
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={chip(filters.sellers.length === 0)} onClick={() => update({ sellers: [] })}>
-              All sellers
-            </button>
-            {sellers.map((name) => {
-              const on = filters.sellers.includes(name);
-              return (
+      {/* ── Filters: the period and a search on top, the list filters under them. ── */}
+      <Card>
+        <div className="flex flex-col gap-3 p-3 sm:p-4 xl:flex-row xl:items-center">
+          {/* On a phone the period switch slides sideways rather than wrap. */}
+          <div
+            ref={periodTrack}
+            className="relative -m-1 min-w-0 overflow-x-auto p-1 [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,transparent,#000_1.25rem,#000_calc(100%-1.25rem),transparent)] [&::-webkit-scrollbar]:hidden"
+          >
+            <div role="group" aria-label="Period" className="flex w-max gap-0.5 rounded-xl bg-slate-100 p-1">
+              {PERIODS.map((p) => (
                 <button
-                  key={name}
+                  key={p.id}
                   type="button"
-                  className={chip(on)}
-                  onClick={() =>
-                    update({
-                      sellers: on ? filters.sellers.filter((s) => s !== name) : [...filters.sellers, name],
-                    })
-                  }
+                  aria-pressed={period === p.id}
+                  className={periodStep(period === p.id)}
+                  onClick={() => pickPeriod(p.id)}
                 >
-                  <span className="size-2.5 rounded-full" style={{ background: colorOf(name) }} />
-                  <span dir="auto">{name}</span>
-                  <span className="tabular-nums text-ink-400">{sellerCounts.get(name) ?? 0}</span>
+                  {p.label}
                 </button>
-              );
-            })}
+              ))}
+              <button
+                type="button"
+                aria-pressed={period === 'custom'}
+                className={cn(periodStep(period === 'custom'), 'inline-flex items-center gap-1.5')}
+                onClick={() => setPeriod('custom')}
+              >
+                <CalendarDays width={15} height={15} /> Dates
+              </button>
+            </div>
           </div>
-        </FilterRow>
-
-        <FilterRow label="Filters">
-          <label className="relative block">
+          <label className="relative block min-w-0 flex-1">
             <Search
               width={16}
               height={16}
               className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
             />
             <input
+              aria-label="Search the orders"
               className={cn(selectClass, 'pl-10')}
               placeholder="Search customer, phone, item, address or #order…"
               value={filters.query}
               onChange={(e) => update({ query: e.target.value })}
             />
           </label>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <MultiSelect
-              label="Platform"
-              options={options.platforms}
-              selected={filters.platforms}
-              counts={facetCounts.platforms}
-              onChange={(v) => setFacet('platforms', v)}
-            />
-            <MultiSelect
-              label="City"
-              searchable
-              options={options.cities}
-              selected={filters.cities}
-              counts={facetCounts.cities}
-              onChange={(v) => setFacet('cities', v)}
-            />
-            <MultiSelect
-              label="Category"
-              searchable
-              options={options.categories}
-              selected={filters.categories}
-              counts={facetCounts.categories}
-              onChange={(v) => setFacet('categories', v)}
-            />
-            <MultiSelect
-              label="Status"
-              options={options.statuses}
-              selected={filters.statuses}
-              counts={facetCounts.statuses}
-              onChange={(v) => setFacet('statuses', v)}
-            />
-            <MultiSelect
-              label="Shift"
-              options={options.shifts}
-              selected={filters.shifts}
-              counts={facetCounts.shifts}
-              onChange={(v) => setFacet('shifts', v)}
-            />
-            <MultiSelect
-              label="Customer"
-              options={options.purchases}
-              selected={filters.purchases}
-              counts={facetCounts.purchases}
-              onChange={(v) => setFacet('purchases', v)}
-            />
-            <MultiSelect
-              label="Gender"
-              options={options.genders}
-              selected={filters.genders}
-              counts={facetCounts.genders}
-              onChange={(v) => setFacet('genders', v)}
-            />
-            {activeFilterCount(filters) > 0 && (
-              <button
-                type="button"
-                onClick={() => update({ ...EMPTY_FILTERS, from: filters.from, to: filters.to })}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
-              >
-                <X width={15} height={15} /> Clear all
-              </button>
-            )}
+        </div>
+
+        {period === 'custom' && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-100 px-3 py-3 sm:px-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-ink-700">
+              From
+              <input
+                type="date"
+                className={cn(selectClass, 'h-10 w-auto')}
+                value={filters.from}
+                onChange={(e) => update({ from: e.target.value })}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm font-semibold text-ink-700">
+              to
+              <input
+                type="date"
+                className={cn(selectClass, 'h-10 w-auto')}
+                value={filters.to}
+                onChange={(e) => update({ to: e.target.value })}
+              />
+            </label>
           </div>
-        </FilterRow>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-3 sm:px-4">
+          <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-semibold text-ink-400">
+            <Sliders width={16} height={16} /> Filter
+          </span>
+          <MultiSelect
+            label="Platform"
+            options={options.platforms}
+            selected={filters.platforms}
+            counts={facetCounts.platforms}
+            onChange={(v) => setFacet('platforms', v)}
+          />
+          <MultiSelect
+            label="City"
+            searchable
+            options={options.cities}
+            selected={filters.cities}
+            counts={facetCounts.cities}
+            onChange={(v) => setFacet('cities', v)}
+          />
+          <MultiSelect
+            label="Category"
+            searchable
+            options={options.categories}
+            selected={filters.categories}
+            counts={facetCounts.categories}
+            onChange={(v) => setFacet('categories', v)}
+          />
+          <MultiSelect
+            label="Status"
+            options={options.statuses}
+            selected={filters.statuses}
+            counts={facetCounts.statuses}
+            onChange={(v) => setFacet('statuses', v)}
+          />
+          <MultiSelect
+            label="Shift"
+            options={options.shifts}
+            selected={filters.shifts}
+            counts={facetCounts.shifts}
+            onChange={(v) => setFacet('shifts', v)}
+          />
+          <MultiSelect
+            label="Customer"
+            options={options.purchases}
+            selected={filters.purchases}
+            counts={facetCounts.purchases}
+            onChange={(v) => setFacet('purchases', v)}
+          />
+          <MultiSelect
+            label="Gender"
+            options={options.genders}
+            selected={filters.genders}
+            counts={facetCounts.genders}
+            onChange={(v) => setFacet('genders', v)}
+          />
+          {activeFilterCount(filters) > 0 && (
+            <button
+              type="button"
+              onClick={() => update({ ...EMPTY_FILTERS, from: filters.from, to: filters.to })}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
+            >
+              <X width={15} height={15} /> Clear all
+            </button>
+          )}
+        </div>
       </Card>
 
       {/* ── Totals ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-ink-900">{describePeriod(filters)}</h2>
           <p className="text-sm text-ink-500">{filterText}</p>
         </div>
@@ -845,40 +970,65 @@ export function OrdersReport({
         </div>
       </div>
 
-      {/* On phones the two money cards lead, each on its own row, so the
-          amounts have room; the four counts follow two by two. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Kpi
-          label="Orders"
-          value={summary.orders.toLocaleString('en-US')}
-          sub={days > 1 ? `${(summary.orders / days).toFixed(1)} a day` : undefined}
-        />
-        <Kpi
-          label="Sales"
-          tone="brand"
-          value={Math.round(summary.sales).toLocaleString('en-US')}
-          unit="IQD"
-          sub={`from ${summary.saleOrders} sales`}
-          className="max-sm:order-first max-sm:col-span-2"
-        />
-        <Kpi
-          label="Average order"
-          value={Math.round(summary.average).toLocaleString('en-US')}
-          unit="IQD"
-          className="max-sm:order-first max-sm:col-span-2"
-        />
-        <Kpi label="Delivered" value={String(summary.byStatus.delivered)} sub={pct(summary.byStatus.delivered)} />
-        <Kpi
-          label="Cancelled · returned"
-          value={String(summary.byStatus.cancelled + summary.byStatus.returned)}
-          sub={pct(summary.byStatus.cancelled + summary.byStatus.returned)}
-        />
-        <Kpi
-          label="Ordered again"
-          value={String(summary.returningCustomers)}
-          sub={`of ${summary.customers} customers`}
-        />
-      </div>
+      {/* One panel, four parts: the money with its trend, the counts beside
+          it, and under them who sold and where the orders stand — both of
+          which are also the seller and status filters. */}
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-1 gap-px bg-slate-100 lg:grid-cols-2">
+          <div className="@container flex min-w-0 flex-col bg-card p-4 sm:p-5">
+            <span className={capsLabel}>Sales</span>
+            <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-4xl font-bold tracking-tight tabular-nums text-brand-700 @md:text-5xl">
+              <span className="min-w-0 [overflow-wrap:anywhere]">{Math.round(summary.sales).toLocaleString('en-US')}</span>
+              <span className="text-base font-semibold tracking-normal text-ink-400">IQD</span>
+            </div>
+            <p className="mt-1 text-sm text-ink-500">
+              From {summary.saleOrders.toLocaleString('en-US')} {summary.saleOrders === 1 ? 'sale' : 'sales'} —
+              cancelled and returned orders are left out
+            </p>
+            {summary.trend.length > 1 && <SalesSpark points={summary.trend} unit={summary.trendUnit} />}
+          </div>
+
+          <div className="grid min-w-0 grid-rows-3 gap-px">
+            <StatLine
+              label="Orders"
+              note={days > 1 ? `${(summary.orders / days).toFixed(1)} a day` : undefined}
+              value={summary.orders.toLocaleString('en-US')}
+            />
+            <StatLine label="Average order" note="per sale" value={Math.round(summary.average).toLocaleString('en-US')} unit="IQD" />
+            <StatLine
+              label="Ordered again"
+              note={`of ${summary.customers.toLocaleString('en-US')} ${summary.customers === 1 ? 'customer' : 'customers'}`}
+              value={summary.returningCustomers.toLocaleString('en-US')}
+            />
+          </div>
+
+          <ShareBar
+            title="Sellers"
+            items={sellers.map((name) => ({ key: name, label: name, count: sellerCounts.get(name) ?? 0, color: colorOf(name) }))}
+            picked={filters.sellers}
+            onPick={(name) =>
+              update({
+                sellers: filters.sellers.includes(name)
+                  ? filters.sellers.filter((s) => s !== name)
+                  : [...filters.sellers, name],
+              })
+            }
+            onClear={() => update({ sellers: [] })}
+          />
+          <ShareBar
+            title="Order status"
+            items={(['new', 'delivered', 'returned', 'cancelled'] as OrderStatus[]).map((st) => ({
+              key: st,
+              label: STATUS_LABEL[st],
+              count: facetCounts.statuses.get(st) ?? 0,
+              color: STATUS_COLOR[st],
+            }))}
+            picked={filters.statuses}
+            onPick={(st) => toggleFacet('statuses', st)}
+            onClear={() => setFacet('statuses', [])}
+          />
+        </div>
+      </Card>
 
       {filtered.length === 0 && orders.length > 0 && (
         <Card className="flex flex-wrap items-center gap-4 border-amber-200 bg-amber-50/70 p-5">
