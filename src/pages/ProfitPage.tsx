@@ -4,12 +4,12 @@ import { Link } from 'react-router-dom';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Button } from '@/components/ui/Button';
 import { CalendarDays, CheckCircle, Download, Wallet, X } from '@/components/icons';
-import { BelowCost, Breakdown, KeyFigures, MissingCosts, SetupGuide } from '@/components/orders/profit/Overview';
+import { Breakdown, KeyFigures, MissingCosts, SetupGuide } from '@/components/orders/profit/Overview';
 import { TrendChart } from '@/components/orders/profit/Charts';
 import { SponsorList, TopModels } from '@/components/orders/profit/Lists';
 import { LoadProblem } from '@/components/orders/profit/parts';
 import { useProfitData } from '@/hooks/useProfitData';
-import { lossOrders, summarizeProfit } from '@/services/orders/profit';
+import { summarizeProfit } from '@/services/orders/profit';
 import {
   clearProfitNotice,
   readProfitNotice,
@@ -56,10 +56,6 @@ export function ProfitPage() {
     writeProfitPeriod(next);
   };
 
-  const losses = useMemo(
-    () => (orders && profit ? lossOrders(orders, profit, view.from, view.to) : []),
-    [orders, profit, view.from, view.to],
-  );
   const s = useMemo(
     () => (orders && profit ? summarizeProfit(orders, profit, view.from, view.to) : null),
     [orders, profit, view.from, view.to],
@@ -150,7 +146,6 @@ export function ProfitPage() {
             ) : (
               s.uncostedOrders > 0 && <MissingCosts s={s} />
             )}
-            {losses.length > 0 && <BelowCost list={losses} />}
             <KeyFigures s={s} />
             <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
               <div className="min-w-0 lg:col-span-2">
