@@ -33,7 +33,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <span className="hidden text-sm font-bold text-ink-900 md:inline">{APP_NAME}</span>
           </Link>
 
-          {/* Where you are: Home › Page › Room. */}
+          {/* Where you are: Home › Page › Room — the place you are in, in red. */}
           <nav aria-label="Where you are" className="flex min-w-0 flex-1 items-center gap-1 text-sm">
             {isHome ? (
               <span className="truncate font-semibold text-ink-900">Home</span>
@@ -51,16 +51,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                         {app.label}
                       </Link>
                       <ChevronRight width={15} height={15} className="hidden shrink-0 text-ink-300 sm:block" />
-                      <span className="truncate font-semibold text-ink-900">{roomLabel}</span>
+                      <span className="truncate font-semibold text-brand-600">{roomLabel}</span>
                     </>
                   ) : (
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="size-2.5 shrink-0 rounded-sm" style={{ background: app.color }} />
-                      <span className="truncate font-semibold text-ink-900">{app.label}</span>
-                    </span>
+                    <span className="truncate font-semibold text-brand-600">{app.label}</span>
                   )
                 ) : (
-                  <span className="truncate font-semibold text-ink-900">{APP_NAME}</span>
+                  <span className="truncate font-semibold text-brand-600">{APP_NAME}</span>
                 )}
               </>
             )}
