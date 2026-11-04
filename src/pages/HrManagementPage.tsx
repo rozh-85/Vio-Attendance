@@ -585,7 +585,7 @@ export function HrManagementPage() {
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             {tab === "overview"
-              ? `${activeEmployees.length} active ${activeEmployees.length === 1 ? "person" : "people"} · ${workspace.departments.length} ${workspace.departments.length === 1 ? "department" : "departments"} · ${workspace.locations.length} ${workspace.locations.length === 1 ? "site" : "sites"}`
+              ? new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
               : `HR building · Floor ${hrFloor(tab).number}, ${hrFloor(tab).label}`}
           </p>
         </div>
