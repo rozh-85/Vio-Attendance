@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Card } from '@/components/ui/Card';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import {
   CalendarDays,
+  Check,
   CheckCircle,
   ChevronDown,
   ChevronUp,
@@ -14,6 +15,9 @@ import {
   Pencil,
   Search,
   Trash,
+  TrendingUp,
+  Users,
+  Wallet,
   X,
 } from '@/components/icons';
 import {
@@ -41,7 +45,6 @@ import {
   type Facet,
   type OrderFilters,
   type PeriodId,
-  type TrendPoint,
 } from '@/services/orders/report';
 import { getOrdersStore, ordersErrorMessage } from '@/services/orders/store';
 import type { OrderStatus, SalesOrder } from '@/services/orders/types';
@@ -142,9 +145,6 @@ const periodStep = (on: boolean) =>
 const selectClass =
   'h-11 w-full rounded-xl border border-slate-200 bg-card px-3 text-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40';
 
-/** The small heading over each part of the totals. */
-const capsLabel = 'text-xs font-bold uppercase tracking-wide text-ink-400';
-
 /** Order status colours: waiting, done, came back, called off. */
 const STATUS_COLOR: Record<OrderStatus, string> = {
   new: '#0284c7',
@@ -153,153 +153,204 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
   cancelled: '#e11d48',
 };
 
-/** One line of the totals: what it is on the left, the number on the right. */
-function StatLine({ label, note, value, unit }: { label: string; note?: string; value: string; unit?: string }) {
+/** One summary card: a name, its icon, the number, and a line under it. */
+function SummaryCard({
+  label,
+  icon,
+  value,
+  unit,
+  note,
+  accent,
+  hint,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  icon: ReactNode;
+  value: string;
+  unit?: string;
+  note: string;
+  accent?: boolean;
+  className?: string;
+}) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-4 bg-card px-4 py-3.5 sm:px-5">
-      <div className="min-w-0">
-        <div className="font-semibold text-ink-700">{label}</div>
-        {note && <div className="truncate text-sm text-ink-400">{note}</div>}
+    <Card className={cn('min-w-0 p-4 sm:p-5', className)} title={hint}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-ink-500">{label}</span>
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-ink-500">{icon}</span>
       </div>
-      <div className="flex shrink-0 items-baseline gap-1 text-2xl font-bold tabular-nums text-ink-900 sm:text-[1.75rem]">
-        {value}
+      <div
+        className={cn(
+          'mt-2 flex flex-wrap items-baseline gap-x-1.5 text-2xl font-bold tabular-nums sm:text-3xl lg:text-2xl xl:text-3xl',
+          accent ? 'text-brand-700' : 'text-ink-900',
+        )}
+      >
+        <span className="min-w-0 [overflow-wrap:anywhere]">{value}</span>
         {unit && <span className="text-sm font-semibold text-ink-400">{unit}</span>}
       </div>
-    </div>
+      <div className="mt-1 text-sm text-ink-500">{note}</div>
+    </Card>
   );
 }
 
-/** Sales by day (or month) under the total — one thin column each; hover for the numbers. */
-function SalesSpark({ points, unit }: { points: TrendPoint[]; unit: 'day' | 'month' }) {
-  const max = Math.max(1, ...points.map((p) => p.sales));
+/** A tick box drawn like the ones in the filter lists. */
+function Tick({ on }: { on: boolean }) {
   return (
-    <div className="mt-auto pt-5">
-      <div
-        role="img"
-        aria-label={`Sales by ${unit}, ${points[0].label} to ${points[points.length - 1].label}`}
-        className="flex h-14 items-end gap-[2px]"
-      >
-        {points.map((p) => (
-          <div
-            key={p.key}
-            title={`${p.label}: ${formatIqd(p.sales)} · ${p.orders} ${p.orders === 1 ? 'order' : 'orders'}`}
-            className="group flex h-full min-w-0 flex-1 items-end"
-          >
-            <div
-              className={cn(
-                'w-full rounded-t-[3px] transition-colors',
-                p.sales ? 'bg-brand-600/30 group-hover:bg-brand-600' : 'bg-slate-200',
-              )}
-              style={{ height: p.sales ? `${Math.max(6, (p.sales / max) * 100)}%` : '2px' }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="mt-1.5 flex justify-between text-xs text-ink-400">
-        <span>{points[0].label}</span>
-        <span>Sales by {unit}</span>
-        <span>{points[points.length - 1].label}</span>
-      </div>
-    </div>
+    <span
+      aria-hidden
+      className={cn(
+        'grid size-5 shrink-0 place-items-center rounded-md border transition',
+        on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-card',
+      )}
+    >
+      {on && <Check width={13} height={13} />}
+    </span>
   );
 }
 
-interface Share {
+interface PickRow {
   key: string;
   label: string;
-  count: number;
   color: string;
+  orders: number;
+  /** Money it brought in; leave out for a list without a sales column. */
+  sales?: number;
 }
 
 /**
- * How the orders split — one thin bar, its parts in proportion, and below it
- * a legend whose names are also the filter: tap one to see only those orders.
+ * A list you tick to filter — sellers, or order statuses. Each row: a tick
+ * box, the name, its share as a thin bar, and its numbers. Nothing ticked
+ * counts every row; the footer adds up what is ticked.
  */
-function ShareBar({
+function PickList({
   title,
-  items,
+  column,
+  noun,
+  rows,
+  shareBy,
   picked,
-  onPick,
+  onToggle,
   onClear,
 }: {
   title: string;
-  items: Share[];
+  /** The name column's heading: "Seller", "Status". */
+  column: string;
+  /** "sellers", "statuses" — for the line in the corner. */
+  noun: string;
+  rows: PickRow[];
+  shareBy: 'orders' | 'sales';
   picked: string[];
-  onPick: (key: string) => void;
+  onToggle: (key: string) => void;
   onClear: () => void;
 }) {
-  const total = items.reduce((sum, i) => sum + i.count, 0);
-  const some = picked.length > 0;
+  const money = rows.some((r) => r.sales !== undefined);
+  const measure = (r: { orders: number; sales?: number }) => (shareBy === 'sales' ? (r.sales ?? 0) : r.orders);
+  const total = rows.reduce((sum, r) => sum + measure(r), 0);
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
-  const faded = (key: string) => some && !picked.includes(key);
+  const counted = picked.length ? rows.filter((r) => picked.includes(r.key)) : rows;
+  const sum = {
+    orders: counted.reduce((n, r) => n + r.orders, 0),
+    sales: counted.reduce((n, r) => n + (r.sales ?? 0), 0),
+  };
+  const nums = (orders: number, sales: number | undefined, strong: boolean) => (
+    <span className="flex shrink-0 flex-col items-end gap-1 leading-6 tabular-nums @xl:flex-row @xl:items-center @xl:gap-4">
+      <span className={cn('@xl:w-14 @xl:text-right', strong ? 'font-bold text-ink-900' : 'font-semibold text-ink-900')}>
+        {orders.toLocaleString('en-US')}
+      </span>
+      {money && (
+        <span className={cn('text-sm leading-4 @xl:w-28 @xl:text-right', strong ? 'font-semibold text-ink-700' : 'text-ink-500')}>
+          {Math.round(sales ?? 0).toLocaleString('en-US')}
+        </span>
+      )}
+    </span>
+  );
+
   return (
-    <div className="min-w-0 bg-card p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <span className={capsLabel}>{title}</span>
-        {some ? (
-          <button
-            type="button"
-            onClick={onClear}
-            className="-my-1 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
-          >
-            <X width={13} height={13} /> Show all
-          </button>
-        ) : (
-          <span className="truncate text-xs text-ink-400">Tap one to filter</span>
-        )}
-      </div>
-      <div
-        role="img"
-        aria-label={`${title}: ${items.map((i) => `${i.label} ${i.count}`).join(', ')}`}
-        className="mt-3 flex h-2 gap-[2px] overflow-hidden rounded-full"
-      >
-        {total === 0 ? (
-          <div className="flex-1 bg-slate-100" />
-        ) : (
-          items
-            .filter((i) => i.count > 0)
-            .map((i) => (
-              <div
-                key={i.key}
-                title={`${i.label}: ${i.count.toLocaleString('en-US')} · ${pct(i.count)}%`}
-                className="h-full min-w-[3px] transition-opacity"
-                style={{ flex: `${i.count} 1 0`, background: i.color, opacity: faded(i.key) ? 0.22 : 1 }}
-              />
-            ))
-        )}
-      </div>
-      <div className="-mx-2 mt-3 flex flex-wrap gap-0.5">
-        {items.map((i) => {
-          const on = picked.includes(i.key);
-          return (
+    <Card className="@container flex min-w-0 flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-4 sm:px-5">
+        <h3 className="font-bold text-ink-900">{title}</h3>
+        {picked.length ? (
+          <span className="flex items-center gap-1 text-sm">
+            <span className="font-semibold text-brand-700">
+              {picked.length} of {rows.length} selected
+            </span>
             <button
-              key={i.key}
               type="button"
-              aria-pressed={on}
-              title={on ? `Stop showing only ${i.label}` : `Show only ${i.label}`}
-              onClick={() => onPick(i.key)}
-              className={cn(
-                'inline-flex h-8 max-w-full items-center gap-2 rounded-lg px-2 text-sm transition',
-                on ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200' : 'hover:bg-slate-100',
-                faded(i.key) ? 'text-ink-400' : !on && 'text-ink-700',
-              )}
+              onClick={onClear}
+              className="rounded-lg px-2 py-1 font-semibold text-ink-500 transition hover:bg-slate-100 hover:text-ink-900"
             >
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ background: i.color, opacity: faded(i.key) ? 0.4 : 1 }}
-              />
-              <span dir="auto" className="truncate font-semibold">
-                {i.label}
-              </span>
-              <span className="tabular-nums text-ink-400">
-                {i.count.toLocaleString('en-US')}
-                {total > 0 && <span className="ml-1 text-xs">{pct(i.count)}%</span>}
-              </span>
+              Clear
             </button>
+          </span>
+        ) : (
+          <span className="text-sm text-ink-400">All {noun} · tick to filter</span>
+        )}
+      </div>
+
+      {/* Column names, on a wide card only. */}
+      <div className="hidden items-center gap-3 border-y border-slate-100 bg-slate-50/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-400 @xl:flex sm:px-5">
+        <span className="w-5 shrink-0" />
+        <span className="flex min-w-0 flex-1 items-center gap-5">
+          <span className="w-40 shrink-0">{column}</span>
+          <span className="flex-1">Share of {shareBy}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-4">
+          <span className="w-14 text-right">Orders</span>
+          {money && <span className="w-28 text-right">Sales · IQD</span>}
+        </span>
+      </div>
+
+      <ul className="flex-1 divide-y divide-slate-100 border-t border-slate-100 @xl:border-t-0">
+        {rows.map((r) => {
+          const on = picked.includes(r.key);
+          const share = pct(measure(r));
+          return (
+            <li key={r.key}>
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                onClick={() => onToggle(r.key)}
+                className={cn(
+                  'flex w-full items-start gap-3 px-4 py-3 text-left transition @xl:items-center sm:px-5',
+                  on ? 'bg-brand-50/70 hover:bg-brand-50' : 'hover:bg-slate-50',
+                )}
+              >
+                <span className="flex h-6 items-center">
+                  <Tick on={on} />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5 @xl:flex-row @xl:items-center @xl:gap-5">
+                  <span className="flex min-w-0 items-center gap-2 @xl:w-40 @xl:shrink-0">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
+                    <span dir="auto" className={cn('truncate font-semibold leading-6', on ? 'text-brand-700' : 'text-ink-900')}>
+                      {r.label}
+                    </span>
+                  </span>
+                  <span className="flex min-w-0 flex-1 items-center gap-2.5" title={`${share}% of ${shareBy}`}>
+                    <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <span className="block h-full rounded-full" style={{ width: `${share}%`, background: r.color }} />
+                    </span>
+                    <span className="w-9 shrink-0 text-right text-xs font-semibold tabular-nums text-ink-500">{share}%</span>
+                  </span>
+                </span>
+                {nums(r.orders, r.sales, false)}
+              </button>
+            </li>
           );
         })}
+      </ul>
+
+      <div className="flex items-center gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:px-5">
+        <span className="w-5 shrink-0" />
+        <span className="min-w-0 flex-1 text-sm font-semibold text-ink-700">
+          {picked.length ? `Selected (${picked.length})` : `All ${noun}`}
+          {picked.length > 0 && (
+            <span className="ml-2 font-normal text-ink-400">{pct(counted.reduce((n, r) => n + measure(r), 0))}% of {shareBy}</span>
+          )}
+        </span>
+        {nums(sum.orders, money ? sum.sales : undefined, true)}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -609,13 +660,17 @@ export function OrdersReport({
   );
   const summary = useMemo(() => summarize(filtered, filters), [filtered, filters]);
 
-  // Seller chips count orders in the period with every filter except seller.
-  const sellerCounts = useMemo(() => {
-    const counts = new Map<string, number>();
+  // Each seller's orders and sales in the period, with every filter except
+  // seller — so ticking one seller does not empty the others' rows.
+  const sellerStats = useMemo(() => {
+    const stats = new Map<string, { orders: number; sales: number }>();
     for (const o of filterOrders(orders, { ...filters, sellers: [] })) {
-      counts.set(sellerOf(o), (counts.get(sellerOf(o)) ?? 0) + 1);
+      const row = stats.get(sellerOf(o)) ?? { orders: 0, sales: 0 };
+      row.orders += 1;
+      if (countsAsSale(o.status)) row.sales += o.totalPrice;
+      stats.set(sellerOf(o), row);
     }
-    return counts;
+    return stats;
   }, [orders, filters]);
 
   // Platforms, cities and categories that appear in any order, most used first.
@@ -974,65 +1029,82 @@ export function OrdersReport({
         </div>
       </div>
 
-      {/* One panel, four parts: the money with its trend, the counts beside
-          it, and under them who sold and where the orders stand — both of
-          which are also the seller and status filters. */}
-      <Card className="overflow-hidden">
-        <div className="grid grid-cols-1 gap-px bg-slate-100 lg:grid-cols-2">
-          <div className="@container flex min-w-0 flex-col bg-card p-4 sm:p-5">
-            <span className={capsLabel}>Sales</span>
-            <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-4xl font-bold tracking-tight tabular-nums text-brand-700 @md:text-5xl">
-              <span className="min-w-0 [overflow-wrap:anywhere]">{Math.round(summary.sales).toLocaleString('en-US')}</span>
-              <span className="text-base font-semibold tracking-normal text-ink-400">IQD</span>
-            </div>
-            <p className="mt-1 text-sm text-ink-500">
-              From {summary.saleOrders.toLocaleString('en-US')} {summary.saleOrders === 1 ? 'sale' : 'sales'} —
-              cancelled and returned orders are left out
-            </p>
-            {summary.trend.length > 1 && <SalesSpark points={summary.trend} unit={summary.trendUnit} />}
-          </div>
+      {/* Four summary cards: the money first on a phone, the counts after. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <SummaryCard
+          label="Sales"
+          icon={<Wallet width={18} height={18} />}
+          accent
+          value={Math.round(summary.sales).toLocaleString('en-US')}
+          unit="IQD"
+          note={`from ${summary.saleOrders.toLocaleString('en-US')} ${summary.saleOrders === 1 ? 'sale' : 'sales'}`}
+          hint="Cancelled and returned orders are not counted"
+          className="max-sm:col-span-2"
+        />
+        <SummaryCard
+          label="Orders"
+          icon={<FileText width={18} height={18} />}
+          value={summary.orders.toLocaleString('en-US')}
+          note={days > 1 ? `${(summary.orders / days).toFixed(1)} a day` : 'in this period'}
+          className="max-sm:order-2"
+        />
+        <SummaryCard
+          label="Average order"
+          icon={<TrendingUp width={18} height={18} />}
+          value={Math.round(summary.average).toLocaleString('en-US')}
+          unit="IQD"
+          note="per sale"
+          className="max-sm:order-1 max-sm:col-span-2"
+        />
+        <SummaryCard
+          label="Ordered again"
+          icon={<Users width={18} height={18} />}
+          value={summary.returningCustomers.toLocaleString('en-US')}
+          note={`of ${summary.customers.toLocaleString('en-US')} ${summary.customers === 1 ? 'customer' : 'customers'}`}
+          className="max-sm:order-3"
+        />
+      </div>
 
-          <div className="grid min-w-0 grid-rows-3 gap-px">
-            <StatLine
-              label="Orders"
-              note={days > 1 ? `${(summary.orders / days).toFixed(1)} a day` : undefined}
-              value={summary.orders.toLocaleString('en-US')}
-            />
-            <StatLine label="Average order" note="per sale" value={Math.round(summary.average).toLocaleString('en-US')} unit="IQD" />
-            <StatLine
-              label="Ordered again"
-              note={`of ${summary.customers.toLocaleString('en-US')} ${summary.customers === 1 ? 'customer' : 'customers'}`}
-              value={summary.returningCustomers.toLocaleString('en-US')}
-            />
-          </div>
-
-          <ShareBar
-            title="Sellers"
-            items={sellers.map((name) => ({ key: name, label: name, count: sellerCounts.get(name) ?? 0, color: colorOf(name) }))}
-            picked={filters.sellers}
-            onPick={(name) =>
-              update({
-                sellers: filters.sellers.includes(name)
-                  ? filters.sellers.filter((s) => s !== name)
-                  : [...filters.sellers, name],
-              })
-            }
-            onClear={() => update({ sellers: [] })}
-          />
-          <ShareBar
-            title="Order status"
-            items={(['new', 'delivered', 'returned', 'cancelled'] as OrderStatus[]).map((st) => ({
-              key: st,
-              label: STATUS_LABEL[st],
-              count: facetCounts.statuses.get(st) ?? 0,
-              color: STATUS_COLOR[st],
-            }))}
-            picked={filters.statuses}
-            onPick={(st) => toggleFacet('statuses', st)}
-            onClear={() => setFacet('statuses', [])}
-          />
-        </div>
-      </Card>
+      {/* Who sold, and where the orders stand — tick rows to filter by them. */}
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
+        <PickList
+          title="Sellers"
+          column="Seller"
+          noun="sellers"
+          shareBy="sales"
+          rows={sellers.map((name) => ({
+            key: name,
+            label: name,
+            color: colorOf(name),
+            orders: sellerStats.get(name)?.orders ?? 0,
+            sales: sellerStats.get(name)?.sales ?? 0,
+          }))}
+          picked={filters.sellers}
+          onToggle={(name) =>
+            update({
+              sellers: filters.sellers.includes(name)
+                ? filters.sellers.filter((s) => s !== name)
+                : [...filters.sellers, name],
+            })
+          }
+          onClear={() => update({ sellers: [] })}
+        />
+        <PickList
+          title="Order status"
+          column="Status"
+          noun="statuses"
+          shareBy="orders"
+          rows={(['new', 'delivered', 'returned', 'cancelled'] as OrderStatus[]).map((st) => ({
+            key: st,
+            label: STATUS_LABEL[st],
+            color: STATUS_COLOR[st],
+            orders: facetCounts.statuses.get(st) ?? 0,
+          }))}
+          picked={filters.statuses}
+          onToggle={(st) => toggleFacet('statuses', st)}
+          onClear={() => setFacet('statuses', [])}
+        />
+      </div>
 
       {filtered.length === 0 && orders.length > 0 && (
         <Card className="flex flex-wrap items-center gap-4 border-amber-200 bg-amber-50/70 p-5">
