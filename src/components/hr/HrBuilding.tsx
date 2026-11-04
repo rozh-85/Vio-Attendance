@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode, type SVGProps } from 'react';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { HR_FLOOR_COLORS, HR_ROOM_ICONS } from '@/components/apps';
-import { Building, CalendarDays, Check, ChevronRight, Clock, FileText, Home, Phone, Users, Wallet } from '@/components/icons';
+import { Building, Cake, CalendarDays, Check, ChevronRight, Clock, FileText, Home, Phone, Users, Wallet } from '@/components/icons';
 import { localDate, type AttendanceRow } from '@/services/hr/logic';
 import { HR_NAV_GROUPS, type HrTab } from '@/services/hr/navigation';
 import type { HrWorkspace } from '@/services/hr/types';
@@ -470,17 +470,152 @@ function upcomingFor(w: HrWorkspace, employees: Employee[], today: string): Upco
     if (!c.interviewDate || c.interviewDate < today || c.interviewDate > until(14)) continue;
     items.push({ key: `interview-${c.id}`, date: c.interviewDate, title: `Interview · ${c.fullName}`, meta: c.location || 'Interview tracking', room: 'interviews' });
   }
-  for (const e of employees) {
-    const p = w.profiles[e.id];
+  return items.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/* ── Birthdays ────────────────────────────────────────────────────────── */
+
+/** How many days ahead a birthday starts to show. */
+export const BIRTHDAY_NOTICE_DAYS = 10;
+
+/**
+ * Year, month and day of a birth date as it may be written: `1996-11-09`
+ * (from the form, maybe with a time after it), or day first — `9/11/1996`,
+ * `09-11-1996`, `09.11.1996` — as in older sheets.
+ */
+function birthParts(value: string): { year: number; month: number; day: number } | null {
+  const v = value.trim();
+  const iso = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  const dayFirst = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  const [year, month, day] = iso
+    ? [+iso[1], +iso[2], +iso[3]]
+    : dayFirst
+      ? [+dayFirst[3], +dayFirst[2], +dayFirst[1]]
+      : [0, 0, 0];
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? { year, month, day } : null;
+}
+
+export interface Birthday {
+  employee: Employee;
+  date: Date;
+  /** 0 today, 1 tomorrow … */
+  daysLeft: number;
+  /** The age they turn, when the year is known. */
+  turns: number | null;
+}
+
+/**
+ * Active people whose birthday is from today to `days` days ahead, soonest
+ * first. Someone born on 29 February has it on the 28th in other years.
+ */
+export function upcomingBirthdays(
+  w: HrWorkspace,
+  employees: Employee[],
+  today: string,
+  days = BIRTHDAY_NOTICE_DAYS,
+): Birthday[] {
+  const base = parseISO(today);
+  const list: Birthday[] = [];
+  for (const employee of employees) {
+    const p = w.profiles[employee.id];
     if (!p?.birthDate || p.status === 'inactive') continue;
-    const [, m, d] = p.birthDate.split('-');
-    if (!m || !d) continue;
-    let next = `${today.slice(0, 4)}-${m}-${d}`;
-    if (next < today) next = `${Number(today.slice(0, 4)) + 1}-${m}-${d}`;
-    if (next > until(14)) continue;
-    items.push({ key: `birthday-${e.id}`, date: next, title: `${e.fullName}'s birthday`, meta: next === today ? 'Today' : format(parseISO(next), 'EEEE'), room: 'people' });
+    const born = birthParts(p.birthDate);
+    if (!born) continue;
+    for (const year of [base.getFullYear(), base.getFullYear() + 1]) {
+      let date = new Date(year, born.month - 1, born.day);
+      if (date.getMonth() !== born.month - 1) date = new Date(year, born.month, 0);
+      const daysLeft = differenceInCalendarDays(date, base);
+      if (daysLeft < 0) continue;
+      if (daysLeft <= days) {
+        const turns = born.year > 1900 && born.year < year ? year - born.year : null;
+        list.push({ employee, date, daysLeft, turns });
+      }
+      break;
+    }
   }
-  return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6);
+  return list.sort((a, b) => a.daysLeft - b.daysLeft || a.employee.fullName.localeCompare(b.employee.fullName));
+}
+
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+
+/**
+ * A strip across the lobby from ten days before anyone's birthday: who,
+ * which day, how old they turn and how long is left. Shows nothing when no
+ * birthday is near.
+ */
+function Birthdays({
+  workspace,
+  employees,
+  onOpen,
+}: {
+  workspace: HrWorkspace;
+  employees: Employee[];
+  onOpen: (tab: HrTab) => void;
+}) {
+  const list = upcomingBirthdays(workspace, employees, localDate());
+  if (list.length === 0) return null;
+  return (
+    <section
+      aria-label="Birthdays coming up"
+      className="rounded-2xl border border-brand-100 bg-brand-50/60 p-3 shadow-sm sm:p-4"
+    >
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="flex items-center gap-3 md:w-52 md:shrink-0">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-600 text-white">
+            <Cake width={20} height={20} />
+          </span>
+          <span>
+            <span className="block font-semibold text-ink-900">
+              {list.length === 1 ? 'A birthday is coming' : `${list.length} birthdays coming`}
+            </span>
+            <span className="block text-sm text-ink-500">in the next {BIRTHDAY_NOTICE_DAYS} days</span>
+          </span>
+        </div>
+        <ul className="flex min-w-0 flex-1 flex-wrap gap-2">
+          {list.map((b) => {
+            const when = b.daysLeft === 0 ? 'Today' : b.daysLeft === 1 ? 'Tomorrow' : `In ${b.daysLeft} days`;
+            return (
+              <li key={b.employee.id} className="min-w-0 max-sm:w-full">
+                <button
+                  type="button"
+                  onClick={() => onOpen('people')}
+                  title={`${b.employee.fullName} · ${format(b.date, 'EEEE d MMMM')}`}
+                  className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-slate-200/80 bg-card py-2 pl-2 pr-3 text-left transition hover:border-slate-300 hover:shadow-sm"
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold text-ink-700">
+                    {initials(b.employee.fullName)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span dir="auto" className="block truncate text-sm font-semibold text-ink-900">
+                      {b.employee.fullName}
+                    </span>
+                    <span className="block truncate text-xs text-ink-500">
+                      {format(b.date, 'EEE d MMM')}
+                      {b.turns ? ` · turns ${b.turns}` : ''}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
+                      b.daysLeft <= 1 ? 'bg-brand-600 text-white' : 'bg-slate-100 text-ink-700',
+                    )}
+                  >
+                    {when}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
 }
 
 /** The first few of a list; a button at the foot of the card shows the rest. */
@@ -591,7 +726,7 @@ function ComingUp({
   return (
     <Panel title="Coming up" note="next weeks" className={className}>
       {upcoming.length === 0 ? (
-        <p className="px-5 py-5 text-sm text-ink-500">No holidays, interviews, leave or birthdays coming up.</p>
+        <p className="px-5 py-5 text-sm text-ink-500">No holidays, interviews or leave coming up.</p>
       ) : (
         <ul className="divide-y divide-slate-100">
           {(all ? upcoming : upcoming.slice(0, SHOWN)).map((u) => {
@@ -698,7 +833,8 @@ function Departments({
 /* ── The lobby ────────────────────────────────────────────────────────── */
 
 /**
- * The lobby, laid out like a dashboard: four key figures across the top;
+ * The lobby, laid out like a dashboard: four key figures across the top,
+ * and under them the birthdays of the next ten days when there are any;
  * then two rows of two cards — today's attendance beside what is waiting on
  * you, the HR modules beside what is coming up — each pair the same height;
  * the departments across the foot. On a phone it is one column, in the
@@ -720,6 +856,7 @@ export function HrLobby({
   return (
     <div className="space-y-4 sm:space-y-5">
       <KeyFigures workspace={workspace} employees={employees} rows={today} onOpen={onOpen} />
+      <Birthdays workspace={workspace} employees={employees} onOpen={onOpen} />
       <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
         <Attendance rows={today} onOpen={onOpen} />
         <Waiting workspace={workspace} employees={employees} onOpen={onOpen} />
