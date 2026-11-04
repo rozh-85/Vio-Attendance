@@ -328,15 +328,51 @@ export function OrderEditPage() {
             ) : orderProfit === null ? (
               <div className="text-sm font-semibold text-amber-800">Write a cost to see it</div>
             ) : (
-              <div className="flex items-baseline gap-2">
-                <span className={cn('text-2xl font-bold tabular-nums', orderProfit >= 0 ? 'text-emerald-700' : 'text-rose-700')}>
-                  {orderProfit >= 0 ? '+' : '−'}
-                  {Math.abs(orderProfit).toLocaleString('en-US')}
-                </span>
-                <span className="text-sm text-ink-500">
-                  IQD{form.totalPrice > 0 && ` · ${Math.round((orderProfit / form.totalPrice) * 100)}%`}
-                </span>
-              </div>
+              <>
+                {/* The sum written out: selling price − cost = profit. */}
+                <dl className="mt-2 space-y-1 text-sm tabular-nums">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-ink-600">Selling price</dt>
+                    <dd className="font-semibold text-ink-900">{form.totalPrice.toLocaleString('en-US')} IQD</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-ink-600">− Cost</dt>
+                    <dd className="font-semibold text-ink-900">{(effectiveCost ?? 0).toLocaleString('en-US')} IQD</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3 border-t border-ink-900/10 pt-1.5">
+                    <dt className="font-semibold text-ink-800">= {orderProfit >= 0 ? 'Profit' : 'Loss'}</dt>
+                    <dd className="flex items-baseline gap-2">
+                      <span className={cn('text-2xl font-bold', orderProfit >= 0 ? 'text-emerald-700' : 'text-rose-700')}>
+                        {orderProfit >= 0 ? '+' : '−'}
+                        {Math.abs(orderProfit).toLocaleString('en-US')}
+                      </span>
+                      <span className="text-sm text-ink-500">
+                        IQD{form.totalPrice > 0 && ` · ${Math.round((orderProfit / form.totalPrice) * 100)}%`}
+                      </span>
+                    </dd>
+                  </div>
+                </dl>
+                {orderProfit < 0 && effectiveCost !== null && (
+                  <div className="mt-3 rounded-lg bg-card/80 p-3 text-xs text-rose-900">
+                    <p>
+                      It sells for less than it cost. If <b>{effectiveCost.toLocaleString('en-US')}</b> is really the selling
+                      price and <b>{form.totalPrice.toLocaleString('en-US')}</b> the cost, they were typed the wrong way round.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const price = form.totalPrice;
+                        set('totalPrice', effectiveCost);
+                        setCostDraft(price.toLocaleString('en-US'));
+                      }}
+                      className="mt-2 inline-flex h-9 items-center rounded-lg border border-rose-200 bg-card px-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
+                    >
+                      Swap: sell for {effectiveCost.toLocaleString('en-US')}, cost {form.totalPrice.toLocaleString('en-US')}
+                    </button>
+                    <p className="mt-1.5 text-ink-500">Then press Save.</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -470,6 +470,28 @@ function buildTrend(
   return { trend: [...points.values()], trendUnit: unit };
 }
 
+export interface LossOrder {
+  order: SalesOrder;
+  cost: number;
+  /** Price less cost — below zero. */
+  profit: number;
+}
+
+/**
+ * Sales in the period that sold for less than their goods cost, biggest
+ * loss first. Most often the price and the cost were typed the wrong way
+ * round; the profit page lists them so they can be checked.
+ */
+export function lossOrders(everyOrder: SalesOrder[], data: ProfitData, from: string, to: string): LossOrder[] {
+  const list: LossOrder[] = [];
+  for (const order of everyOrder) {
+    if (!countsAsSale(order.status) || !isTracked(order, data) || !inPeriod(orderDay(order), from, to)) continue;
+    const cost = costOf(order, data);
+    if (cost && order.totalPrice < cost.cost) list.push({ order, cost: cost.cost, profit: order.totalPrice - cost.cost });
+  }
+  return list.sort((a, b) => a.profit - b.profit);
+}
+
 /**
  * The profit of the orders between `from` and `to` (`yyyy-MM-dd`, '' = open)
  * that are on or after the start day, less the part of every sponsor that

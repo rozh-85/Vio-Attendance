@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { AlertTriangle, ArrowRight, Check } from '@/components/icons';
-import type { ProfitSummary } from '@/services/orders/profit';
+import type { LossOrder, ProfitSummary } from '@/services/orders/profit';
 import { paths } from '@/routes';
 import { cn } from '@/utils/cn';
 import { MINUS, MONEY, SectionHead, iqd, linkButton, percent, signTone, type MoneyTone } from './parts';
@@ -213,6 +213,48 @@ export function MissingCosts({ s }: { s: ProfitSummary }) {
       <Link to={paths.profitModels} className={cn(linkButton.outline, 'border-amber-300 text-amber-900')}>
         Fix them <ArrowRight width={15} height={15} />
       </Link>
+    </div>
+  );
+}
+
+/**
+ * Orders sold for less than their cost. Profit is always the selling price
+ * minus the cost, so these show as a loss; most often the two numbers were
+ * typed the wrong way round. Each opens its order, where they can be swapped.
+ */
+export function BelowCost({ list }: { list: LossOrder[] }) {
+  const total = list.reduce((sum, l) => sum + l.profit, 0);
+  return (
+    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <AlertTriangle width={20} height={20} className="mt-0.5 shrink-0 text-rose-700" />
+        <div className="min-w-0 flex-1 text-sm text-rose-900">
+          <p>
+            <b>
+              {list.length} {list.length === 1 ? 'order was' : 'orders were'} sold for less than {list.length === 1 ? 'its' : 'their'} cost
+            </b>{' '}
+            ({MINUS}
+            {iqd(-total)} IQD). Profit is the <b>selling price minus the cost</b>, so a price of 1,000 with a cost of 3,000 is a
+            loss of 2,000. If the price and the cost were typed the wrong way round, open the order and press <b>Swap</b>.
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {list.slice(0, 6).map((l) => (
+              <li key={l.order.id}>
+                <Link
+                  to={paths.socialOrder(l.order.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-card px-2.5 py-1 text-xs font-semibold text-ink-700 transition hover:border-rose-300"
+                >
+                  #{l.order.orderNo}
+                  <span className="font-normal text-ink-500">
+                    sold {iqd(l.order.totalPrice)} · cost {iqd(l.cost)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+            {list.length > 6 && <li className="self-center text-xs text-rose-800">and {list.length - 6} more</li>}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
