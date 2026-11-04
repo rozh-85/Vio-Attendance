@@ -73,7 +73,7 @@ export function PlacesTable({
 
   return (
     <>
-      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-card md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-slate-200/80 bg-card shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-ink-500">
@@ -102,8 +102,14 @@ export function PlacesTable({
                     <td className="px-5 py-3.5" dir="auto">{p.city}</td>
                     {t && (
                       <td className="whitespace-nowrap px-5 py-3.5 text-right tabular-nums">
-                        <div className="font-semibold">{t.count}</div>
-                        <div className="text-xs text-ink-400">{formatIqd(t.total)}</div>
+                        {t.count ? (
+                          <>
+                            <div className="font-semibold">{t.count}</div>
+                            <div className="text-xs text-ink-400">{formatIqd(t.total)}</div>
+                          </>
+                        ) : (
+                          <span className="text-ink-300" title="No orders yet">—</span>
+                        )}
                       </td>
                     )}
                     <td className="px-5 py-3.5"><NextCall place={p} /></td>
@@ -134,7 +140,11 @@ export function PlacesTable({
                 <div className="mt-2 truncate text-sm text-ink-700">
                   <span dir="auto">{p.person_name}</span> · <span className="font-semibold">{p.phone}</span>
                 </div>
-                {t && <div className="mt-0.5 text-xs text-ink-400">{t.count} orders · {formatIqd(t.total)}</div>}
+                {t && (
+                  <div className="mt-0.5 text-xs text-ink-400">
+                    {t.count ? `${t.count} ${t.count === 1 ? 'order' : 'orders'} · ${formatIqd(t.total)}` : 'No orders yet'}
+                  </div>
+                )}
               </Link>
               <div className="flex items-center gap-2 border-t border-slate-100 px-3 py-2.5">
                 {actions(p, true)}

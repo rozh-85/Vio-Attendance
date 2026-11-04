@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent, type ReactElement, type ReactNode, type SVGProps } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -30,28 +30,43 @@ export function NextCall({ place }: { place: Place }) {
   return (
     <div className="flex flex-col items-start gap-1">
       <Badge tone={status.tone}>{status.label}</Badge>
-      <span className="text-xs text-ink-400">
-        {reminderDay(place)} · {place.reminder_date ? 'Manual' : 'Auto 30 days'}
+      <span className="whitespace-nowrap text-xs text-ink-400">
+        {format(parseISO(reminderDay(place)), 'd MMM yyyy')} · {place.reminder_date ? 'set by hand' : 'automatic'}
       </span>
     </div>
   );
 }
 
-const statTones = {
-  neutral: 'bg-card border-slate-200 text-ink-900',
-  success: 'bg-emerald-50/70 border-emerald-100 text-emerald-700',
-  info: 'bg-brand-50/70 border-brand-100 text-brand-700',
-  danger: 'bg-rose-50/70 border-rose-100 text-rose-700',
-};
+export interface PlacesStat {
+  label: string;
+  icon: (p: SVGProps<SVGSVGElement>) => ReactElement;
+  value: string;
+  unit?: string;
+  note: string;
+  /** Red note: something waits. */
+  alert?: boolean;
+}
 
-export function PlacesStats({ items }: { items: { label: string; value: number | string; tone?: 'neutral' | 'danger' | 'info' | 'success' }[] }) {
+export function PlacesStats({ items }: { items: PlacesStat[] }) {
   return (
-    <div className={cn('grid grid-cols-2 gap-3', items.length > 3 ? 'lg:grid-cols-4' : 'sm:grid-cols-3')}>
-      {items.map((item) => (
-        <div key={item.label} className={cn('rounded-2xl border p-4 sm:p-5', statTones[item.tone ?? 'neutral'])}>
-          <div className="text-lg font-bold tabular-nums sm:text-2xl xl:text-3xl">{item.value}</div>
-          <div className="mt-1 text-sm font-medium text-ink-500">{item.label}</div>
-        </div>
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      {items.map(({ label, icon: Icon, value, unit, note, alert }) => (
+        <Card key={label} className="flex min-w-0 flex-col p-4 sm:p-5">
+          <div className="flex min-h-9 items-center justify-between gap-3">
+            <span className="min-w-0 text-sm font-semibold text-ink-500">{label}</span>
+            <span className="hidden size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-ink-500 sm:grid">
+              <Icon width={18} height={18} />
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-2xl font-bold tabular-nums text-ink-900 sm:text-3xl lg:text-2xl xl:text-3xl">
+            <span className="min-w-0 [overflow-wrap:anywhere]">{value}</span>
+            {unit && <span className="text-sm font-semibold text-ink-400">{unit}</span>}
+          </div>
+          <div className={cn('mt-1 flex items-baseline gap-1.5 text-sm', alert ? 'font-medium text-rose-700' : 'text-ink-500')}>
+            {alert && <span className="size-1.5 shrink-0 -translate-y-0.5 rounded-full bg-rose-500" />}
+            <span className="min-w-0">{note}</span>
+          </div>
+        </Card>
       ))}
     </div>
   );
@@ -124,8 +139,8 @@ export function PlacesTabs({
     { id: 'calendar' as const, label: 'Calendar', icon: CalendarDays },
   ];
   return (
-    <div className="space-y-3">
-      <div role="tablist" aria-label="Places view" className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1">
+    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+      <div role="tablist" aria-label="Places view" className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 md:flex md:shrink-0">
         {tabs.map(({ id, label, icon: Icon, count }) => {
           const active = tab === id;
           return (
@@ -136,17 +151,17 @@ export function PlacesTabs({
               aria-selected={active}
               onClick={() => onTab(id)}
               className={cn(
-                'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-xs font-semibold transition sm:flex-row sm:gap-2 sm:text-sm',
+                'flex min-w-0 flex-col items-center justify-center gap-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition sm:h-9 sm:flex-row sm:gap-2 sm:py-0 sm:text-sm',
                 active ? 'bg-card text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-900',
               )}
             >
-              <Icon width={18} height={18} className={cn('shrink-0', active && 'text-brand-600')} />
+              <Icon width={17} height={17} className={cn('shrink-0', active && 'text-brand-600')} />
               <span className="truncate">{label}</span>
               {count !== undefined && (
                 <span
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-[11px] tabular-nums',
-                    id === 'due' && count > 0 ? 'bg-rose-600 text-white' : 'bg-slate-200/70 text-ink-500',
+                    'rounded-full px-1.5 py-px text-[11px] tabular-nums',
+                    id === 'due' && count > 0 ? 'bg-rose-600 text-white' : 'bg-slate-200/80 text-ink-500',
                   )}
                 >
                   {count}
@@ -156,13 +171,13 @@ export function PlacesTabs({
           );
         })}
       </div>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 flex-1 gap-2">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search places</span>
-          <Search width={18} height={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+          <Search width={17} height={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
           <input
             type="search"
-            className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-4 text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            className="h-11 w-full rounded-xl border border-slate-200 bg-card pl-10 pr-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             placeholder="Search place, person, phone or city…"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
@@ -235,6 +250,9 @@ export function PlaceProfileHeader({ place, actions }: { place: Place; actions: 
   );
 }
 
+const STATUS_TONE = { new: 'info', delivered: 'success', returned: 'warning', cancelled: 'danger' } as const;
+const orderDate = (at: string) => format(parseISO(baghdadDay(new Date(at))), 'd MMM yyyy');
+
 interface OrderRow { id: string; orderNo: number; createdAt: string; customerName: string; itemModel: string; itemCategory: string; totalPrice: number; status: keyof typeof STATUS_LABEL }
 
 export function PlaceOrdersCard({ orders, empty, action }: { orders: OrderRow[]; empty: string; action?: ReactNode }) {
@@ -259,11 +277,11 @@ export function PlaceOrdersCard({ orders, empty, action }: { orders: OrderRow[];
                 {orders.map((o) => (
                   <tr key={o.id} className="border-t border-slate-100">
                     <td className="px-5 py-3.5 font-semibold tabular-nums">#{o.orderNo}</td>
-                    <td className="px-5 py-3.5 text-ink-500">{baghdadDay(new Date(o.createdAt))}</td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-ink-500">{orderDate(o.createdAt)}</td>
                     <td className="px-5 py-3.5" dir="auto">{o.customerName}</td>
                     <td className="px-5 py-3.5" dir="auto">{o.itemModel || o.itemCategory}</td>
                     <td className="px-5 py-3.5 text-right font-semibold tabular-nums">{formatIqd(o.totalPrice)}</td>
-                    <td className="px-5 py-3.5"><Badge>{STATUS_LABEL[o.status]}</Badge></td>
+                    <td className="px-5 py-3.5"><Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge></td>
                   </tr>
                 ))}
               </tbody>
@@ -274,7 +292,7 @@ export function PlaceOrdersCard({ orders, empty, action }: { orders: OrderRow[];
               <li key={o.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
                 <div className="min-w-0">
                   <div className="font-semibold">#{o.orderNo} · <span dir="auto">{o.itemModel || o.itemCategory}</span></div>
-                  <div className="text-xs text-ink-500">{baghdadDay(new Date(o.createdAt))} · {STATUS_LABEL[o.status]}</div>
+                  <div className="text-xs text-ink-500">{orderDate(o.createdAt)} · {STATUS_LABEL[o.status]}</div>
                 </div>
                 <div className="shrink-0 font-semibold tabular-nums">{formatIqd(o.totalPrice)}</div>
               </li>
