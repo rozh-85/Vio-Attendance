@@ -62,15 +62,15 @@ export const APPS: AppTile[] = [
     group: 'attendance',
     under: ['/session/'],
   },
-  { id: 'employees', to: paths.employees, label: 'Employee report', about: 'One person’s history', icon: Search, color: '#0284C7', size: 'small', group: 'attendance' },
-  { id: 'leave', to: paths.leave, label: 'Leave', about: 'Days off', icon: CalendarDays, color: '#7C3AED', size: 'small', group: 'attendance' },
+  { id: 'employees', to: paths.employees, label: 'Employee report', about: 'One person’s history', icon: Search, color: '#3B6E9E', size: 'small', group: 'attendance' },
+  { id: 'leave', to: paths.leave, label: 'Leave', about: 'Days off', icon: CalendarDays, color: '#6B5BA6', size: 'small', group: 'attendance' },
   {
     id: 'locations',
     to: paths.checkInLocations,
     label: 'Check-in locations',
     about: 'Who checked in away from work, and VPNs',
     icon: MapPin,
-    color: '#0F766E',
+    color: '#2E7A72',
     size: 'wide',
     group: 'attendance',
   },
@@ -80,7 +80,7 @@ export const APPS: AppTile[] = [
     label: 'HR building',
     about: '11 rooms on 4 floors: people, time, pay, hiring',
     icon: Building,
-    color: '#4338CA',
+    color: '#3F4F8F',
     size: 'big',
     group: 'people',
   },
@@ -90,7 +90,7 @@ export const APPS: AppTile[] = [
     label: 'Profit',
     about: 'Sales − goods − sponsors',
     icon: TrendingUp,
-    color: '#047857',
+    color: '#2F7A57',
     size: 'big',
     group: 'owner',
     owner: true,
@@ -101,14 +101,14 @@ export const APPS: AppTile[] = [
     label: 'Social media orders',
     about: 'Every seller’s orders',
     icon: Wallet,
-    color: '#B45309',
+    color: '#B06A35',
     size: 'small',
     group: 'owner',
     owner: true,
   },
-  { id: 'products', to: paths.profitModels, label: 'Products', about: 'Models and costs', icon: Tag, color: '#BE185D', size: 'small', group: 'owner', owner: true },
-  { id: 'devices', to: paths.devices, label: 'Shared phones', about: 'One phone, many names', icon: Phone, color: '#334155', size: 'small', group: 'owner', owner: true },
-  { id: 'gashben', to: paths.gashbenReport, label: 'Gashben places', about: 'Places and their orders', icon: Building, color: '#9333EA', size: 'small', group: 'owner', owner: true },
+  { id: 'products', to: paths.profitModels, label: 'Products', about: 'Models and costs', icon: Tag, color: '#A34D6D', size: 'small', group: 'owner', owner: true },
+  { id: 'devices', to: paths.devices, label: 'Shared phones', about: 'One phone, many names', icon: Phone, color: '#4B5563', size: 'small', group: 'owner', owner: true },
+  { id: 'gashben', to: paths.gashbenReport, label: 'Gashben places', about: 'Places and their orders', icon: Building, color: '#7D5A9C', size: 'small', group: 'owner', owner: true },
 ];
 
 /** The HR rooms with their own square on Home, as shortcuts into the building. */
@@ -132,10 +132,10 @@ export const HR_ROOM_ICONS: Record<HrTab, Icon> = {
 
 /** One colour per HR floor. */
 export const HR_FLOOR_COLORS: Record<string, string> = {
-  People: '#4338CA',
-  Workforce: '#047857',
-  Talent: '#B45309',
-  Administration: '#334155',
+  People: '#3F4F8F',
+  Workforce: '#2F7A57',
+  Talent: '#B06A35',
+  Administration: '#4B5563',
 };
 
 /** The square a page belongs to: the longest address that matches. */

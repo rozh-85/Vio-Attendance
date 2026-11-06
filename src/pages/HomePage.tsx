@@ -29,13 +29,6 @@ const SPAN: Record<AppTile['size'], string> = {
   big: 'sm:col-span-2 sm:row-span-2',
 };
 
-/** A darker step of a colour, for the square's gradient. */
-function deeper(hex: string, by = 0.28): string {
-  const n = parseInt(hex.slice(1), 16);
-  const ch = (shift: number) => Math.round(((n >> shift) & 255) * (1 - by));
-  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
-}
-
 /**
  * One square: a colour, its icon, its name — the whole square opens the page.
  * On a phone every square is the same size, two across; `phoneWide` lets the
@@ -53,7 +46,7 @@ function Tile({ square, phoneWide }: { square: Square; phoneWide: boolean }) {
         phoneWide ? 'col-span-2' : 'col-span-1',
         SPAN[square.size],
       )}
-      style={{ background: `linear-gradient(140deg, ${square.color}, ${deeper(square.color)})` }}
+      style={{ background: square.color }}
     >
       {/* The icon again, large and faint, in the corner. */}
       <Icon
@@ -153,7 +146,7 @@ export function HomePage() {
           label: 'Owner area',
           about: 'Enter the owner password to open profit, orders and private reports',
           icon: Lock,
-          color: '#1E293B',
+          color: '#1F2A44',
           size: 'big',
         },
       ];
@@ -171,9 +164,7 @@ export function HomePage() {
             <h1 className="text-lg font-bold text-ink-900">Today</h1>
             <span className="truncate text-sm text-ink-400">{format(now, 'EEEE, d MMMM yyyy')}</span>
           </div>
-          <div className="relative flex min-h-56 flex-1 flex-col justify-between overflow-hidden rounded-2xl bg-linear-to-br from-[#1e1b4b] via-[#312e81] to-[#A5292B] p-6 text-white shadow-sm sm:p-7">
-            <div className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-white/10 blur-2xl" />
-            <div className="pointer-events-none absolute -bottom-24 left-1/4 size-72 rounded-full bg-[#A5292B]/40 blur-3xl" />
+          <div className="relative flex min-h-56 flex-1 flex-col justify-between overflow-hidden rounded-2xl bg-[#1F2A44] p-6 text-white shadow-sm sm:p-7">
             <div className="relative">
               <div className="text-6xl font-bold tracking-tight sm:text-7xl">{format(now, 'HH:mm')}</div>
               <div className="mt-2 text-2xl font-bold sm:text-3xl">
