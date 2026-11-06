@@ -2,13 +2,19 @@ import { useEffect, useState, type CSSProperties, type ReactElement, type SVGPro
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AdminLayout } from '@/components/AdminLayout';
-import { APPS, APP_GROUPS, HR_FLOOR_COLORS, HR_ROOM_ICONS, HR_SHORTCUTS, type AppTile } from '@/components/apps';
+import { APPS, APP_GROUPS, HR_ROOM_ICONS, HR_SHORTCUTS, type AppTile } from '@/components/apps';
 import { ArrowRight, Lock } from '@/components/icons';
 import { paths } from '@/routes';
 import { useAuth } from '@/services/auth/context';
 import { isOwnerUnlocked } from '@/services/auth/ownerGate';
-import { HR_NAV_GROUPS, hrTabLabel } from '@/services/hr/navigation';
+import { hrTabLabel } from '@/services/hr/navigation';
 import { cn } from '@/utils/cn';
+
+const GROUP_COLOR: Record<AppTile['group'], string> = {
+  attendance: '#A5292B',
+  people: '#2F4366',
+  owner: '#245A4A',
+};
 
 type Icon = (p: SVGProps<SVGSVGElement>) => ReactElement;
 
@@ -127,15 +133,15 @@ export function HomePage() {
   }, []);
 
   const name = user?.email?.split('@')[0] ?? '';
-  const toSquare = (a: AppTile): Square => ({ key: a.id, to: a.to, label: a.label, about: a.about, icon: a.icon, color: a.color, size: a.size });
+  // One calm colour per section, so Home reads as three clear groups.
+  const toSquare = (a: AppTile): Square => ({ key: a.id, to: a.to, label: a.label, about: a.about, icon: a.icon, color: GROUP_COLOR[a.group], size: a.size });
 
   const squares = (group: AppTile['group']): Square[] => {
     const apps = APPS.filter((a) => a.group === group).map(toSquare);
     if (group === 'people') {
       // The busiest HR rooms, straight from Home, each in its floor's colour.
       for (const tab of HR_SHORTCUTS) {
-        const floor = HR_NAV_GROUPS.find((g) => g.items.some((i) => i.id === tab))?.label ?? 'People';
-        apps.push({ key: `hr-${tab}`, to: paths.hrTab(tab), label: hrTabLabel(tab), icon: HR_ROOM_ICONS[tab], color: HR_FLOOR_COLORS[floor], size: 'small' });
+        apps.push({ key: `hr-${tab}`, to: paths.hrTab(tab), label: hrTabLabel(tab), icon: HR_ROOM_ICONS[tab], color: GROUP_COLOR.people, size: 'small' });
       }
     }
     if (group === 'owner' && !owner) {
@@ -146,7 +152,7 @@ export function HomePage() {
           label: 'Owner area',
           about: 'Enter the owner password to open profit, orders and private reports',
           icon: Lock,
-          color: '#1F2A44',
+          color: GROUP_COLOR.owner,
           size: 'big',
         },
       ];
