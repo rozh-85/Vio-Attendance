@@ -68,7 +68,7 @@ function slipHtml(slip: Payslip): string {
   <div class="facts">${facts}</div>
 
   <div class="time">
-    <div class="time-head"><span>Work time</span><b>${esc(slip.workTime)}</b><em>${slip.workDays} days · ${slip.workHours} hours this month</em></div>
+    <div class="time-head"><span>Work time</span><b>${esc(slip.workTime)}</b><em>${slip.dayHours ? `${slip.workDays} days × ${slip.dayHours} hours = ` : `${slip.workDays} days · `}${slip.workHours} hours this month</em></div>
     <div class="rates">
       <div><b>${esc(fmt(slip.perDay, c))}</b><span>a day</span></div>
       <div><b>${esc(fmt(slip.perHour, c))}</b><span>an hour</span></div>

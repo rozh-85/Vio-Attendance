@@ -35,6 +35,7 @@ import {
   attendanceRows,
   approvalChain,
   calculatePayroll,
+  clockRange,
   csvDownload,
   formatMinutes,
   hierarchyError,
@@ -159,11 +160,13 @@ function money(value: number, currency = "IQD"): string {
 function salaryHint(w: HrWorkspace, employeeId: string, salary: number): string {
   const month = localDate().slice(0, 7);
   if (salary <= 0)
-    return `Divided by the work time (${w.settings.workStart}–${w.settings.workEnd} on work days) to get the rate for a day, an hour and a minute.`;
+    return `Divided by the work time (${clockRange(w.settings.workStart, w.settings.workEnd)} on work days) to get the rate for a day, an hour and a minute.`;
   const r = salaryRates(w, employeeId, month, salary);
   if (!r.workMinutes) return "There is no work time this month to divide the salary by.";
   const c = w.settings.currency;
-  return `${fmt(r.perDay, c)} a day · ${fmt(r.perHour, c)} an hour · ${fmt(r.perMinute, c)} a minute — ${r.workDays} work days, ${Math.round((r.workMinutes / 60) * 10) / 10} hours in ${monthLabel(month)}.`;
+  const hours = Math.round((r.workMinutes / 60) * 10) / 10;
+  const perDay = Math.round((hours / r.workDays) * 10) / 10;
+  return `${fmt(r.perDay, c)} a day · ${fmt(r.perHour, c)} an hour · ${fmt(r.perMinute, c)} a minute — ${r.workDays} work days × ${perDay} hours = ${hours} hours in ${monthLabel(month)}.`;
 }
 function downloadJson(name: string, value: unknown) {
   const blob = new Blob([JSON.stringify(value, null, 2)], {
@@ -588,7 +591,7 @@ export function HrManagementPage() {
     {
       title: "Window",
       render: (r) =>
-        `${r.startTime} – ${r.endTime}${r.endTime < r.startTime ? " · overnight" : ""}`,
+        `${clockRange(r.startTime, r.endTime)}${r.endTime < r.startTime ? " · overnight" : ""}`,
     },
     { title: "Days", render: (r) => r.days.join(", ") },
     {

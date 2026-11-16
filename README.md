@@ -221,7 +221,7 @@ CSV reports and an audit log.
 ### Payroll
 
 - **Work day** — everyone without a shift assignment or work cycle works
-  **9:00–16:00, Saturday to Thursday** (*Work time & payroll settings* on the
+  **9 AM – 4 PM (7 hours), Saturday to Thursday** (*Work time & payroll settings* on the
   Payroll page changes it). The attendance register uses the same hours.
 - **Salary rates** — the monthly salary is divided by the person's work time
   that month: per day, per hour and per minute. The profile editor shows them

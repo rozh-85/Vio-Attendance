@@ -1,6 +1,8 @@
 import type { Employee } from "@/types";
 import {
   DEDUCTION_LABEL,
+  WORK_DAY_ID,
+  clockRange,
   dateRange,
   formatMinutes,
   monthBounds,
@@ -48,6 +50,8 @@ export interface Payslip {
   workTime: string;
   workDays: number;
   workHours: number;
+  /** Hours in one work day, when every day is the same length. */
+  dayHours: number;
   perDay: number;
   perHour: number;
   perMinute: number;
@@ -77,9 +81,9 @@ export function buildPayslip(
     if (shift && !shifts.has(shift.id))
       shifts.set(
         shift.id,
-        shift.name.includes(shift.startTime)
+        shift.id === WORK_DAY_ID
           ? `${shift.name} · ${describeDays(shift.days)}`
-          : `${shift.name} ${shift.startTime}–${shift.endTime} · ${describeDays(shift.days)}`,
+          : `${shift.name} ${clockRange(shift.startTime, shift.endTime)} · ${describeDays(shift.days)}`,
       );
   }
 
@@ -183,6 +187,7 @@ export function buildPayslip(
     workTime: [...shifts.values()].join(" / ") || "No work time this month",
     workDays: entry.workDays ?? 0,
     workHours: round((entry.workMinutes ?? 0) / 60),
+    dayHours: entry.workDays ? round((entry.workMinutes ?? 0) / 60 / entry.workDays) : 0,
     perDay: entry.dayRate ?? 0,
     perHour: entry.hourRate ?? 0,
     perMinute: entry.minuteRate ?? 0,

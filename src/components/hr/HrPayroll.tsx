@@ -10,6 +10,7 @@ import type {
 import { createHrId } from "@/services/hr/store";
 import {
   DEDUCTION_LABEL,
+  clockRange,
   formatMinutes,
   localDate,
   payslipLocked,
@@ -413,7 +414,7 @@ export function HrPayroll({
     { key: "approvalLevels", label: "Leave approval levels", type: "number", min: 1, max: 10, required: true },
   ];
   const settingCards: [string, string][] = [
-    ["Work day", `${s.workStart}–${s.workEnd} · ${workHours}h`],
+    ["Work day", `${clockRange(s.workStart, s.workEnd)} · ${workHours} hours`],
     ["Work days", describeDays(s.workDays)],
     ["Currency", s.currency],
     ["Overtime", `×${s.overtimeMultiplier}`],

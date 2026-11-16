@@ -30,6 +30,16 @@ export function shiftHours(shift: HrShift): number {
     Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
   return ((mins(shift.endTime) - mins(shift.startTime) + 1440) % 1440) / 60;
 }
+/** "09:00" → "9 AM", "16:30" → "4:30 PM": times people read, not 24-hour ones. */
+export function clockLabel(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
+  return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h < 12 ? "AM" : "PM"}`;
+}
+/** "9 AM – 4 PM". */
+export function clockRange(start: string, end: string): string {
+  return `${clockLabel(start)} – ${clockLabel(end)}`;
+}
 export const WORK_DAY_ID = "work-day";
 /**
  * The work day from the payroll settings — 9 to 4 unless HR changes it — as a
@@ -41,7 +51,7 @@ export function workDayShift(w: HrWorkspace): HrShift {
   const endTime = w.settings.workEnd || "16:00";
   const shift: HrShift = {
     id: WORK_DAY_ID,
-    name: `Work day ${startTime}–${endTime}`,
+    name: `Work day ${clockRange(startTime, endTime)}`,
     startTime,
     endTime,
     days: w.settings.workDays ?? [],
@@ -455,7 +465,7 @@ export function formatMinutes(minutes: number): string {
 }
 function clock(iso: string): string {
   const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return clockLabel(`${d.getHours()}:${d.getMinutes()}`);
 }
 /** True once a payslip is approved or paid: nothing may change what it holds. */
 export function payslipLocked(
@@ -513,7 +523,7 @@ export function periodDeductions(
       });
     };
     if (row.status === "Absent")
-      add("absent", row.scheduledMinutes, `No check-in · ${row.startTime}–${row.endTime}`);
+      add("absent", row.scheduledMinutes, `No check-in · ${clockRange(row.startTime, row.endTime)}`);
     if (row.status === "Holiday") {
       const covering = w.holidays.filter(
         (h) => h.startDate <= row.date && h.endDate >= row.date,
@@ -522,9 +532,9 @@ export function periodDeductions(
         add("unpaid-holiday", row.scheduledMinutes, covering[0].name);
     }
     if (row.late > 0)
-      add("late", row.late, `In ${clock(row.checkIn)} · starts ${row.startTime}${graceNote}`);
+      add("late", row.late, `In ${clock(row.checkIn)} · starts ${clockLabel(row.startTime)}${graceNote}`);
     if (row.early > 0)
-      add("early", row.early, `Out ${clock(row.checkOut)} · ends ${row.endTime}${graceNote}`);
+      add("early", row.early, `Out ${clock(row.checkOut)} · ends ${clockLabel(row.endTime)}${graceNote}`);
   }
   return [...found, ...saved].sort(
     (a, b) => a.date.localeCompare(b.date) || a.employeeId.localeCompare(b.employeeId),
@@ -551,7 +561,7 @@ export function attendanceOvertime(
       employeeId: row.employeeId,
       date: row.date,
       hours: row.overtime,
-      reason: `From check-ins: ${row.hours}h worked on a ${round(row.scheduledMinutes / 60)}h ${row.shift.toLowerCase()}`,
+      reason: `From check-ins: worked ${row.hours} hours on a ${round(row.scheduledMinutes / 60)}-hour day`,
       status: "pending" as const,
     }));
 }
