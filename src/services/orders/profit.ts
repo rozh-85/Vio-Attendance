@@ -138,8 +138,11 @@ export function costsToKeep(all: SalesOrder[], data: ProfitData, key: string): R
   return kept;
 }
 
-/** The dollar rate a new sponsor starts with until the owner types another. */
-export const DEFAULT_USD_RATE = 1500;
+/**
+ * IQD for one dollar: what a new sponsor and the wholesale price list start
+ * with until the owner types another (100 $ = 169,000 IQD).
+ */
+export const DEFAULT_USD_RATE = 1690;
 
 const ARABIC_DIGITS = /[٠-٩۰-۹]/g;
 

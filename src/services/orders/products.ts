@@ -1,5 +1,6 @@
 import reference from '@/services/catalog/reference.json';
 import catalog2026Data from '@/services/catalog/catalog2026.json';
+import wholesale2026Data from '@/services/catalog/wholesale2026.json';
 import { modelKey } from './profit';
 
 /**
@@ -83,4 +84,29 @@ export function catalog2026(): Catalog2026Item[] {
     name: p.name,
     type: p.type,
   }));
+}
+
+/** One product of "Vio Wholesale (Jumla) Price List 2026", with its price in dollars. */
+export interface Wholesale2026Item extends Catalog2026Item {
+  /** The wholesale price of one piece, in US dollars. */
+  usd: number;
+}
+
+/**
+ * Every model of the 2026 wholesale price list (scripts/import-wholesale-2026.py),
+ * named and typed as in the 2026 catalogue, in its page order.
+ */
+export function wholesale2026(): Wholesale2026Item[] {
+  const named = new Map(catalog2026().map((c) => [c.key, c]));
+  return (wholesale2026Data as { products: { model: string; name: string; usd: number }[] }).products.map((p) => {
+    const key = modelKey(p.model);
+    const known = named.get(key);
+    return {
+      key,
+      model: known?.model ?? p.model,
+      name: known?.name ?? p.name,
+      type: known?.type ?? '',
+      usd: p.usd,
+    };
+  });
 }

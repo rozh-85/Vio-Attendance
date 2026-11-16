@@ -278,6 +278,14 @@ insert statement for pointing the feature at the account UUID directly.
   as `IMG_2041.jpg` asks for the model. Pictures are made small before upload.
   A picture for a product already there replaces its picture. Costs are set
   afterwards on Products.
+- **Wholesale prices 2026** (button on Products) — the 110 models of the
+  2026 wholesale (jumla) price list with their dollar price, read by
+  [`scripts/import-wholesale-2026.py`](scripts/import-wholesale-2026.py) into
+  `src/services/catalog/wholesale2026.json`. Type today's rate
+  (100 $ = 169,000 IQD to start with): products not on the list are added with
+  their cost, products without a cost get one, and costs you wrote yourself are
+  only changed when you tick the box. It also says which products have no
+  picture. Run it again with a new rate when the dollar moves.
 - **Sellers write the model and their own price** — on the order form
   (`/orders`), nothing fills in by itself. Your products are suggested as the
   seller writes the model, and a model on your list is ticked green.

@@ -4,11 +4,12 @@ import { format, parseISO } from 'date-fns';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { AlertTriangle, CalendarDays, Check, CheckCircle, ImageIcon, Pencil, Plus, Search, Trash, X } from '@/components/icons';
+import { AlertTriangle, CalendarDays, Check, CheckCircle, ChevronDown, ChevronUp, DollarSign, ImageIcon, Pencil, Plus, Search, Trash, X } from '@/components/icons';
 import { BackLink, LoadProblem, iqd, signTone, signedIqd } from '@/components/orders/profit/parts';
 import { useProfitData } from '@/hooks/useProfitData';
 import { CATEGORIES } from '@/services/orders/options';
 import {
+  DEFAULT_USD_RATE,
   costsToKeep,
   modelKey,
   ordersToFix,
@@ -18,7 +19,7 @@ import {
   type ModelRow,
   type ModelValues,
 } from '@/services/orders/profit';
-import { catalog2026, catalogItem, catalogItems, type CatalogItem } from '@/services/orders/products';
+import { catalogItem, catalogItems, wholesale2026, type CatalogItem } from '@/services/orders/products';
 import { clearProfitNotice, readProfitNotice } from '@/services/orders/profitMemory';
 import { getProfitStore, profitErrorMessage } from '@/services/orders/profitStore';
 import type { SalesOrder } from '@/services/orders/types';
@@ -432,6 +433,179 @@ function OrdersToFix({
  * on this list gets the product's cost, so its profit works itself out.
  * Orders from before the start day are not counted.
  */
+/** Where a wholesale price stands against the owner's own list. */
+type WholesaleState = 'new' | 'no-cost' | 'same' | 'different';
+
+const STATE_TEXT: Record<WholesaleState, { label: string; tone: string }> = {
+  new: { label: 'New — added', tone: 'bg-brand-50 text-brand-700' },
+  'no-cost': { label: 'Cost filled in', tone: 'bg-amber-50 text-amber-800' },
+  same: { label: 'Already this cost', tone: 'bg-emerald-50 text-emerald-700' },
+  different: { label: 'Your cost differs', tone: 'bg-slate-100 text-ink-600' },
+};
+
+/**
+ * The 2026 wholesale price list in dollars, turned into IQD at the rate the
+ * owner types: adds the products not on the list yet and fills in the costs
+ * that are missing — and, only when asked, replaces costs the owner wrote.
+ */
+function WholesalePrices({
+  models,
+  busy,
+  onApply,
+  onClose,
+}: {
+  models: Record<string, ModelCost>;
+  busy: boolean;
+  onApply: (rate: number, replace: boolean) => void;
+  onClose: () => void;
+}) {
+  const [per100, setPer100] = useState(iqd(DEFAULT_USD_RATE * 100));
+  const [replace, setReplace] = useState(false);
+  const [showList, setShowList] = useState(false);
+  const rate = (parseIqd(per100) ?? 0) / 100;
+  const rows = useMemo(
+    () =>
+      wholesale2026().map((w) => {
+        const mine = models[w.key];
+        const cost = Math.round(w.usd * rate);
+        const state: WholesaleState = !mine ? 'new' : mine.cost === null ? 'no-cost' : mine.cost === cost ? 'same' : 'different';
+        return { ...w, cost, mine, state, image: mine?.image || catalogItem(w.key)?.image || '' };
+      }),
+    [models, rate],
+  );
+  const count = (state: WholesaleState) => rows.filter((r) => r.state === state).length;
+  const added = count('new');
+  const filled = count('no-cost');
+  const same = count('same');
+  const different = count('different');
+  const noPicture = rows.filter((r) => !r.image);
+  const changes = added + filled + (replace ? different : 0);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-ink-900">Wholesale price list 2026</h2>
+          <p className="mt-0.5 text-sm text-ink-500">
+            {rows.length} products in dollars. Each one’s cost is its wholesale price × the dollar rate.
+          </p>
+        </div>
+        <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1 text-ink-400 hover:bg-slate-100 hover:text-ink-700">
+          <X width={18} height={18} />
+        </button>
+      </div>
+
+      <div className="space-y-4 px-5 py-4">
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-semibold text-ink-900">Dollar rate today</span>
+          <span className="text-ink-600">100 $ =</span>
+          <span className="relative">
+            <input
+              inputMode="numeric"
+              aria-label="IQD for 100 dollars"
+              className={cn(field, 'w-36 pr-12 text-right font-semibold tabular-nums')}
+              value={per100}
+              onChange={(e) => setPer100(moneyText(e.target.value))}
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-ink-400">IQD</span>
+          </span>
+          {rate > 0 && <span className="text-ink-500">· 1 $ = {iqd(rate)} IQD</span>}
+        </label>
+
+        <ul className="grid gap-2 text-sm sm:grid-cols-2">
+          <li className="rounded-xl bg-slate-50 px-3 py-2">
+            <b className="text-ink-900">{added}</b> new {added === 1 ? 'product is' : 'products are'} added with {added === 1 ? 'its' : 'their'} cost
+          </li>
+          <li className="rounded-xl bg-slate-50 px-3 py-2">
+            <b className="text-ink-900">{filled}</b> of yours without a cost {filled === 1 ? 'gets' : 'get'} one
+          </li>
+          <li className="rounded-xl bg-slate-50 px-3 py-2">
+            <b className="text-ink-900">{same}</b> already {same === 1 ? 'has' : 'have'} this cost
+          </li>
+          <li className={cn('rounded-xl px-3 py-2', noPicture.length ? 'bg-amber-50 text-amber-900' : 'bg-slate-50')}>
+            {noPicture.length === 0 ? (
+              <>Every product has a picture</>
+            ) : (
+              <>
+                <b>{noPicture.length}</b> without a picture: {noPicture.map((r) => r.model).join(', ')} —{' '}
+                <Link to={paths.profitAddProducts} className="font-semibold underline">
+                  add pictures
+                </Link>
+              </>
+            )}
+          </li>
+        </ul>
+
+        {different > 0 && (
+          <label className="flex items-start gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+            <input type="checkbox" className="mt-0.5 size-4 accent-brand-600" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+            <span>
+              Also change the <b>{different}</b> {different === 1 ? 'cost' : 'costs'} you wrote yourself to the wholesale price.{' '}
+              <span className="text-ink-500">Orders already sold keep the old cost.</span>
+            </span>
+          </label>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button disabled={busy || rate <= 0 || changes === 0} loading={busy} leftIcon={<Check width={17} height={17} />} onClick={() => onApply(rate, replace)}>
+            {changes === 0 ? 'Nothing to change' : `Add and set ${changes} ${changes === 1 ? 'cost' : 'costs'}`}
+          </Button>
+          <Button
+            variant="ghost"
+            leftIcon={showList ? <ChevronUp width={16} height={16} /> : <ChevronDown width={16} height={16} />}
+            onClick={() => setShowList((v) => !v)}
+          >
+            {showList ? 'Hide the prices' : `Show the ${rows.length} prices`}
+          </Button>
+        </div>
+      </div>
+
+      {showList && (
+        <div className="max-h-[32rem] overflow-auto border-t border-slate-100">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-slate-50 text-left text-xs font-medium text-ink-500">
+              <tr>
+                <th className="py-2 pl-5 pr-3 font-medium">Product</th>
+                <th className="px-3 py-2 text-right font-medium">Wholesale</th>
+                <th className="px-3 py-2 text-right font-medium">Cost (IQD)</th>
+                <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Your cost now</th>
+                <th className="py-2 pl-3 pr-5 font-medium">
+                  <span className="sr-only">State</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r) => (
+                <tr key={r.key}>
+                  <td className="py-2 pl-5 pr-3">
+                    <div className="flex items-center gap-3">
+                      <Photo model={r.model} image={r.mine?.image} className="size-9" />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-ink-900">{r.model}</div>
+                        <div className="truncate text-xs text-ink-500">{r.name}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">${r.usd}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-ink-900">{iqd(r.cost)}</td>
+                  <td className="hidden px-3 py-2 text-right tabular-nums text-ink-500 sm:table-cell">
+                    {r.mine?.cost == null ? '—' : iqd(r.mine.cost)}
+                  </td>
+                  <td className="py-2 pl-3 pr-5">
+                    <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold', STATE_TEXT[r.state].tone)}>
+                      {r.state === 'different' && replace ? 'Changed' : STATE_TEXT[r.state].label}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function ProductsPage() {
   const navigate = useNavigate();
   const { orders, profit, error, loading, reload, update } = useProfitData();
@@ -439,6 +613,7 @@ export function ProductsPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
+  const [wholesaleOpen, setWholesaleOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   // The "added" message from Add from pictures shows here once.
   const [notice, setNotice] = useState(readProfitNotice);
@@ -493,32 +668,53 @@ export function ProductsPage() {
       return `${product.label} added`;
     });
 
-  // The 2026 catalogue's models not on the list yet: added all at once, with
-  // no cost and no picture of their own — the owner writes the costs and
-  // attaches the pictures.
-  const missingFromCatalog = useMemo(() => catalog2026().filter((c) => !taken.has(c.key)), [taken]);
-  const addAllCatalog = () =>
+  // The 2026 wholesale price list at the owner's dollar rate: products not on
+  // the list yet are added with their cost, products without a cost get one,
+  // and costs the owner wrote are only replaced when asked — orders already
+  // sold keep the cost they had.
+  const applyWholesale = (rate: number, replace: boolean) =>
     run(async () => {
-      if (!profit || !missingFromCatalog.length) return '';
-      const list: ModelValues[] = missingFromCatalog.map((c) => ({
-        key: c.key,
-        label: c.model,
-        name: c.name,
-        image: '',
-        cost: null,
-        category: c.type,
-      }));
+      if (!profit || !orders || rate <= 0) return '';
+      const list: ModelValues[] = [];
+      const keep: Record<string, number> = {};
+      let added = 0;
+      let filled = 0;
+      let changed = 0;
+      for (const w of wholesale2026()) {
+        const cost = Math.round(w.usd * rate);
+        const mine = profit.models[w.key];
+        if (!mine) {
+          list.push({ key: w.key, label: w.model, name: w.name, image: '', cost, category: w.type });
+          added += 1;
+        } else if (mine.cost === null || (replace && mine.cost !== cost)) {
+          if (mine.cost === null) filled += 1;
+          else {
+            Object.assign(keep, costsToKeep(orders, profit, w.key));
+            changed += 1;
+          }
+          list.push({ key: mine.key, label: mine.label, name: mine.name, image: mine.image, cost, category: mine.category });
+        }
+      }
+      if (!list.length) return 'Every product already has its wholesale cost';
       const store = getProfitStore();
+      if (Object.keys(keep).length) await store.setOrderCosts(keep);
       await store.saveModels(list);
       const startDate = profit.startDate ?? today();
       if (!profit.startDate) await store.setStartDate(startDate);
       const now = new Date().toISOString();
       update((d) => {
         const models = { ...d.models };
-        for (const m of list) models[m.key] = { ...m, createdAt: now, updatedAt: now };
-        return { ...d, startDate, models };
+        for (const m of list) models[m.key] = { ...m, createdAt: d.models[m.key]?.createdAt ?? now, updatedAt: now };
+        return { ...d, startDate, models, orderCosts: { ...d.orderCosts, ...keep } };
       });
-      return `${list.length} products of the 2026 catalogue added — write what one piece costs you`;
+      setWholesaleOpen(false);
+      return [
+        added ? `${added} ${added === 1 ? 'product' : 'products'} added` : '',
+        filled ? `${filled} ${filled === 1 ? 'cost' : 'costs'} filled in` : '',
+        changed ? `${changed} ${changed === 1 ? 'cost' : 'costs'} changed` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ') + ` at 100 $ = ${iqd(rate * 100)} IQD`;
     });
 
   const saveProduct = (product: ModelValues) =>
@@ -578,11 +774,9 @@ export function ProductsPage() {
 
   const addButton = (
     <div className="flex flex-wrap justify-center gap-2">
-      {missingFromCatalog.length > 0 && (
-        <Button variant="secondary" disabled={busy} loading={busy} leftIcon={<CheckCircle width={17} height={17} />} onClick={() => void addAllCatalog()}>
-          Add {missingFromCatalog.length} products from the 2026 catalogue
-        </Button>
-      )}
+      <Button variant="secondary" leftIcon={<DollarSign width={17} height={17} />} onClick={() => setWholesaleOpen(true)}>
+        Wholesale prices 2026
+      </Button>
       <Link to={paths.profitAddProducts} className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 transition-colors hover:bg-slate-50">
         <ImageIcon width={17} height={17} /> Add from pictures
       </Link>
@@ -661,6 +855,10 @@ export function ProductsPage() {
                 <span className="text-ink-600">Profit starts counting orders on the day you add your first product. Older orders are not counted.</span>
               )}
             </div>
+
+            {wholesaleOpen && (
+              <WholesalePrices models={profit.models} busy={busy} onApply={(rate, replace) => void applyWholesale(rate, replace)} onClose={() => setWholesaleOpen(false)} />
+            )}
 
             {adding && (
               <AddProduct

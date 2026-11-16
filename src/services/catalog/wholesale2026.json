@@ -1,0 +1,666 @@
+{
+ "source": "Vio Wholesale Price List 2026.pdf",
+ "note": "Wholesale price of one piece in US dollars, by model. The app converts it to IQD at the owner's rate.",
+ "products": [
+  {
+   "model": "V-400",
+   "name": "AIR FRYER",
+   "page": 3,
+   "usd": 83
+  },
+  {
+   "model": "V-401",
+   "name": "AIR FRYER",
+   "page": 3,
+   "usd": 59
+  },
+  {
+   "model": "V-402",
+   "name": "AIR FRYER",
+   "page": 3,
+   "usd": 66
+  },
+  {
+   "model": "V-403",
+   "name": "DUALFRY GRILL",
+   "page": 3,
+   "usd": 91
+  },
+  {
+   "model": "VAF6502A2",
+   "name": "AIR FRYER",
+   "page": 4,
+   "usd": 44
+  },
+  {
+   "model": "VAF810D",
+   "name": "AIR FRYER",
+   "page": 4,
+   "usd": 44
+  },
+  {
+   "model": "VAF820D",
+   "name": "AIR FRYER",
+   "page": 4,
+   "usd": 53
+  },
+  {
+   "model": "V-450",
+   "name": "STEAK MACHINE",
+   "page": 5,
+   "usd": 106
+  },
+  {
+   "model": "V-226",
+   "name": "BLENDER AND GRINDER",
+   "page": 6,
+   "usd": 49
+  },
+  {
+   "model": "V-228",
+   "name": "JUICE EXTRACTOR",
+   "page": 6,
+   "usd": 51
+  },
+  {
+   "model": "V-225",
+   "name": "JUICER AND BLENDER",
+   "page": 6,
+   "usd": 64
+  },
+  {
+   "model": "V-229",
+   "name": "FOOD PROCESSOR",
+   "page": 7,
+   "usd": 57
+  },
+  {
+   "model": "V-230",
+   "name": "JUICE EXTRACTOR",
+   "page": 7,
+   "usd": 95
+  },
+  {
+   "model": "V-231",
+   "name": "TABLE BLENDER",
+   "page": 7,
+   "usd": 65
+  },
+  {
+   "model": "V-232",
+   "name": "SLOW JUICER & ICE CREAM",
+   "page": 7,
+   "usd": 61
+  },
+  {
+   "model": "V-806",
+   "name": "BLENDER, CHOPPER & GR",
+   "page": 8,
+   "usd": 42
+  },
+  {
+   "model": "V-233BLUE",
+   "name": "GYM BLENDER · Blue",
+   "page": 8,
+   "usd": 23
+  },
+  {
+   "model": "V-233B",
+   "name": "GYM BLENDER · Black",
+   "page": 8,
+   "usd": 23
+  },
+  {
+   "model": "V-233W",
+   "name": "GYM BLENDER · White",
+   "page": 8,
+   "usd": 23
+  },
+  {
+   "model": "V-233P",
+   "name": "GYM BLENDER · Pink",
+   "page": 8,
+   "usd": 23
+  },
+  {
+   "model": "V-801B",
+   "name": "FOOD CHOPPER · Black",
+   "page": 9,
+   "usd": 23
+  },
+  {
+   "model": "V-801K",
+   "name": "FOOD CHOPPER · Beige",
+   "page": 9,
+   "usd": 23
+  },
+  {
+   "model": "V-801W",
+   "name": "FOOD CHOPPER · White",
+   "page": 9,
+   "usd": 23
+  },
+  {
+   "model": "V-802B",
+   "name": "FOOD CHOPPER · Black",
+   "page": 9,
+   "usd": 22
+  },
+  {
+   "model": "V-802K",
+   "name": "FOOD CHOPPER · Beige",
+   "page": 9,
+   "usd": 22
+  },
+  {
+   "model": "V-803B",
+   "name": "FOOD CHOPPER · Black",
+   "page": 9,
+   "usd": 30
+  },
+  {
+   "model": "V-803K",
+   "name": "FOOD CHOPPER · Beige",
+   "page": 9,
+   "usd": 30
+  },
+  {
+   "model": "V-804B",
+   "name": "FOOD CHOPPER · Black",
+   "page": 10,
+   "usd": 19
+  },
+  {
+   "model": "V-804K",
+   "name": "FOOD CHOPPER · Beige",
+   "page": 10,
+   "usd": 19
+  },
+  {
+   "model": "V-805",
+   "name": "FOOD CHOPPER",
+   "page": 10,
+   "usd": 25
+  },
+  {
+   "model": "VMB01",
+   "name": "FOOD CHOPPER",
+   "page": 10,
+   "usd": 16
+  },
+  {
+   "model": "VMB02W",
+   "name": "FOOD CHOPPER",
+   "page": 10,
+   "usd": 16
+  },
+  {
+   "model": "VMB04 K",
+   "name": "FOOD CHOPPER",
+   "page": 10,
+   "usd": 15
+  },
+  {
+   "model": "VMC03",
+   "name": "FOOD CHOPPER",
+   "page": 11,
+   "usd": 25
+  },
+  {
+   "model": "VMC04",
+   "name": "FOOD CHOPPER",
+   "page": 11,
+   "usd": 27
+  },
+  {
+   "model": "VMH01",
+   "name": "FOOD CHOPPER",
+   "page": 11,
+   "usd": 16
+  },
+  {
+   "model": "VMH02",
+   "name": "FOOD CHOPPER",
+   "page": 11,
+   "usd": 14
+  },
+  {
+   "model": "VMH04",
+   "name": "FOOD CHOPPER",
+   "page": 11,
+   "usd": 14
+  },
+  {
+   "model": "V-863W",
+   "name": "FULLY AUTOMATIC ESPRE",
+   "page": 12,
+   "usd": 418
+  },
+  {
+   "model": "V-861",
+   "name": "ESPRESSO COFFEE MAKER",
+   "page": 12,
+   "usd": 182
+  },
+  {
+   "model": "V-864",
+   "name": "VIO CAPSULE PRO",
+   "page": 12,
+   "usd": 91
+  },
+  {
+   "model": "V-863B",
+   "name": "FULLY AUTOMATIC ESPRE",
+   "page": 12,
+   "usd": 418
+  },
+  {
+   "model": "V-200",
+   "name": "ELECTRIC PRESSURE COO",
+   "page": 13,
+   "usd": 34
+  },
+  {
+   "model": "V-1001",
+   "name": "VIO LUXMIX",
+   "page": 14,
+   "usd": 27
+  },
+  {
+   "model": "V-1002",
+   "name": "VIO BLEND",
+   "page": 14,
+   "usd": 21
+  },
+  {
+   "model": "V-807-A",
+   "name": "HAND BLENDER SET",
+   "page": 14,
+   "usd": 65
+  },
+  {
+   "model": "V-652",
+   "name": "ELECTRIC HEATER",
+   "page": 15,
+   "usd": 37
+  },
+  {
+   "model": "V-653",
+   "name": "CRYSTAL CARBON HEATER",
+   "page": 15,
+   "usd": 32
+  },
+  {
+   "model": "V-654B",
+   "name": "ELECTRIC QUARTZ HEATE",
+   "page": 15,
+   "usd": 42
+  },
+  {
+   "model": "V-654W",
+   "name": "ELECTRIC QUARTZ HEATE",
+   "page": 15,
+   "usd": 42
+  },
+  {
+   "model": "V-655",
+   "name": "CERAMIC ELECTRIC HEAT",
+   "page": 15,
+   "usd": 24
+  },
+  {
+   "model": "V-656",
+   "name": "CERAMIC ELECTRIC HEAT",
+   "page": 16,
+   "usd": 28
+  },
+  {
+   "model": "V-657",
+   "name": "CERAMIC ELECTRIC HEAT",
+   "page": 16,
+   "usd": 32
+  },
+  {
+   "model": "V-658",
+   "name": "CERAMIC ELECTRIC HEAT",
+   "page": 16,
+   "usd": 40
+  },
+  {
+   "model": "V-1101B",
+   "name": "CERAMIC ELECTRIC HEAT",
+   "page": 16,
+   "usd": 26
+  },
+  {
+   "model": "V-1101W",
+   "name": "CERAMIC ELECTRIC HEAT",
+   "page": 16,
+   "usd": 26
+  },
+  {
+   "model": "V-305P",
+   "name": "UPRIGHT GARMENT STEA",
+   "page": 17,
+   "usd": 148
+  },
+  {
+   "model": "V-308",
+   "name": "GARMENT STEAMER",
+   "page": 17,
+   "usd": 22
+  },
+  {
+   "model": "V-306G",
+   "name": "STEAM STATION",
+   "page": 17,
+   "usd": 65
+  },
+  {
+   "model": "V-306P",
+   "name": "STEAM STATION",
+   "page": 17,
+   "usd": 65
+  },
+  {
+   "model": "V-307P",
+   "name": "STEAM STATION · Purple",
+   "page": 17,
+   "usd": 43
+  },
+  {
+   "model": "V-307G",
+   "name": "STEAM STATION · Cream",
+   "page": 17,
+   "usd": 43
+  },
+  {
+   "model": "V-309",
+   "name": "STEAMEPRO X90",
+   "page": 18,
+   "usd": 28
+  },
+  {
+   "model": "V-603",
+   "name": "MEAT GRINDER",
+   "page": 19,
+   "usd": 144
+  },
+  {
+   "model": "VTOV-56H B",
+   "name": "ELECTRIC OVEN · Black",
+   "page": 20,
+   "usd": 87
+  },
+  {
+   "model": "VTOV-56H G",
+   "name": "ELECTRIC OVEN · Grey",
+   "page": 20,
+   "usd": 87
+  },
+  {
+   "model": "V-106G",
+   "name": "STAND MIXER",
+   "page": 21,
+   "usd": 148
+  },
+  {
+   "model": "V-106W",
+   "name": "STAND MIXER",
+   "page": 21,
+   "usd": 148
+  },
+  {
+   "model": "V-100 10L LG PRO",
+   "name": "STAND MIXER · Light Grey",
+   "page": 21,
+   "usd": 129
+  },
+  {
+   "model": "V-100 10L W PRO",
+   "name": "STAND MIXER · White",
+   "page": 21,
+   "usd": 129
+  },
+  {
+   "model": "V-100 B PRO",
+   "name": "STAND MIXER · Black",
+   "page": 21,
+   "usd": 129
+  },
+  {
+   "model": "V-100 DG PRO",
+   "name": "STAND MIXER · Dark Grey",
+   "page": 21,
+   "usd": 129
+  },
+  {
+   "model": "V-104 W",
+   "name": "STAND MIXER WITH BOWL",
+   "page": 21,
+   "usd": 34
+  },
+  {
+   "model": "V-502",
+   "name": "TEA MAKER",
+   "page": 22,
+   "usd": 44
+  },
+  {
+   "model": "V-507",
+   "name": "TEA MAKER",
+   "page": 22,
+   "usd": 29
+  },
+  {
+   "model": "V-508",
+   "name": "TEA MAKER",
+   "page": 22,
+   "usd": 28
+  },
+  {
+   "model": "V-510",
+   "name": "COOL TOUCH KETTLE",
+   "page": 23,
+   "usd": 19
+  },
+  {
+   "model": "V-511",
+   "name": "COOL TOUCH KETTLE",
+   "page": 23,
+   "usd": 19
+  },
+  {
+   "model": "V-512",
+   "name": "COOL TOUCH KETTLE",
+   "page": 23,
+   "usd": 19
+  },
+  {
+   "model": "V-513",
+   "name": "COOL TOUCH KETTLE",
+   "page": 23,
+   "usd": 19
+  },
+  {
+   "model": "V-514",
+   "name": "COOL TOUCH KETTLE",
+   "page": 23,
+   "usd": 21
+  },
+  {
+   "model": "V-515",
+   "name": "COOL TOUCH KETTLE",
+   "page": 23,
+   "usd": 21
+  },
+  {
+   "model": "V-516",
+   "name": "TEA MAKER",
+   "page": 24,
+   "usd": 57
+  },
+  {
+   "model": "V-517A",
+   "name": "ELECTRIC KETTLE",
+   "page": 24,
+   "usd": 26
+  },
+  {
+   "model": "V-518A",
+   "name": "ELECTRIC KETTLE",
+   "page": 24,
+   "usd": 26
+  },
+  {
+   "model": "V-519A",
+   "name": "ELECTRIC KETTLE",
+   "page": 24,
+   "usd": 26
+  },
+  {
+   "model": "V-517B",
+   "name": "2-SLICE TOASTER",
+   "page": 25,
+   "usd": 29
+  },
+  {
+   "model": "V-518B",
+   "name": "2-SLICE TOASTER",
+   "page": 25,
+   "usd": 29
+  },
+  {
+   "model": "V-519B",
+   "name": "2-SLICE TOASTER",
+   "page": 25,
+   "usd": 29
+  },
+  {
+   "model": "V-625",
+   "name": "VACUUM CLEANER",
+   "page": 26,
+   "usd": 87
+  },
+  {
+   "model": "V-627",
+   "name": "VACUUM CLEANER",
+   "page": 26,
+   "usd": 87
+  },
+  {
+   "model": "V-628",
+   "name": "VACUUM CLEANER",
+   "page": 27,
+   "usd": 144
+  },
+  {
+   "model": "V-629",
+   "name": "VACUUM CLEANER",
+   "page": 27,
+   "usd": 122
+  },
+  {
+   "model": "V-630",
+   "name": "SWEEP VACUUM CLEANER",
+   "page": 27,
+   "usd": 189
+  },
+  {
+   "model": "V-631",
+   "name": "VACUUM CLEANER",
+   "page": 28,
+   "usd": 42
+  },
+  {
+   "model": "V-632",
+   "name": "VACUUM CLEANER",
+   "page": 28,
+   "usd": 53
+  },
+  {
+   "model": "VK806 S",
+   "name": "VACUUM CLEANER",
+   "page": 28,
+   "usd": 59
+  },
+  {
+   "model": "V-1202",
+   "name": "VIO AIR CONDITIONER",
+   "page": 29,
+   "usd": 234
+  },
+  {
+   "model": "V-1201",
+   "name": "VIO AIR CONDITIONER",
+   "page": 29,
+   "usd": 234
+  },
+  {
+   "model": "V-1203G",
+   "name": "VIO AIR COOLER · Grey",
+   "page": 29,
+   "usd": 79
+  },
+  {
+   "model": "V-1203W",
+   "name": "VIO AIR COOLER · White",
+   "page": 29,
+   "usd": 79
+  },
+  {
+   "model": "V-1204",
+   "name": "VIO AIR COOLER",
+   "page": 29,
+   "usd": 222
+  },
+  {
+   "model": "V-1205",
+   "name": "VIO AIR COOLER",
+   "page": 29,
+   "usd": 142
+  },
+  {
+   "model": "V-750",
+   "name": "VIO AIRCLEANER MINI",
+   "page": 30,
+   "usd": 76
+  },
+  {
+   "model": "V-751",
+   "name": "VIO AIRCLEANER MAX",
+   "page": 30,
+   "usd": 120
+  },
+  {
+   "model": "V-753",
+   "name": "VIO AIRCLEANER PRO",
+   "page": 30,
+   "usd": 190
+  },
+  {
+   "model": "V-752",
+   "name": "VIO AIRCLEANER ULTRA",
+   "page": 30,
+   "usd": 253
+  },
+  {
+   "model": "V-900B",
+   "name": "ICECRAFT PRO",
+   "page": 31,
+   "usd": 63
+  },
+  {
+   "model": "V-903W",
+   "name": "VIO SLUSHIE",
+   "page": 31,
+   "usd": 158
+  },
+  {
+   "model": "V-903B",
+   "name": "VIO SLUSHIE",
+   "page": 31,
+   "usd": 158
+  }
+ ]
+}
