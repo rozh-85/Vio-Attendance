@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { AdminLayout } from '@/components/AdminLayout';
@@ -577,7 +577,7 @@ function ProductPicker({
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   };
   return (
-    <div className="relative min-w-0 flex-1 basis-64 scroll-mt-24 [&_input]:scroll-mt-24">
+    <div className="relative w-full min-w-0 scroll-mt-24 [&_input]:scroll-mt-24">
       {picked && !open ? (
         <button
           type="button"
@@ -670,6 +670,39 @@ function ProductPicker({
   );
 }
 
+/** One setting of the page at a glance: what it is, its value, and how to change it. */
+function SettingTile({
+  icon,
+  label,
+  value,
+  note,
+  actions,
+  children,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  note?: ReactNode;
+  actions?: ReactNode;
+  /** What opens below when the setting is being changed. */
+  children?: ReactNode;
+}) {
+  return (
+    <Card className="p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-ink-500">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-ink-500">{label}</div>
+          <div className="mt-0.5 text-lg font-semibold leading-snug tabular-nums text-ink-900">{value}</div>
+          {note && <div className="mt-0.5 text-sm text-ink-500">{note}</div>}
+        </div>
+      </div>
+      {actions && <div className="mt-3 flex flex-wrap gap-2 pl-[3.25rem]">{actions}</div>}
+      {children && <div className="mt-4 border-t border-slate-100 pt-4">{children}</div>}
+    </Card>
+  );
+}
+
 function OrdersToFix({
   orders,
   products,
@@ -687,16 +720,18 @@ function OrdersToFix({
   const [all, setAll] = useState(false);
   const shown = all ? orders : orders.slice(0, FIX_SHOWN);
   return (
-    <Card className="overflow-hidden border-amber-200">
-      <div className="flex flex-wrap items-start gap-3 bg-amber-50 px-5 py-4">
-        <AlertTriangle width={20} height={20} className="mt-0.5 shrink-0 text-amber-700" />
+    <Card className="overflow-hidden">
+      <div className="flex items-start gap-3 border-b border-amber-100 bg-amber-50/70 px-4 py-4 sm:px-5">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
+          <AlertTriangle width={20} height={20} />
+        </span>
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-amber-950">
+          <h2 className="text-base font-semibold text-ink-900">
             {orders.length} {orders.length === 1 ? 'order needs' : 'orders need'} a product
           </h2>
-          <p className="text-sm text-amber-900">
-            The model the seller wrote is not on your list, so the profit leaves {orders.length === 1 ? 'it' : 'them'} out. Pick the
-            product, or add the model as a new product.
+          <p className="mt-0.5 text-sm text-ink-600">
+            The seller wrote a model that is not on your list, so the profit leaves {orders.length === 1 ? 'it' : 'them'} out. Pick the
+            product it is, or add the model as a new product.
           </p>
         </div>
       </div>
@@ -706,13 +741,18 @@ function OrdersToFix({
           const pick = picks[o.id] ?? guess?.key ?? '';
           const product = pick ? products.find((p) => p.key === pick && p.cost) : undefined;
           return (
-            <li key={o.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
-              <div className="min-w-0 flex-1 basis-56">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-sm font-bold text-ink-900">{o.itemModel.trim() || 'No model written'}</span>
+            <li
+              key={o.id}
+              className="grid gap-3 px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_auto] md:items-start md:gap-4"
+            >
+              <div className="min-w-0 md:pt-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-sm font-bold text-ink-900">
+                    {o.itemModel.trim() || 'No model written'}
+                  </span>
                   {o.itemCategory && <bdi className="truncate text-xs text-ink-500">{o.itemCategory}</bdi>}
                 </div>
-                <div className="text-xs text-ink-500">
+                <div className="mt-1 text-xs text-ink-500">
                   #{o.orderNo} · {format(new Date(o.createdAt), 'd MMM')} · <bdi>{o.sellerName || 'Seller'}</bdi> ·{' '}
                   <b className="tabular-nums text-ink-700">{iqd(o.totalPrice)}</b> IQD{(o.quantity || 1) > 1 && ` · ${o.quantity} pieces`}
                 </div>
@@ -724,12 +764,12 @@ function OrdersToFix({
                 suggested={guess?.key}
                 onChange={(key) => setPicks((p) => ({ ...p, [o.id]: key }))}
               />
-              <div className="flex gap-2">
-                <Button size="sm" disabled={!product || busy} leftIcon={<Check width={15} height={15} />} onClick={() => product && onFix(o, product.key)}>
+              <div className="flex flex-wrap gap-2">
+                <Button className="h-10" disabled={!product || busy} leftIcon={<Check width={15} height={15} />} onClick={() => product && onFix(o, product.key)}>
                   Save
                 </Button>
                 {modelKey(o.itemModel) && (
-                  <Button size="sm" variant="outline" leftIcon={<Plus width={15} height={15} />} onClick={() => onAdd(o.itemModel.trim())}>
+                  <Button className="h-10" variant="outline" leftIcon={<Plus width={15} height={15} />} onClick={() => onAdd(o.itemModel.trim())}>
                     Add as product
                   </Button>
                 )}
@@ -760,6 +800,7 @@ function DollarRateForAll({
   busy,
   storesDollars,
   onApply,
+  onWholesale,
 }: {
   products: ModelCost[];
   prices: Map<string, DollarPrice>;
@@ -770,6 +811,8 @@ function DollarRateForAll({
   /** False until social-profit.sql is run again: dollars typed by hand are then not kept. */
   storesDollars: boolean;
   onApply: (rate: number) => void;
+  /** Opens the 2026 wholesale price list. */
+  onWholesale: () => void;
 }) {
   const [per100, setPer100] = useState(iqd(rateNow * 100));
   const rate = (parseIqd(per100) ?? 0) / 100;
@@ -781,28 +824,39 @@ function DollarRateForAll({
   });
   const example = changes[0];
   return (
-    <Card className="px-4 py-3 sm:px-5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        <DollarSign width={18} height={18} className="shrink-0 text-ink-400" />
-        <span className="min-w-0 flex-1 text-ink-600">
-          Dollar rate <b className="text-ink-900">100 $ = {iqd(rateNow * 100)} IQD</b> · {prices.size}{' '}
-          {prices.size === 1 ? 'product is' : 'products are'} priced in dollars
-        </span>
-        {!open && (
-          <button
-            type="button"
-            onClick={() => {
-              setPer100(iqd(rateNow * 100));
-              setOpen(true);
-            }}
-            className="font-semibold text-brand-700 hover:underline"
-          >
-            Change for all
-          </button>
-        )}
-      </div>
+    <SettingTile
+      icon={<DollarSign width={20} height={20} />}
+      label="Dollar rate"
+      value={`100 $ = ${iqd(rateNow * 100)} IQD`}
+      note={
+        prices.size
+          ? `${prices.size} ${prices.size === 1 ? 'product is' : 'products are'} priced in dollars`
+          : 'No product is priced in dollars yet'
+      }
+      actions={
+        !open && (
+          <>
+            {prices.size > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setPer100(iqd(rateNow * 100));
+                  setOpen(true);
+                }}
+              >
+                Change for all
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={onWholesale}>
+              Wholesale list 2026
+            </Button>
+          </>
+        )
+      }
+    >
       {open && (
-        <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+        <div className="space-y-3">
           <label className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-semibold text-ink-900">New rate for all</span>
             <span className="text-ink-600">100 $ =</span>
@@ -851,7 +905,7 @@ function DollarRateForAll({
           </div>
         </div>
       )}
-    </Card>
+    </SettingTile>
   );
 }
 
@@ -1321,9 +1375,6 @@ export function ProductsPage() {
 
   const addButton = (
     <div className="flex flex-wrap justify-center gap-2">
-      <Button variant="secondary" leftIcon={<DollarSign width={17} height={17} />} onClick={() => setWholesaleOpen(true)}>
-        Wholesale prices 2026
-      </Button>
       <Link to={paths.profitAddProducts} className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 transition-colors hover:bg-slate-50">
         <ImageIcon width={17} height={17} /> Add from pictures
       </Link>
@@ -1374,33 +1425,52 @@ export function ProductsPage() {
               ))}
             </datalist>
 
-            {/* Which orders count. */}
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-card px-4 py-3 text-sm">
-              <CalendarDays width={18} height={18} className="shrink-0 text-ink-400" />
-              {startEdit !== null ? (
-                <>
-                  <span className="text-ink-600">Count orders from</span>
-                  <input type="date" aria-label="Count orders from" className={cn(field, 'w-auto')} value={startEdit} max={today()} onChange={(e) => setStartEdit(e.target.value)} />
-                  <Button size="sm" disabled={!startEdit || busy} onClick={() => void saveStart(startEdit)}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setStartEdit(null)}>
-                    Cancel
-                  </Button>
-                </>
-              ) : profit.startDate ? (
-                <>
-                  <span className="min-w-0 flex-1 text-ink-600">
-                    Profit counts orders from <b className="text-ink-900">{format(parseISO(profit.startDate), 'd MMM yyyy')}</b>. Older orders
-                    are not counted.
-                  </span>
-                  <button type="button" onClick={() => setStartEdit(profit.startDate)} className="font-semibold text-brand-700 hover:underline">
-                    Change
-                  </button>
-                </>
-              ) : (
-                <span className="text-ink-600">Profit starts counting orders on the day you add your first product. Older orders are not counted.</span>
-              )}
+            {/* Which orders count, and the dollar rate — side by side. */}
+            <div className="grid gap-3 md:grid-cols-2 md:items-start">
+              <SettingTile
+                icon={<CalendarDays width={20} height={20} />}
+                label="Profit counts orders from"
+                value={profit.startDate ? format(parseISO(profit.startDate), 'd MMM yyyy') : 'Your first product’s day'}
+                note="Older orders are not counted."
+                actions={
+                  startEdit === null &&
+                  profit.startDate && (
+                    <Button size="sm" variant="outline" onClick={() => setStartEdit(profit.startDate)}>
+                      Change
+                    </Button>
+                  )
+                }
+              >
+                {startEdit !== null && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      aria-label="Count orders from"
+                      className={cn(field, 'max-w-56')}
+                      value={startEdit}
+                      max={today()}
+                      onChange={(e) => setStartEdit(e.target.value)}
+                    />
+                    <Button disabled={!startEdit || busy} onClick={() => void saveStart(startEdit)}>
+                      Save
+                    </Button>
+                    <Button variant="ghost" onClick={() => setStartEdit(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </SettingTile>
+              <DollarRateForAll
+                products={products}
+                prices={dollars.prices}
+                rateNow={rateNow}
+                open={rateOpen}
+                setOpen={setRateOpen}
+                busy={busy}
+                storesDollars={getProfitStore().storesDollars()}
+                onApply={(rate) => void applyRateToAll(rate)}
+                onWholesale={() => setWholesaleOpen(true)}
+              />
             </div>
 
             {wholesaleNeeded > 0 && !wholesaleOpen && (
@@ -1422,19 +1492,6 @@ export function ProductsPage() {
                   </Button>
                 </div>
               </div>
-            )}
-
-            {dollars.prices.size > 0 && (
-              <DollarRateForAll
-                products={products}
-                prices={dollars.prices}
-                rateNow={rateNow}
-                open={rateOpen}
-                setOpen={setRateOpen}
-                busy={busy}
-                storesDollars={getProfitStore().storesDollars()}
-                onApply={(rate) => void applyRateToAll(rate)}
-              />
             )}
 
             {wholesaleOpen && (

@@ -291,7 +291,7 @@ insert statement for pointing the feature at the account UUID directly.
 - **Change a model number** — editing a product, the model can change too
   (not to one already on the list). Orders already sold under the old model
   keep their cost.
-- **Wholesale prices 2026** (button on Products) — the 110 models of the
+- **Wholesale list 2026** (in the *Dollar rate* box on Products) — the 110 models of the
   2026 wholesale (jumla) price list with their dollar price, read by
   [`scripts/import-wholesale-2026.py`](scripts/import-wholesale-2026.py) into
   `src/services/catalog/wholesale2026.json`. Type today's rate
