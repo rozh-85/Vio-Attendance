@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { AdminLayout } from '@/components/AdminLayout';
@@ -375,6 +375,22 @@ function guessProduct(model: string, products: ModelCost[]): ModelCost | undefin
       bestLength = length;
     } else if (length === bestLength) best.push(p);
   }
+  return best.length === 1 ? best[0] : undefined;
+}
+
+/**
+ * The product an order surely is, to be matched without asking: the seller
+ * wrote a product's model with only letters after it — a colour, as V-657W or
+ * V.801BLACK — and no other product fits as well. Anything less sure stays a
+ * suggestion for the owner to save.
+ */
+function sureProduct(model: string, products: ModelCost[]): ModelCost | undefined {
+  const key = modelKey(model);
+  const fits = products.filter(
+    (p) => p.cost && p.key.length >= 4 && key.startsWith(p.key) && /^[A-Z]{1,5}$/.test(key.slice(p.key.length)),
+  );
+  const longest = Math.max(0, ...fits.map((p) => p.key.length));
+  const best = fits.filter((p) => p.key.length === longest);
   return best.length === 1 ? best[0] : undefined;
 }
 
@@ -756,6 +772,7 @@ function WholesalePrices({
 export function ProductsPage() {
   const navigate = useNavigate();
   const { orders, profit, error, loading, reload, update } = useProfitData();
+  const autoDone = useRef(false);
   const [adding, setAdding] = useState<{ prefill: string } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -774,7 +791,7 @@ export function ProductsPage() {
   useEffect(() => {
     clearProfitNotice();
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 4500);
+    const timer = window.setTimeout(() => setNotice(null), notice.includes('wholesale prices') || notice.includes('matched') ? 15000 : 4500);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
@@ -909,6 +926,50 @@ export function ProductsPage() {
       setDeleting(null);
       return `${label} deleted`;
     });
+
+  // Once the page has its data: every product of the wholesale list that is
+  // on the owner's list without a cost (or with 0) gets the wholesale cost at
+  // today's rate, and every order whose model is surely one product (its
+  // model plus a colour letter) is counted as that product. Costs the owner
+  // wrote are never touched, and no product is added or brought back.
+  useEffect(() => {
+    if (autoDone.current || !profit || !orders) return;
+    autoDone.current = true;
+    void run(async () => {
+      const store = getProfitStore();
+      const filled: ModelValues[] = [];
+      for (const w of wholesale2026()) {
+        const mine = profit.models[w.key];
+        if (mine && !mine.cost)
+          filled.push({ key: mine.key, label: mine.label, name: mine.name, image: mine.image, cost: Math.round(w.usd * DEFAULT_USD_RATE), category: mine.category });
+      }
+      if (filled.length) await store.saveModels(filled);
+      const now = new Date().toISOString();
+      const models = { ...profit.models };
+      for (const m of filled) models[m.key] = { ...m, createdAt: profit.models[m.key]?.createdAt ?? now, updatedAt: now };
+      const list = Object.values(models);
+      const matched: Record<string, number> = {};
+      for (const o of ordersToFix(orders, { ...profit, models })) {
+        const product = sureProduct(o.itemModel, list);
+        if (product?.cost) matched[o.id] = product.cost * (o.quantity || 1);
+      }
+      const count = Object.keys(matched).length;
+      if (count) await store.setOrderCosts(matched);
+      if (!filled.length && !count) return '';
+      update((d) => ({
+        ...d,
+        models: { ...d.models, ...Object.fromEntries(filled.map((m) => [m.key, models[m.key]])) },
+        orderCosts: { ...d.orderCosts, ...matched },
+      }));
+      return [
+        filled.length ? `${filled.length} ${filled.length === 1 ? 'cost' : 'costs'} added from the wholesale prices (100 $ = ${iqd(DEFAULT_USD_RATE * 100)} IQD)` : '',
+        count ? `${count} ${count === 1 ? 'order' : 'orders'} matched to ${count === 1 ? 'its' : 'their'} product` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    });
+    // Runs once (autoDone), when the data first arrives.
+  }, [profit, orders]);
 
   const fixOrder = (order: SalesOrder, key: string) =>
     run(async () => {
