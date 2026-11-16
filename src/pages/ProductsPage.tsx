@@ -343,6 +343,160 @@ function ProductRow({
 }
 
 /** Counted orders whose model matches no product: the owner says which product each one is. */
+/** Does a product match what was typed in a search box? Model, name or type. */
+function matches(p: Pick<ModelCost, 'key' | 'label' | 'name' | 'category'>, query: string): boolean {
+  const text = query.trim().toLowerCase();
+  if (!text) return true;
+  const key = modelKey(query);
+  return (
+    (!!key && p.key.includes(key)) ||
+    p.label.toLowerCase().includes(text) ||
+    p.name.toLowerCase().includes(text) ||
+    p.category.toLowerCase().includes(text)
+  );
+}
+
+/**
+ * The product a seller most likely meant: the one whose model the seller's
+ * model starts with, as V-657W (a colour letter added) is V-657 — when only
+ * one product fits that well.
+ */
+function guessProduct(model: string, products: ModelCost[]): ModelCost | undefined {
+  const key = modelKey(model);
+  if (key.length < 4) return undefined;
+  let best: ModelCost[] = [];
+  let bestLength = 0;
+  for (const p of products) {
+    if (!p.cost || p.key.length < 4) continue;
+    if (!(key.startsWith(p.key) || p.key.startsWith(key))) continue;
+    const length = Math.min(p.key.length, key.length);
+    if (length > bestLength) {
+      best = [p];
+      bestLength = length;
+    } else if (length === bestLength) best.push(p);
+  }
+  return best.length === 1 ? best[0] : undefined;
+}
+
+/**
+ * A product picker you search instead of scroll: type a few letters of the
+ * model or the name and pick from what is left. Products without a cost are
+ * shown but cannot be picked.
+ */
+function ProductPicker({
+  products,
+  value,
+  onChange,
+  label,
+  suggested,
+}: {
+  products: ModelCost[];
+  value: string;
+  onChange: (key: string) => void;
+  label: string;
+  /** Shown as "Suggested" while it is the pick. */
+  suggested?: string;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const picked = products.find((p) => p.key === value);
+  const list = useMemo(() => products.filter((p) => matches(p, query)), [products, query]);
+  const choose = (p: ModelCost) => {
+    onChange(p.key);
+    setQuery('');
+    setOpen(false);
+  };
+  return (
+    <div className="relative min-w-0 flex-1 basis-64 scroll-mt-24 [&_input]:scroll-mt-24">
+      {picked && !open ? (
+        <button
+          type="button"
+          aria-label={label}
+          onClick={() => setOpen(true)}
+          className={cn(field, 'flex items-center gap-2 text-left')}
+        >
+          <Photo model={picked.label} image={picked.image} className="size-7" />
+          <span className="min-w-0 flex-1 truncate">
+            <b className="font-semibold">{picked.label}</b>
+            {picked.name && <span className="text-ink-500"> · {picked.name}</span>}
+          </span>
+          {picked.key === suggested && <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Suggested</span>}
+          <Search width={15} height={15} className="shrink-0 text-ink-400" />
+        </button>
+      ) : (
+        <span className="relative block">
+          <Search width={16} height={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+          <input
+            aria-label={label}
+            autoFocus={open}
+            autoComplete="off"
+            placeholder="Search model or name — e.g. 657"
+            className={cn(field, 'pl-9')}
+            value={query}
+            onFocus={(e) => {
+              setOpen(true);
+              // On a phone the keyboard covers the lower half: bring the box
+              // up so the matches below it stay in sight.
+              const box = e.currentTarget;
+              window.setTimeout(() => box.scrollIntoView({ block: 'start', behavior: 'smooth' }), 300);
+            }}
+            onBlur={() => setOpen(false)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+            }}
+            onKeyDown={(e) => {
+              const first = list.find((p) => p.cost);
+              if (e.key === 'Enter' && first) {
+                e.preventDefault();
+                choose(first);
+              }
+              if (e.key === 'Escape') setOpen(false);
+            }}
+          />
+        </span>
+      )}
+      {open && (
+        <ul
+          role="listbox"
+          aria-label={label}
+          // Keep the search box focused while a product is tapped.
+          onPointerDown={(e) => e.preventDefault()}
+          className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-card py-1 shadow-lg"
+        >
+          {list.length === 0 ? (
+            <li className="px-3 py-3 text-sm text-ink-500">No product matches “{query.trim()}”.</li>
+          ) : (
+            list.map((p) => (
+              <li key={p.key}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={p.key === value}
+                  disabled={!p.cost}
+                  onClick={() => choose(p)}
+                  className={cn(
+                    'flex w-full items-center gap-3 px-3 py-2 text-left text-sm',
+                    p.cost ? 'hover:bg-slate-50' : 'cursor-not-allowed opacity-50',
+                    p.key === value && 'bg-brand-50',
+                  )}
+                >
+                  <Photo model={p.label} image={p.image} className="size-8" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-ink-900">{p.label}</span>
+                    <span className="block truncate text-xs text-ink-500">{p.name || p.category || '—'}</span>
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-ink-500">{p.cost ? `${iqd(p.cost)} IQD` : 'no cost yet'}</span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function OrdersToFix({
   orders,
   products,
@@ -375,8 +529,9 @@ function OrdersToFix({
       </div>
       <ul className="divide-y divide-slate-100">
         {shown.map((o) => {
-          const pick = picks[o.id] ?? '';
-          const product = pick ? products.find((p) => p.key === pick) : undefined;
+          const guess = guessProduct(o.itemModel, products);
+          const pick = picks[o.id] ?? guess?.key ?? '';
+          const product = pick ? products.find((p) => p.key === pick && p.cost) : undefined;
           return (
             <li key={o.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
               <div className="min-w-0 flex-1 basis-56">
@@ -389,21 +544,13 @@ function OrdersToFix({
                   <b className="tabular-nums text-ink-700">{iqd(o.totalPrice)}</b> IQD{(o.quantity || 1) > 1 && ` · ${o.quantity} pieces`}
                 </div>
               </div>
-              <select
-                aria-label={`Product for order #${o.orderNo}`}
-                className={cn(field, 'w-auto min-w-44')}
+              <ProductPicker
+                label={`Product for order #${o.orderNo}`}
+                products={products}
                 value={pick}
-                onChange={(e) => setPicks((p) => ({ ...p, [o.id]: e.target.value }))}
-              >
-                <option value="">Which product?</option>
-                {products.map((p) => (
-                  <option key={p.key} value={p.key} disabled={p.cost === null}>
-                    {p.label}
-                    {p.name ? ` — ${p.name}` : ''}
-                    {p.cost === null ? ' (no cost yet)' : ''}
-                  </option>
-                ))}
-              </select>
+                suggested={guess?.key}
+                onChange={(key) => setPicks((p) => ({ ...p, [o.id]: key }))}
+              />
               <div className="flex gap-2">
                 <Button size="sm" disabled={!product || busy} leftIcon={<Check width={15} height={15} />} onClick={() => product && onFix(o, product.key)}>
                   Save
@@ -427,12 +574,6 @@ function OrdersToFix({
   );
 }
 
-/**
- * The owner's products: a short list, each with what one piece costs. Sellers
- * write the model and their own price on each order; an order whose model is
- * on this list gets the product's cost, so its profit works itself out.
- * Orders from before the start day are not counted.
- */
 /** Where a wholesale price stands against the owner's own list. */
 type WholesaleState = 'new' | 'no-cost' | 'same' | 'different';
 
@@ -468,7 +609,7 @@ function WholesalePrices({
       wholesale2026().map((w) => {
         const mine = models[w.key];
         const cost = Math.round(w.usd * rate);
-        const state: WholesaleState = !mine ? 'new' : mine.cost === null ? 'no-cost' : mine.cost === cost ? 'same' : 'different';
+        const state: WholesaleState = !mine ? 'new' : !mine.cost ? 'no-cost' : mine.cost === cost ? 'same' : 'different';
         return { ...w, cost, mine, state, image: mine?.image || catalogItem(w.key)?.image || '' };
       }),
     [models, rate],
@@ -606,6 +747,12 @@ function WholesalePrices({
   );
 }
 
+/**
+ * The owner's products: a short list, each with what one piece costs. Sellers
+ * write the model and their own price on each order; an order whose model is
+ * on this list gets the product's cost, so its profit works itself out.
+ * Orders from before the start day are not counted.
+ */
 export function ProductsPage() {
   const navigate = useNavigate();
   const { orders, profit, error, loading, reload, update } = useProfitData();
@@ -614,6 +761,7 @@ export function ProductsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [wholesaleOpen, setWholesaleOpen] = useState(false);
+  const [listQuery, setListQuery] = useState('');
   const [busy, setBusy] = useState(false);
   // The "added" message from Add from pictures shows here once.
   const [notice, setNotice] = useState(readProfitNotice);
@@ -635,12 +783,19 @@ export function ProductsPage() {
     [profit],
   );
   const taken = useMemo(() => new Set(products.map((p) => p.key)), [products]);
+  const shownProducts = useMemo(() => products.filter((p) => matches(p, listQuery)), [products, listQuery]);
   const stats = useMemo(
     () => new Map(orders && profit ? summarizeProfit(orders, profit, '', '').byModel.map((r) => [r.key, r]) : []),
     [orders, profit],
   );
   const toFix = useMemo(() => (orders && profit ? ordersToFix(orders, profit) : []), [orders, profit]);
   const noCost = products.filter((p) => p.cost === null).length;
+  // Products of the wholesale list that still need a cost: not on the list
+  // yet, or on it without a cost (or with 0).
+  const wholesaleNeeded = useMemo(
+    () => wholesale2026().filter((w) => !profit?.models[w.key]?.cost).length,
+    [profit],
+  );
 
   async function run(action: () => Promise<string>) {
     setBusy(true);
@@ -686,8 +841,9 @@ export function ProductsPage() {
         if (!mine) {
           list.push({ key: w.key, label: w.model, name: w.name, image: '', cost, category: w.type });
           added += 1;
-        } else if (mine.cost === null || (replace && mine.cost !== cost)) {
-          if (mine.cost === null) filled += 1;
+        } else if (!mine.cost || (replace && mine.cost !== cost)) {
+          // A cost of 0 is a cost nobody wrote yet, so it is filled in too.
+          if (!mine.cost) filled += 1;
           else {
             Object.assign(keep, costsToKeep(orders, profit, w.key));
             changed += 1;
@@ -856,6 +1012,27 @@ export function ProductsPage() {
               )}
             </div>
 
+            {wholesaleNeeded > 0 && !wholesaleOpen && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:flex sm:items-center sm:gap-4 sm:px-5">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-amber-900">
+                    {wholesaleNeeded} {wholesaleNeeded === 1 ? 'product needs a cost' : 'products need a cost'}
+                  </p>
+                  <p className="mt-0.5 text-sm text-amber-800">
+                    From the 2026 wholesale prices at 100 $ = {iqd(DEFAULT_USD_RATE * 100)} IQD — e.g. V-400 is $83 = {iqd(83 * DEFAULT_USD_RATE)} IQD.
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 sm:mt-0 sm:shrink-0">
+                  <Button disabled={busy} loading={busy} leftIcon={<Check width={17} height={17} />} onClick={() => void applyWholesale(DEFAULT_USD_RATE, false)}>
+                    Add {wholesaleNeeded} {wholesaleNeeded === 1 ? 'cost' : 'costs'}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setWholesaleOpen(true)}>
+                    Change the rate
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {wholesaleOpen && (
               <WholesalePrices models={profit.models} busy={busy} onApply={(rate, replace) => void applyWholesale(rate, replace)} onClose={() => setWholesaleOpen(false)} />
             )}
@@ -917,6 +1094,19 @@ export function ProductsPage() {
                     </span>
                   )}
                 </div>
+                <div className="px-5 pt-3">
+                  <span className="relative block sm:max-w-sm">
+                    <Search width={16} height={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+                    <input
+                      type="search"
+                      aria-label="Search products"
+                      placeholder="Search model or name — e.g. 657"
+                      className={cn(field, 'pl-9')}
+                      value={listQuery}
+                      onChange={(e) => setListQuery(e.target.value)}
+                    />
+                  </span>
+                </div>
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -932,7 +1122,14 @@ export function ProductsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {products.map((p) => (
+                      {shownProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-8 text-center text-sm text-ink-500">
+                            No product matches “{listQuery.trim()}”.
+                          </td>
+                        </tr>
+                      )}
+                      {shownProducts.map((p) => (
                         <ProductRow
                           key={`${p.key}-${p.updatedAt}`}
                           product={p}

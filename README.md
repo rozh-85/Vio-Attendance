@@ -285,7 +285,9 @@ insert statement for pointing the feature at the account UUID directly.
   (100 $ = 169,000 IQD to start with): products not on the list are added with
   their cost, products without a cost get one, and costs you wrote yourself are
   only changed when you tick the box. It also says which products have no
-  picture. Run it again with a new rate when the dollar moves.
+  picture. Run it again with a new rate when the dollar moves. While products
+  of the list have no cost (or 0), a box at the top of Products fills them all
+  in with one press. The product list has a search box.
 - **Sellers write the model and their own price** — on the order form
   (`/orders`), nothing fills in by itself. Your products are suggested as the
   seller writes the model, and a model on your list is ticked green.
@@ -295,7 +297,9 @@ insert statement for pointing the feature at the account UUID directly.
 - **A new cost is for new orders** — when a product's cost changes, or the
   product is deleted, the orders already sold keep the cost they had.
 - **Orders to fix** — a counted order whose model is not on your list shows on
-  the Products page: pick the product it is, or add the model as a product.
+  the Products page: pick the product it is, or add the model as a product. Pick the product by
+  searching its model or name; a model with a colour letter added (V-657W,
+  V.655B) is matched to its product (V-657, V-655) as a suggestion.
 - **The Profit page** shows sales, goods, sponsors and net profit for a
   period, profit or sales by day, how sales become profit, the best-selling
   models and the sponsors, and exports it all to Excel.
