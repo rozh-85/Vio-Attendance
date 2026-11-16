@@ -161,6 +161,7 @@ export function createDefaultHrWorkspace(): HrWorkspace {
     rules: defaultRules,
     adjustments: [],
     payrollEntries: [],
+    deductions: [],
     performanceReviews: [],
     overtime: [],
     sectors: [
@@ -182,6 +183,10 @@ export function createDefaultHrWorkspace(): HrWorkspace {
     settings: {
       currency: "IQD",
       monthlyHours: 208,
+      // 9 to 4, Saturday to Thursday: Iraq's week, Friday off.
+      workStart: "09:00",
+      workEnd: "16:00",
+      workDays: ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu"],
       overtimeMultiplier: 1.5,
       taxPercent: 0,
       insurancePercent: 0,
@@ -211,6 +216,7 @@ function mergeWorkspace(
     rules: input?.rules?.length ? input.rules : defaults.rules,
     adjustments: input?.adjustments ?? defaults.adjustments,
     payrollEntries: input?.payrollEntries ?? defaults.payrollEntries,
+    deductions: input?.deductions ?? defaults.deductions,
     performanceReviews:
       input?.performanceReviews ?? defaults.performanceReviews,
     overtime: input?.overtime ?? defaults.overtime,

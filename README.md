@@ -218,6 +218,31 @@ rules and calculations, bonuses and penalties, overtime, performance reviews,
 recruitment, work locations and geofences, ZK iFace 1000 CSV imports, backups,
 CSV reports and an audit log.
 
+### Payroll
+
+- **Work day** — everyone without a shift assignment or work cycle works
+  **9:00–16:00, Saturday to Thursday** (*Work time & payroll settings* on the
+  Payroll page changes it). The attendance register uses the same hours.
+- **Salary rates** — the monthly salary is divided by the person's work time
+  that month: per day, per hour and per minute. The profile editor shows them
+  under the salary as you type it.
+- **Deductions need approval** — late arrival, early leave (both after the
+  grace minutes), absence and unpaid holidays are found in the check-ins and
+  priced at the minute rate, but they only come off a salary once approved.
+  The approver can lower the amount and add an optional note (e.g. "late").
+  A deduction typed in by hand counts straight away.
+- **Payslips** — *Draft → Approved → Paid*. An approved or paid payslip is
+  frozen: recalculating, new deductions, bonuses and overtime cannot change
+  it until it is reopened. Each payslip prints (or saves as PDF) on its own
+  page, with the rates and every deduction listed.
+- Overtime in the check-ins can be added to *Overtime approvals*; it is paid
+  at the hour rate × the overtime multiplier. Someone who joins mid-month is
+  paid for the work time after their join date. Net pay never goes below zero.
+
+The logic lives in [`logic.ts`](src/services/hr/logic.ts) and
+[`payslip.ts`](src/services/hr/payslip.ts); the page is
+[`HrPayroll.tsx`](src/components/hr/HrPayroll.tsx).
+
 For a shared deployment, run [`supabase/hr.sql`](supabase/hr.sql) after the
 main schema. It adds revision-safe HR JSON persistence and a private
 `hr-documents` storage bucket. Local development stores the same workspace in

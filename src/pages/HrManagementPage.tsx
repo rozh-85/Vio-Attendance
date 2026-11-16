@@ -31,16 +31,23 @@ import {
   sortDepartments,
 } from "@/services/hr/store";
 import {
+  attendanceOvertime,
   attendanceRows,
   approvalChain,
   calculatePayroll,
   csvDownload,
+  formatMinutes,
   hierarchyError,
   leaveBalance,
   localDate,
+  monthRows,
+  payslipLocked,
+  periodDeductions,
+  salaryRates,
   validateLeave,
   weekdays,
 } from "@/services/hr/logic";
+import { fmt } from "@/services/hr/payslip";
 import {
   Collection,
   Editor,
@@ -60,6 +67,7 @@ import { readCheckInLocation } from "@/utils/geolocation";
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
+import { HrPayroll, monthLabel } from "@/components/hr/HrPayroll";
 import { HrCorridor, HrLobby, hrFloor, type RoomSign } from "@/components/hr/HrBuilding";
 import {
   hrTabLabel,
@@ -125,7 +133,6 @@ const employmentOptions = options([
   "Intern",
   "Temporary",
 ]);
-const requestOptions = options(["pending", "approved", "rejected"]);
 const stageOptions = options([
   "New",
   "Screening",
@@ -135,7 +142,6 @@ const stageOptions = options([
   "Rejected",
 ]);
 const leaveUnitOptions = options(["days", "hours"]);
-const adjustmentOptions = options(["bonus", "penalty"]);
 
 function profileValues(p: HrEmployeeProfile): Values {
   return { ...p, documents: p.documents.map((d) => d.title).join(", ") };
@@ -145,6 +151,19 @@ function employeeName(employees: Employee[], idValue?: string): string {
 }
 function money(value: number, currency = "IQD"): string {
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)} ${currency}`;
+}
+/**
+ * The salary divided by this month's work time — what a day, an hour and a
+ * minute of it are worth — for under the salary field.
+ */
+function salaryHint(w: HrWorkspace, employeeId: string, salary: number): string {
+  const month = localDate().slice(0, 7);
+  if (salary <= 0)
+    return `Divided by the work time (${w.settings.workStart}–${w.settings.workEnd} on work days) to get the rate for a day, an hour and a minute.`;
+  const r = salaryRates(w, employeeId, month, salary);
+  if (!r.workMinutes) return "There is no work time this month to divide the salary by.";
+  const c = w.settings.currency;
+  return `${fmt(r.perDay, c)} a day · ${fmt(r.perHour, c)} an hour · ${fmt(r.perMinute, c)} a minute — ${r.workDays} work days, ${Math.round((r.workMinutes / 60) * 10) / 10} hours in ${monthLabel(month)}.`;
 }
 function downloadJson(name: string, value: unknown) {
   const blob = new Blob([JSON.stringify(value, null, 2)], {
@@ -335,13 +354,41 @@ export function HrManagementPage() {
     () => attendanceRows(workspace, employees, attendance, today, today, legacyLeave),
     [workspace, employees, attendance, today, legacyLeave],
   );
-  const payroll = useMemo(() => {
+  const payrollRun = useMemo(() => {
     try {
-      return calculatePayroll(workspace, employees, period);
-    } catch {
-      return [];
+      return { rows: calculatePayroll(workspace, employees, period), error: "" };
+    } catch (err) {
+      return {
+        rows: [],
+        error: err instanceof Error ? err.message : "Payroll could not be calculated.",
+      };
     }
   }, [workspace, employees, period]);
+  const payroll = payrollRun.rows;
+  // The payroll month's register, read once for its deductions and overtime.
+  const payrollRows = useMemo(
+    () => monthRows(workspace, employees, attendance, period, legacyLeave),
+    [workspace, employees, attendance, period, legacyLeave],
+  );
+  // Deductions of a payslip that is already approved cannot be decided any
+  // more, so they are not counted as waiting.
+  const deductions = useMemo(
+    () =>
+      periodDeductions(workspace, payrollRows, period).filter(
+        (d) =>
+          d.status !== "pending" ||
+          !payslipLocked(workspace, d.employeeId, period),
+      ),
+    [workspace, payrollRows, period],
+  );
+  const overtimeFound = useMemo(
+    () =>
+      attendanceOvertime(workspace, payrollRows).filter(
+        (o) => !payslipLocked(workspace, o.employeeId, period),
+      ),
+    [workspace, payrollRows, period],
+  );
+  const waitingDeductions = deductions.filter((d) => d.status === "pending").length;
   // What each HR room shows on its door in the lobby and the corridor.
   const draftPayroll = workspace.payrollEntries
     .filter((p) => p.period === workspace.payrollPeriod)
@@ -369,7 +416,14 @@ export function HrManagementPage() {
       pendingRequests.length > 0
         ? { value: `${pendingRequests.length} waiting`, alert: true, count: pendingRequests.length }
         : { value: `${workspace.holidays.length} holidays` },
-    payroll: { value: draftPayroll ? money(draftPayroll, workspace.settings.currency) : workspace.payrollPeriod },
+    payroll:
+      waitingDeductions > 0
+        ? {
+            value: `${waitingDeductions} ${waitingDeductions === 1 ? "deduction" : "deductions"} to approve`,
+            alert: true,
+            count: waitingDeductions,
+          }
+        : { value: draftPayroll ? money(draftPayroll, workspace.settings.currency) : workspace.payrollPeriod },
     hiring: {
       value: `${workspace.candidates.length} ${workspace.candidates.length === 1 ? "candidate" : "candidates"}`,
     },
@@ -428,6 +482,8 @@ export function HrManagementPage() {
           type: "number",
           min: 0,
           required: true,
+          hint: (v) =>
+            salaryHint(workspace, profileEditor?.id ?? "", Number(v.baseSalary) || 0),
         },
         { key: "email", label: "Work email", type: "email" },
         { key: "bankAccount", label: "Bank account / IBAN" },
@@ -691,12 +747,15 @@ export function HrManagementPage() {
         />
       )}
       {tab === "payroll" && (
-        <Payroll
+        <HrPayroll
           workspace={workspace}
           employees={employees}
           period={period}
           setPeriod={setPeriod}
           payroll={payroll}
+          payrollError={payrollRun.error}
+          deductions={deductions}
+          overtimeFound={overtimeFound}
           commit={commit}
         />
       )}
@@ -721,6 +780,7 @@ export function HrManagementPage() {
           employees={employees}
           rows={currentRows}
           payroll={payroll}
+          period={period}
           commit={commit}
         />
       )}
@@ -1197,6 +1257,7 @@ function EmployeeDetails({
                                     info("Contract end", formatEmployeeDate(profile.contractEnd)),
                                     info("Work hours", profile.workHours),
                                     info("Monthly salary", profile.baseSalary ? money(profile.baseSalary, workspace.settings.currency) : "—"),
+                                    info("Salary rate", profile.baseSalary ? salaryHint(workspace, employee.id, profile.baseSalary).split(" — ")[0] : "—"),
                                     info("National ID", profile.nationalId),
                                     info("Bank account", profile.bankAccount),
                                   ]
@@ -1500,6 +1561,15 @@ function Time({
         `${r.checkIn ? new Date(r.checkIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} / ${r.checkOut ? new Date(r.checkOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}`,
     },
     { title: "Hours", render: (r) => r.hours },
+    {
+      title: "Late / early",
+      render: (r) =>
+        r.late || r.early
+          ? [r.late ? `${formatMinutes(r.late)} late` : "", r.early ? `${formatMinutes(r.early)} early` : ""]
+              .filter(Boolean)
+              .join(" · ")
+          : "—",
+    },
     { title: "Status", render: (r) => <Status>{r.status}</Status> },
   ];
   return (
@@ -2005,383 +2075,6 @@ function Leave({
   );
 }
 
-function Payroll({
-  workspace,
-  employees,
-  period,
-  setPeriod,
-  payroll,
-  commit,
-}: {
-  workspace: HrWorkspace;
-  employees: Employee[];
-  period: string;
-  setPeriod: (v: string) => void;
-  payroll: HrWorkspace["payrollEntries"];
-  commit: (m: (w: HrWorkspace) => HrWorkspace, a: string) => Promise<void>;
-}) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const adjustmentFields: Field[] = [
-    {
-      key: "employeeId",
-      label: "Employee",
-      type: "select",
-      options: employees.map((e) => ({ value: e.id, label: e.fullName })),
-      required: true,
-    },
-    {
-      key: "type",
-      label: "Type",
-      type: "select",
-      options: adjustmentOptions,
-      required: true,
-    },
-    { key: "amount", label: "Amount", type: "number", min: 0, required: true },
-    { key: "date", label: "Date", type: "date", required: true },
-    { key: "reason", label: "Reason", required: true },
-  ];
-  const overtimeFields: Field[] = [
-    {
-      key: "employeeId",
-      label: "Employee",
-      type: "select",
-      options: employees.map((e) => ({ value: e.id, label: e.fullName })),
-      required: true,
-    },
-    { key: "date", label: "Date", type: "date", required: true },
-    { key: "hours", label: "Hours", type: "number", min: 0, required: true },
-    { key: "reason", label: "Reason", required: true },
-    {
-      key: "status",
-      label: "Approval",
-      type: "select",
-      options: requestOptions,
-      required: true,
-    },
-  ];
-  const reviewFields: Field[] = [
-    {
-      key: "employeeId",
-      label: "Employee",
-      type: "select",
-      options: employees.map((e) => ({ value: e.id, label: e.fullName })),
-      required: true,
-    },
-    { key: "period", label: "Review period", type: "month", required: true },
-    {
-      key: "rating",
-      label: "Rating (1–5)",
-      type: "number",
-      min: 1,
-      max: 5,
-      step: 0.5,
-      required: true,
-    },
-    {
-      key: "status",
-      label: "Status",
-      type: "select",
-      options: options(["draft", "complete"]),
-      required: true,
-    },
-    { key: "notes", label: "Notes", type: "textarea" },
-  ];
-  const settingsFields: Field[] = [
-    {
-      key: "currency",
-      label: "Currency",
-      required: true,
-      hint: "Displayed beside every payroll figure.",
-    },
-    {
-      key: "monthlyHours",
-      label: "Monthly work hours",
-      type: "number",
-      min: 1,
-      required: true,
-    },
-    {
-      key: "overtimeMultiplier",
-      label: "Overtime multiplier",
-      type: "number",
-      min: 0,
-      step: 0.1,
-      required: true,
-    },
-    { key: "taxPercent", label: "Tax %", type: "number", min: 0, max: 100 },
-    {
-      key: "insurancePercent",
-      label: "Insurance %",
-      type: "number",
-      min: 0,
-      max: 100,
-    },
-    {
-      key: "approvalLevels",
-      label: "Leave approval levels",
-      type: "number",
-      min: 1,
-      max: 10,
-      required: true,
-    },
-  ];
-  const payrollCols: Column<HrWorkspace["payrollEntries"][number]>[] = [
-    { title: "Employee", render: (r) => employeeName(employees, r.employeeId) },
-    {
-      title: "Base",
-      render: (r) => money(r.baseSalary, workspace.settings.currency),
-    },
-    {
-      title: "Bonus / penalty",
-      render: (r) => (
-        <span>
-          {money(r.bonuses, workspace.settings.currency)} /{" "}
-          {money(r.penalties, workspace.settings.currency)}
-        </span>
-      ),
-    },
-    {
-      title: "OT",
-      render: (r) =>
-        `${r.overtimeHours}h × ${money(r.overtimeRate, workspace.settings.currency)}`,
-    },
-    {
-      title: "Deductions",
-      render: (r) =>
-        money(
-          (r.tax ?? 0) + (r.insurance ?? 0) + (r.unpaidDeduction ?? 0),
-          workspace.settings.currency,
-        ),
-    },
-    {
-      title: "Net",
-      render: (r) => (
-        <span className="font-bold">
-          {money(r.netSalary, workspace.settings.currency)}
-        </span>
-      ),
-    },
-    { title: "State", render: (r) => <Status>{r.status}</Status> },
-  ];
-  return (
-    <div className="space-y-5">
-      <Section
-        title="Payroll run"
-        description="Calculate draft payroll from salary, approved overtime, bonuses, penalties, unpaid leave, tax and insurance. Locked approved or paid rows are preserved."
-        action={
-          <div className="flex gap-2">
-            <Input
-              type="month"
-              aria-label="Payroll period"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="h-10 w-36"
-            />
-            <Button
-              size="sm"
-              onClick={() =>
-                void commit(
-                  (w) => ({
-                    ...w,
-                    payrollPeriod: period,
-                    payrollEntries: [
-                      ...w.payrollEntries.filter(
-                        (entry) => entry.period !== period,
-                      ),
-                      ...payroll,
-                    ],
-                  }),
-                  `Calculated payroll for ${period}`,
-                )
-              }
-            >
-              Calculate payroll
-            </Button>
-          </div>
-        }
-      >
-        <Table
-          rows={payroll}
-          columns={payrollCols}
-          empty="Add salary details to employee profiles, then calculate a payroll period."
-        />
-      </Section>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Collection
-          title="Adjustments"
-          description="One-time rewards and penalties feed into the selected payroll month."
-          rows={workspace.adjustments}
-          columns={[
-            {
-              title: "Employee",
-              render: (r) => employeeName(employees, r.employeeId),
-            },
-            { title: "Type", render: (r) => <Status>{r.type}</Status> },
-            {
-              title: "Amount",
-              render: (r) => money(r.amount, workspace.settings.currency),
-            },
-            { title: "Date", render: (r) => r.date },
-            { title: "Reason", render: (r) => r.reason },
-          ]}
-          fields={adjustmentFields}
-          defaults={{
-            id: "",
-            employeeId: "",
-            type: "bonus",
-            amount: 0,
-            date: date(),
-            reason: "",
-          }}
-          onSave={async (r) =>
-            commit(
-              (w) => ({
-                ...w,
-                adjustments: [...w.adjustments.filter((a) => a.id !== r.id), r],
-              }),
-              `Saved ${r.type} adjustment`,
-            )
-          }
-        />
-        <Collection
-          title="Overtime approvals"
-          description="Only approved overtime enters payroll when the approval rule is enabled."
-          rows={workspace.overtime}
-          columns={[
-            {
-              title: "Employee",
-              render: (r) => employeeName(employees, r.employeeId),
-            },
-            { title: "Date", render: (r) => r.date },
-            { title: "Hours", render: (r) => r.hours },
-            { title: "Reason", render: (r) => r.reason },
-            { title: "Status", render: (r) => <Status>{r.status}</Status> },
-          ]}
-          fields={overtimeFields}
-          defaults={{
-            id: "",
-            employeeId: "",
-            date: date(),
-            hours: 1,
-            reason: "",
-            status: "pending",
-          }}
-          onSave={async (r) =>
-            commit(
-              (w) => ({
-                ...w,
-                overtime: [...w.overtime.filter((o) => o.id !== r.id), r],
-              }),
-              `Saved overtime for ${employeeName(employees, r.employeeId)}`,
-            )
-          }
-        />
-      </div>
-      <Collection
-        title="Performance reviews"
-        description="Store periodic appraisals with a rating, notes and completion state."
-        rows={workspace.performanceReviews}
-        columns={[
-          {
-            title: "Employee",
-            render: (r) => employeeName(employees, r.employeeId),
-          },
-          { title: "Period", render: (r) => r.period },
-          { title: "Rating", render: (r) => `${r.rating}/5` },
-          { title: "Status", render: (r) => <Status>{r.status}</Status> },
-          { title: "Notes", render: (r) => r.notes || "—" },
-        ]}
-        fields={reviewFields}
-        defaults={{
-          id: "",
-          employeeId: "",
-          period,
-          rating: 3,
-          notes: "",
-          status: "draft",
-        }}
-        onSave={async (r) =>
-          commit(
-            (w) => ({
-              ...w,
-              performanceReviews: [
-                ...w.performanceReviews.filter((p) => p.id !== r.id),
-                r,
-              ],
-            }),
-            `Saved performance review for ${employeeName(employees, r.employeeId)}`,
-          )
-        }
-      />
-      <Section
-        title="Payroll rules"
-        description="These settings are applied by the calculation engine and are kept in the HR workspace backup."
-        action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSettingsOpen(true)}
-          >
-            Edit settings
-          </Button>
-        }
-      >
-        <div className="grid gap-3 p-5 sm:grid-cols-3">
-          <div className="rounded-xl bg-slate-50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-400">
-              Currency
-            </div>
-            <div className="mt-1 text-lg font-bold">
-              {workspace.settings.currency}
-            </div>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-400">
-              Monthly hours
-            </div>
-            <div className="mt-1 text-lg font-bold">
-              {workspace.settings.monthlyHours}
-            </div>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-400">
-              Overtime multiplier
-            </div>
-            <div className="mt-1 text-lg font-bold">
-              ×{workspace.settings.overtimeMultiplier}
-            </div>
-          </div>
-        </div>
-        {settingsOpen && (
-          <Editor
-            title="Payroll and approval settings"
-            fields={settingsFields}
-            initial={workspace.settings as unknown as Values}
-            onClose={() => setSettingsOpen(false)}
-            onSave={async (v) =>
-              commit(
-                (w) => ({
-                  ...w,
-                  settings: {
-                    ...w.settings,
-                    ...v,
-                    monthlyHours: Number(v.monthlyHours),
-                    overtimeMultiplier: Number(v.overtimeMultiplier),
-                    taxPercent: Number(v.taxPercent) || 0,
-                    insurancePercent: Number(v.insurancePercent) || 0,
-                    approvalLevels: Number(v.approvalLevels),
-                  },
-                }),
-                "Updated payroll and approval settings",
-              )
-            }
-          />
-        )}
-      </Section>
-    </div>
-  );
-}
-
 function Hiring({
   workspace,
   commit,
@@ -2853,12 +2546,15 @@ function Reports({
   employees,
   rows,
   payroll,
+  period,
   commit,
 }: {
   workspace: HrWorkspace;
   employees: Employee[];
   rows: ReturnType<typeof attendanceRows>;
+  /** The payroll month the payroll rows are for. */
   payroll: HrWorkspace["payrollEntries"];
+  period: string;
   commit: (m: (w: HrWorkspace) => HrWorkspace, a: string) => Promise<void>;
 }) {
   const exportAttendance = () =>
@@ -2873,6 +2569,7 @@ function Reports({
         "Check out",
         "Hours",
         "Late minutes",
+        "Early leave minutes",
         "Overtime hours",
       ],
       rows.map((r) => [
@@ -2884,35 +2581,48 @@ function Reports({
         r.checkOut,
         r.hours,
         r.late,
+        r.early,
         r.overtime,
       ]),
     );
   const exportPayroll = () =>
     csvDownload(
-      `payroll-${workspace.payrollPeriod}.csv`,
+      `payroll-${period}.csv`,
       [
         "Employee",
         "Period",
-        "Base",
+        "Bank account",
+        "Base salary",
+        "Salary for the month",
+        "Work days",
+        "Minute rate",
         "Bonus",
-        "Penalty",
         "Overtime hours",
+        "Overtime rate",
+        "Time deductions",
+        "Penalty",
+        "Unpaid leave",
         "Tax",
         "Insurance",
-        "Unpaid deduction",
         "Net",
         "Status",
       ],
       payroll.map((r) => [
         employeeName(employees, r.employeeId),
         r.period,
+        workspace.profiles[r.employeeId]?.bankAccount ?? "",
         r.baseSalary,
+        r.earnedBase ?? r.baseSalary,
+        r.workDays ?? "",
+        r.minuteRate ?? "",
         r.bonuses,
-        r.penalties,
         r.overtimeHours,
+        r.overtimeRate,
+        r.timeDeductions ?? 0,
+        r.penalties,
+        r.unpaidDeduction ?? 0,
         r.tax ?? 0,
         r.insurance ?? 0,
-        r.unpaidDeduction ?? 0,
         r.netSalary,
         r.status,
       ]),
@@ -2954,7 +2664,7 @@ function Reports({
             leftIcon={<Download width={17} />}
             onClick={exportPayroll}
           >
-            Payroll CSV
+            Payroll CSV · {monthLabel(period)}
           </Button>
           <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 hover:bg-slate-50">
             <Upload width={17} /> Import HR backup

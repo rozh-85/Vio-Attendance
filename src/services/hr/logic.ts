@@ -1,6 +1,9 @@
 import type { AttendanceRecord, Employee, LeaveRecord } from "@/types";
 import type {
+  HrDeduction,
+  HrDeductionKind,
   HrLeaveRequest,
+  HrOvertimeRecord,
   HrPayrollEntry,
   HrShift,
   HrWorkspace,
@@ -27,6 +30,28 @@ export function shiftHours(shift: HrShift): number {
     Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
   return ((mins(shift.endTime) - mins(shift.startTime) + 1440) % 1440) / 60;
 }
+export const WORK_DAY_ID = "work-day";
+/**
+ * The work day from the payroll settings — 9 to 4 unless HR changes it — as a
+ * shift. Everyone without a shift assignment or a work cycle works it, so the
+ * attendance register and the salary rates read the same hours.
+ */
+export function workDayShift(w: HrWorkspace): HrShift {
+  const startTime = w.settings.workStart || "09:00";
+  const endTime = w.settings.workEnd || "16:00";
+  const shift: HrShift = {
+    id: WORK_DAY_ID,
+    name: `Work day ${startTime}–${endTime}`,
+    startTime,
+    endTime,
+    days: w.settings.workDays ?? [],
+    graceMinutes: 0,
+    overtimeAfterHours: 0,
+    active: true,
+  };
+  shift.overtimeAfterHours = shiftHours(shift);
+  return shift;
+}
 export function shiftFor(
   w: HrWorkspace,
   employeeId: string,
@@ -50,7 +75,12 @@ export function shiftFor(
   const cycle = w.cycles
     .filter((c) => c.employeeIds.includes(employeeId) && c.startDate <= day)
     .sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
-  if (!cycle) return undefined;
+  if (!cycle) {
+    const workDay = workDayShift(w);
+    return workDay.days.includes(weekdays[new Date(`${day}T12:00:00`).getDay()])
+      ? workDay
+      : undefined;
+  }
   const days = Math.round(
     (Date.parse(`${day}T12:00:00Z`) -
       Date.parse(`${cycle.startDate}T12:00:00Z`)) /
@@ -177,6 +207,11 @@ export function validateLeave(
     return `Only ${round(balance.remaining - balance.pending)} ${type.unit} are available after pending requests.`;
   return null;
 }
+/** Minutes late (or early) that are let go: the late-grace rule, or the shift's own. */
+export function graceMinutes(w: HrWorkspace, shift: HrShift): number {
+  const rule = w.rules.find((r) => r.id === "late-grace" && r.enabled);
+  return rule ? Number(rule.value) || 0 : shift.graceMinutes;
+}
 export interface AttendanceRow {
   employeeId: string;
   date: string;
@@ -187,6 +222,13 @@ export interface AttendanceRow {
   hours: number;
   late: number;
   overtime: number;
+  /** Minutes left before the shift ended, after the grace minutes. */
+  early: number;
+  /** How long the shift that day is, in minutes; 0 on a day off. */
+  scheduledMinutes: number;
+  /** The shift's own times that day, "09:00" / "16:00"; "" on a day off. */
+  startTime: string;
+  endTime: string;
   status:
     | "Present"
     | "Late"
@@ -266,13 +308,21 @@ export function attendanceRows(
               .map((r) => r.checkOutAt ?? "")
               .sort()
               .at(-1) ?? "");
-        const grace = w.rules.find((r) => r.id === "late-grace" && r.enabled);
+        const grace = shift ? graceMinutes(w, shift) : 0;
         const late =
           shift && checkIn
             ? Math.max(
                 0,
                 Math.floor((Date.parse(checkIn) - start.getTime()) / 60000) -
-                  (grace ? Number(grace.value) : shift.graceMinutes),
+                  grace,
+              )
+            : 0;
+        const early =
+          shift && checkIn && checkOut
+            ? Math.max(
+                0,
+                Math.floor((end.getTime() - Date.parse(checkOut)) / 60000) -
+                  grace,
               )
             : 0;
         const leave =
@@ -304,12 +354,16 @@ export function attendanceRows(
         return {
           employeeId: e.id,
           date: day,
-          shift: shift?.name ?? "Unassigned",
+          shift: shift?.name ?? "—",
           night,
           checkIn,
           checkOut,
           hours,
           late,
+          early,
+          scheduledMinutes: shift ? Math.round(shiftHours(shift) * 60) : 0,
+          startTime: shift?.startTime ?? "",
+          endTime: shift?.endTime ?? "",
           overtime: shift
             ? round(Math.max(0, hours - shift.overtimeAfterHours))
             : 0,
@@ -318,24 +372,206 @@ export function attendanceRows(
       }),
   );
 }
+/** The first and last day of a "YYYY-MM" month. */
+export function monthBounds(period: string): [string, string] {
+  const last = new Date(
+    Number(period.slice(0, 4)),
+    Number(period.slice(5)),
+    0,
+  ).getDate();
+  return [`${period}-01`, `${period}-${String(last).padStart(2, "0")}`];
+}
+/** The attendance register for a whole "YYYY-MM" month. */
+export function monthRows(
+  w: HrWorkspace,
+  employees: Employee[],
+  records: AttendanceRecord[],
+  period: string,
+  legacy: LeaveRecord[] = [],
+  now = new Date(),
+): AttendanceRow[] {
+  if (!/^\d{4}-\d{2}$/.test(period)) return [];
+  const [from, to] = monthBounds(period);
+  return attendanceRows(w, employees, records, from, to, legacy, now);
+}
+/** The days and minutes someone is scheduled to work between two dates. */
+export function workSchedule(
+  w: HrWorkspace,
+  employeeId: string,
+  from: string,
+  to: string,
+): { days: number; minutes: number } {
+  let days = 0;
+  let minutes = 0;
+  for (const day of dateRange(from, to)) {
+    const shift = shiftFor(w, employeeId, day);
+    if (!shift) continue;
+    days += 1;
+    minutes += Math.round(shiftHours(shift) * 60);
+  }
+  return { days, minutes };
+}
+export interface SalaryRates {
+  workDays: number;
+  workMinutes: number;
+  perDay: number;
+  perHour: number;
+  perMinute: number;
+}
+/**
+ * The monthly salary divided by the month's work time — 9 to 4 on the work
+ * days unless the person has a shift of their own. This is what a minute
+ * late, an hour of overtime or a day away is worth.
+ */
+export function salaryRates(
+  w: HrWorkspace,
+  employeeId: string,
+  period: string,
+  salary = w.profiles[employeeId]?.baseSalary ?? 0,
+): SalaryRates {
+  const [from, to] = monthBounds(period);
+  const { days, minutes } = workSchedule(w, employeeId, from, to);
+  return {
+    workDays: days,
+    workMinutes: minutes,
+    perDay: days ? salary / days : 0,
+    perHour: minutes ? (salary * 60) / minutes : 0,
+    perMinute: minutes ? salary / minutes : 0,
+  };
+}
+export const DEDUCTION_LABEL: Record<HrDeductionKind, string> = {
+  late: "Late",
+  early: "Left early",
+  absent: "Absent",
+  "unpaid-holiday": "Unpaid holiday",
+  manual: "Deduction",
+};
+/** "1h 05m", "25 min", "7h". */
+export function formatMinutes(minutes: number): string {
+  const m = Math.round(minutes);
+  if (m < 60) return `${m} min`;
+  const rest = m % 60;
+  return `${Math.floor(m / 60)}h${rest ? ` ${String(rest).padStart(2, "0")}m` : ""}`;
+}
+function clock(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+/** True once a payslip is approved or paid: nothing may change what it holds. */
+export function payslipLocked(
+  w: HrWorkspace,
+  employeeId: string,
+  period: string,
+): boolean {
+  return w.payrollEntries.some(
+    (p) =>
+      p.employeeId === employeeId &&
+      p.period === period &&
+      p.status !== "draft",
+  );
+}
+/**
+ * Every deduction of a payroll month: the ones already decided, and — as
+ * "pending" — each late arrival, early leave, absence and unpaid holiday in
+ * the check-ins that nobody has decided on yet. Pending ones are worked out
+ * here every time and never saved, so nothing comes off a salary until
+ * somebody approves it.
+ */
+export function periodDeductions(
+  w: HrWorkspace,
+  rows: AttendanceRow[],
+  period: string,
+): HrDeduction[] {
+  if (!/^\d{4}-\d{2}$/.test(period)) return [];
+  const [from, to] = monthBounds(period);
+  const saved = w.deductions.filter((d) => d.date >= from && d.date <= to);
+  const known = new Set(saved.map((d) => d.id));
+  const rates = new Map<string, number>();
+  const found: HrDeduction[] = [];
+  for (const row of rows) {
+    if (row.date < from || row.date > to) continue;
+    if (!rates.has(row.employeeId))
+      rates.set(row.employeeId, salaryRates(w, row.employeeId, period).perMinute);
+    const perMinute = rates.get(row.employeeId)!;
+    if (perMinute <= 0 || row.scheduledMinutes <= 0) continue;
+    const shift = shiftFor(w, row.employeeId, row.date);
+    const grace = shift ? graceMinutes(w, shift) : 0;
+    const graceNote = grace ? ` · ${grace} min grace` : "";
+    const add = (kind: HrDeductionKind, minutes: number, detail: string) => {
+      const id = `${kind}-${row.employeeId}-${row.date}`;
+      if (minutes <= 0 || known.has(id)) return;
+      found.push({
+        id,
+        employeeId: row.employeeId,
+        date: row.date,
+        kind,
+        minutes,
+        amount: round(minutes * perMinute),
+        note: "",
+        detail,
+        status: "pending",
+      });
+    };
+    if (row.status === "Absent")
+      add("absent", row.scheduledMinutes, `No check-in · ${row.startTime}–${row.endTime}`);
+    if (row.status === "Holiday") {
+      const covering = w.holidays.filter(
+        (h) => h.startDate <= row.date && h.endDate >= row.date,
+      );
+      if (covering.length && !covering.some((h) => h.paid))
+        add("unpaid-holiday", row.scheduledMinutes, covering[0].name);
+    }
+    if (row.late > 0)
+      add("late", row.late, `In ${clock(row.checkIn)} · starts ${row.startTime}${graceNote}`);
+    if (row.early > 0)
+      add("early", row.early, `Out ${clock(row.checkOut)} · ends ${row.endTime}${graceNote}`);
+  }
+  return [...found, ...saved].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.employeeId.localeCompare(b.employeeId),
+  );
+}
+/**
+ * Overtime the check-ins show — hours past the shift's overtime point — that
+ * is not in the overtime list yet, ready to be added there for approval.
+ */
+export function attendanceOvertime(
+  w: HrWorkspace,
+  rows: AttendanceRow[],
+): HrOvertimeRecord[] {
+  return rows
+    .filter(
+      (row) =>
+        row.overtime > 0 &&
+        !w.overtime.some(
+          (o) => o.employeeId === row.employeeId && o.date === row.date,
+        ),
+    )
+    .map((row) => ({
+      id: `ot-${row.employeeId}-${row.date}`,
+      employeeId: row.employeeId,
+      date: row.date,
+      hours: row.overtime,
+      reason: `From check-ins: ${row.hours}h worked on a ${round(row.scheduledMinutes / 60)}h ${row.shift.toLowerCase()}`,
+      status: "pending" as const,
+    }));
+}
 export function calculatePayroll(
   w: HrWorkspace,
   employees: Employee[],
   period: string,
 ): HrPayrollEntry[] {
-  if (!/^\d{4}-\d{2}$/.test(period) || w.settings.monthlyHours <= 0)
-    throw new Error("Choose a payroll month and positive monthly hours.");
-  const daysInMonth = new Date(
-    Number(period.slice(0, 4)),
-    Number(period.slice(5)),
-    0,
-  ).getDate();
+  if (!/^\d{4}-\d{2}$/.test(period))
+    throw new Error("Choose a payroll month.");
+  if (w.rules.some((r) => r.id === "monthly-payroll" && !r.enabled))
+    throw new Error(
+      "Monthly payroll is turned off in Rules & settings. Turn it on to calculate salaries.",
+    );
+  const [from, to] = monthBounds(period);
   return employees
     .filter(
       (e) =>
         w.profiles[e.id]?.status !== "inactive" &&
-        (!w.profiles[e.id]?.joinDate ||
-          w.profiles[e.id].joinDate <= `${period}-${daysInMonth}`),
+        (!w.profiles[e.id]?.joinDate || w.profiles[e.id].joinDate <= to),
     )
     .map((e) => {
       const old = w.payrollEntries.find(
@@ -343,6 +579,16 @@ export function calculatePayroll(
       );
       if (old && old.status !== "draft") return old;
       const baseSalary = w.profiles[e.id]?.baseSalary ?? 0;
+      const rates = salaryRates(w, e.id, period, baseSalary);
+      // Someone who joins in the month is paid for the work time after it.
+      const joinDate = w.profiles[e.id]?.joinDate ?? "";
+      const earnedBase =
+        joinDate > from && rates.workMinutes > 0
+          ? round(
+              (baseSalary * workSchedule(w, e.id, joinDate, to).minutes) /
+                rates.workMinutes,
+            )
+          : baseSalary;
       const adjustments = w.adjustments.filter(
         (a) => a.employeeId === e.id && a.date.startsWith(period),
       );
@@ -355,6 +601,16 @@ export function calculatePayroll(
         adjustments
           .filter((a) => a.type === "penalty")
           .reduce((n, a) => n + a.amount, 0),
+      );
+      const approvedDeductions = w.deductions.filter(
+        (d) =>
+          d.employeeId === e.id &&
+          d.status === "approved" &&
+          d.date >= from &&
+          d.date <= to,
+      );
+      const timeDeductions = round(
+        approvedDeductions.reduce((n, d) => n + d.amount, 0),
       );
       const requireApproval = w.rules.some(
         (r) => r.id === "overtime-approval" && r.enabled,
@@ -370,9 +626,14 @@ export function calculatePayroll(
           )
           .reduce((n, o) => n + o.hours, 0),
       );
-      const overtimeRate = round(
-        (baseSalary / w.settings.monthlyHours) * w.settings.overtimeMultiplier,
-      );
+      // An hour is the salary over the month's work hours; without any work
+      // time to divide by, fall back to the old fixed monthly hours.
+      const hourRate =
+        rates.perHour || baseSalary / (w.settings.monthlyHours || 208);
+      const dayRate =
+        rates.perDay ||
+        baseSalary / (new Date(`${to}T12:00:00`).getDate() || 30);
+      const overtimeRate = round(hourRate * w.settings.overtimeMultiplier);
       const unpaidDeduction = round(
         w.leaveRequests
           .filter(
@@ -388,19 +649,18 @@ export function calculatePayroll(
             const type = w.leaveTypes.find((t) => t.id === r.leaveTypeId)!;
             return (
               sum +
-              (r.amount * portion * baseSalary) /
-                (type.unit === "hours" ? w.settings.monthlyHours : daysInMonth)
+              r.amount * portion * (type.unit === "hours" ? hourRate : dayRate)
             );
           }, 0),
       );
       const gross = round(
         Math.max(
           0,
-          baseSalary + bonuses + overtimeHours * overtimeRate - unpaidDeduction,
+          earnedBase + bonuses + overtimeHours * overtimeRate - unpaidDeduction,
         ),
       );
       const tax = round((gross * w.settings.taxPercent) / 100);
-      const insurance = round((baseSalary * w.settings.insurancePercent) / 100);
+      const insurance = round((earnedBase * w.settings.insurancePercent) / 100);
       return {
         id: old?.id ?? `pay-${period}-${e.id}`,
         employeeId: e.id,
@@ -410,11 +670,22 @@ export function calculatePayroll(
         penalties,
         overtimeHours,
         overtimeRate,
-        netSalary: round(gross - penalties - tax - insurance),
+        // Deductions never take a salary below nothing.
+        netSalary: round(
+          Math.max(0, gross - penalties - timeDeductions - tax - insurance),
+        ),
         tax,
         insurance,
         unpaidDeduction,
         status: "draft",
+        workDays: rates.workDays,
+        workMinutes: rates.workMinutes,
+        dayRate: round(rates.perDay),
+        hourRate: round(rates.perHour),
+        minuteRate: round(rates.perMinute),
+        earnedBase,
+        timeDeductions,
+        deductionIds: approvedDeductions.map((d) => d.id),
       };
     });
 }

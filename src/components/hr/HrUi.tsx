@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ArrowLeft, Pencil, Plus, Search } from "@/components/icons";
@@ -23,7 +23,10 @@ export interface Field {
   min?: number;
   max?: number;
   step?: number;
-  hint?: string;
+  /** Help under the field; a function is worked out again as the form changes. */
+  hint?: string | ((value: Values) => string);
+  /** Shown inside an empty field, e.g. "e.g. late". */
+  placeholder?: string;
   options?: { value: string; label: string }[];
 }
 export const options = (values: string[]) =>
@@ -109,6 +112,7 @@ export function Fields({
             <textarea
               className={`${fieldClass} min-h-24 py-3`}
               required={f.required}
+              placeholder={f.placeholder}
               value={String(value[f.key] ?? "")}
               onChange={(e) => onChange({ ...value, [f.key]: e.target.value })}
             />
@@ -120,6 +124,7 @@ export function Fields({
               min={f.min}
               max={f.max}
               step={f.step ?? (f.type === "number" ? "any" : undefined)}
+              placeholder={f.placeholder}
               value={String(value[f.key] ?? "")}
               onChange={(e) =>
                 onChange({
@@ -134,7 +139,7 @@ export function Fields({
           )}
           {f.hint && (
             <span className="mt-1.5 block text-xs leading-relaxed text-ink-500">
-              {f.hint}
+              {typeof f.hint === "function" ? f.hint(value) : f.hint}
             </span>
           )}
         </label>
@@ -384,6 +389,53 @@ export function Editor({
     </Modal>
   );
 }
+/**
+ * A button that asks on itself instead of in a pop-up: the first press turns
+ * it into "Delete?", a second press within a few seconds does it.
+ */
+export function ConfirmButton({
+  label,
+  confirm,
+  ariaLabel,
+  onConfirm,
+  disabled,
+}: {
+  label: string;
+  confirm: string;
+  ariaLabel?: string;
+  onConfirm: () => Promise<void> | void;
+  disabled?: boolean;
+}) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!asking) return;
+    const timer = setTimeout(() => setAsking(false), 4000);
+    return () => clearTimeout(timer);
+  }, [asking]);
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      aria-label={ariaLabel}
+      disabled={disabled}
+      loading={busy}
+      className={asking ? "text-rose-700 hover:bg-rose-50" : "text-ink-500"}
+      onClick={async () => {
+        if (!asking) return setAsking(true);
+        setBusy(true);
+        try {
+          await onConfirm();
+        } finally {
+          setBusy(false);
+          setAsking(false);
+        }
+      }}
+    >
+      {asking ? confirm : label}
+    </Button>
+  );
+}
 export function Status({ children }: { children: ReactNode }) {
   const value = String(children).toLowerCase();
   const color =
@@ -499,6 +551,8 @@ export function Collection<T extends { id: string }>({
   validate,
   extra,
   canEdit,
+  onDelete,
+  actions,
 }: {
   title: string;
   description?: string;
@@ -510,6 +564,10 @@ export function Collection<T extends { id: string }>({
   validate?: (r: T) => string | null;
   extra?: ReactNode;
   canEdit?: (r: T) => boolean;
+  /** Adds a Delete button that asks once more on the button itself. */
+  onDelete?: (r: T) => Promise<void>;
+  /** More buttons for a row, shown before Edit, e.g. Approve. */
+  actions?: (r: T) => ReactNode;
 }) {
   const [editing, setEditing] = useState<T | null>(null);
   const [query, setQuery] = useState("");
@@ -556,15 +614,26 @@ export function Collection<T extends { id: string }>({
               canEdit && !canEdit(r) ? (
                 <Status>Locked</Status>
               ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Edit ${title.toLowerCase()} record`}
-                  leftIcon={<Pencil width={14} />}
-                  onClick={() => setEditing(r)}
-                >
-                  Edit
-                </Button>
+                <div className="flex flex-wrap items-center gap-1">
+                  {actions?.(r)}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Edit ${title.toLowerCase()} record`}
+                    leftIcon={<Pencil width={14} />}
+                    onClick={() => setEditing(r)}
+                  >
+                    Edit
+                  </Button>
+                  {onDelete && (
+                    <ConfirmButton
+                      label="Delete"
+                      confirm="Delete?"
+                      ariaLabel={`Delete ${title.toLowerCase()} record`}
+                      onConfirm={() => onDelete(r)}
+                    />
+                  )}
+                </div>
               ),
           },
         ]}
