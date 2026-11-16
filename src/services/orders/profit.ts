@@ -63,6 +63,13 @@ export interface ModelCost {
   image: string;
   /** What one piece costs Vio, in IQD; null until written. */
   cost: number | null;
+  /**
+   * The cost of one piece in dollars when the product is priced in dollars —
+   * `cost` is then this × `rate`. Null when the IQD cost was written by hand.
+   */
+  usd: number | null;
+  /** IQD for one dollar that `cost` was worked out at; null without `usd`. */
+  rate: number | null;
   /** The item type its orders are saved under, e.g. هیتەر. */
   category: string;
   createdAt: string;
@@ -80,13 +87,17 @@ export function modelWith(
   data: ProfitData,
   key: string,
   label: string,
-  patch: Partial<Pick<ModelCost, 'cost' | 'category' | 'name' | 'image'>>,
+  patch: Partial<Pick<ModelCost, 'cost' | 'category' | 'name' | 'image' | 'usd' | 'rate'>>,
 ): ModelValues {
   const m = data.models[key];
+  // A cost written in IQD, with no dollars given, is no longer a dollar price.
+  const byHand = patch.cost !== undefined && patch.usd === undefined;
   return {
     key,
     label: label.trim() || m?.label || key,
     cost: patch.cost !== undefined ? patch.cost : (m?.cost ?? null),
+    usd: patch.usd !== undefined ? patch.usd : byHand ? null : (m?.usd ?? null),
+    rate: patch.rate !== undefined ? patch.rate : byHand ? null : (m?.rate ?? null),
     category: patch.category !== undefined ? patch.category.trim() : (m?.category ?? ''),
     name: patch.name !== undefined ? patch.name.trim() : (m?.name ?? ''),
     image: patch.image !== undefined ? patch.image : (m?.image ?? ''),

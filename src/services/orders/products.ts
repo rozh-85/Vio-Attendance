@@ -1,7 +1,7 @@
 import reference from '@/services/catalog/reference.json';
 import catalog2026Data from '@/services/catalog/catalog2026.json';
 import wholesale2026Data from '@/services/catalog/wholesale2026.json';
-import { modelKey } from './profit';
+import { DEFAULT_USD_RATE, modelKey, type ModelCost } from './profit';
 
 /**
  * The Vio catalogue's products by model, for a photo and a name next to a
@@ -109,4 +109,53 @@ export function wholesale2026(): Wholesale2026Item[] {
       usd: p.usd,
     };
   });
+}
+
+/** A product's price in dollars and the IQD for one dollar its cost is at. */
+export interface DollarPrice {
+  usd: number;
+  rate: number;
+}
+
+/** The value seen most often, or undefined for none. */
+function mostCommon(values: number[]): number | undefined {
+  const count = new Map<number, number>();
+  for (const v of values) count.set(v, (count.get(v) ?? 0) + 1);
+  let best: number | undefined;
+  let most = 0;
+  for (const [v, n] of count)
+    if (n > most) {
+      best = v;
+      most = n;
+    }
+  return best;
+}
+
+/**
+ * Every product priced in dollars, and the dollar rate most of them are at.
+ * A product's dollar price is the one saved with it; a product of the
+ * wholesale list saved before dollar prices were kept counts too while its
+ * cost is still its list price × the one rate the list's products share
+ * (169,000 per 100 $ when they were filled in) — a cost written by hand
+ * almost never lands exactly on that.
+ */
+export function dollarPrices(models: Record<string, ModelCost>): { prices: Map<string, DollarPrice>; rate: number } {
+  const list = new Map(wholesale2026().map((w) => [w.key, w.usd]));
+  const listRate = mostCommon(
+    Object.values(models).flatMap((m) => {
+      const usd = list.get(m.key);
+      if (m.usd !== null || !usd || !m.cost) return [];
+      const rate = m.cost / usd;
+      return Number.isInteger(rate) ? [rate] : [];
+    }),
+  );
+  const prices = new Map<string, DollarPrice>();
+  for (const m of Object.values(models)) {
+    if (m.usd !== null && m.rate) prices.set(m.key, { usd: m.usd, rate: m.rate });
+    else {
+      const usd = list.get(m.key);
+      if (usd && listRate && m.cost === Math.round(usd * listRate)) prices.set(m.key, { usd, rate: listRate });
+    }
+  }
+  return { prices, rate: mostCommon([...prices.values()].map((p) => p.rate)) ?? DEFAULT_USD_RATE };
 }

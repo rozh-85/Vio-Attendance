@@ -9,7 +9,6 @@ import { BackLink, LoadProblem, iqd, signTone, signedIqd } from '@/components/or
 import { useProfitData } from '@/hooks/useProfitData';
 import { CATEGORIES } from '@/services/orders/options';
 import {
-  DEFAULT_USD_RATE,
   costsToKeep,
   modelKey,
   ordersToFix,
@@ -20,7 +19,7 @@ import {
   type ModelRow,
   type ModelValues,
 } from '@/services/orders/profit';
-import { catalogItem, catalogItems, wholesale2026, type CatalogItem } from '@/services/orders/products';
+import { catalogItem, catalogItems, dollarPrices, wholesale2026, type CatalogItem, type DollarPrice } from '@/services/orders/products';
 import { clearProfitNotice, readProfitNotice } from '@/services/orders/profitMemory';
 import { getProfitStore, profitErrorMessage } from '@/services/orders/profitStore';
 import type { SalesOrder } from '@/services/orders/types';
@@ -84,6 +83,13 @@ function dollarsToIqd(usd: string, per100: string): string {
   return dollars === null || rate <= 0 ? '' : iqd(Math.round(dollars * rate));
 }
 
+/** The dollar price to save with a product: the dollars typed, at their rate, or none. */
+function dollarsToSave(form: { usd: string; per100: string; cost: string }): { usd: number | null; rate: number | null } {
+  const usd = parseUsd(form.usd);
+  const rate = (parseIqd(form.per100) ?? 0) / 100;
+  return usd !== null && rate > 0 && form.cost ? { usd, rate } : { usd: null, rate: null };
+}
+
 /**
  * Optional: the cost of one piece in dollars, at this product's own dollar
  * rate. Typing either fills in the IQD cost above; only the IQD cost is saved.
@@ -142,12 +148,15 @@ function FieldLabel({ children }: { children: string }) {
 function AddProduct({
   taken,
   prefill,
+  rateNow,
   busy,
   onSave,
   onCancel,
 }: {
   taken: Set<string>;
   prefill: string;
+  /** IQD for one dollar that a dollar price starts at. */
+  rateNow: number;
   busy: boolean;
   onSave: (product: ModelValues) => void;
   onCancel: () => void;
@@ -162,7 +171,7 @@ function AddProduct({
       category: item ? item.typeKu || item.group : '',
       cost: '',
       usd: '',
-      per100: iqd(DEFAULT_USD_RATE * 100),
+      per100: iqd(rateNow * 100),
     };
   });
   const [problem, setProblem] = useState<string | null>(null);
@@ -190,7 +199,15 @@ function AddProduct({
     const key = modelKey(form.label);
     if (!key) return setProblem('Write the model, e.g. V-400.');
     if (taken.has(key)) return setProblem(`${form.label.trim()} is already on your list.`);
-    onSave({ key, label: form.label.trim(), name: form.name.trim(), image: '', category: form.category.trim(), cost: parseIqd(form.cost) });
+    onSave({
+      key,
+      label: form.label.trim(),
+      name: form.name.trim(),
+      image: '',
+      category: form.category.trim(),
+      cost: parseIqd(form.cost),
+      ...dollarsToSave(form),
+    });
   }
 
   return (
@@ -277,6 +294,9 @@ function AddProduct({
 /** One product in the list: shown, being changed, or asking before it goes. */
 function ProductRow({
   product,
+  dollars,
+  rateNow,
+  taken,
   stats,
   mode,
   busy,
@@ -293,17 +313,29 @@ function ProductRow({
   onEdit: () => void;
   onDelete: () => void;
   onCancel: () => void;
-  onSave: (product: ModelValues) => void;
+  onSave: (product: ModelValues, oldKey: string) => void;
   onConfirmDelete: () => void;
+  /** Its dollar price, saved or read from the wholesale list. */
+  dollars?: DollarPrice;
+  rateNow: number;
+  /** Models already on the list, so a new model number cannot take one. */
+  taken: Set<string>;
 }) {
   const [form, setForm] = useState({
+    label: product.label,
     name: product.name,
     category: product.category,
     cost: product.cost === null ? '' : iqd(product.cost),
-    usd: '',
-    per100: iqd(DEFAULT_USD_RATE * 100),
+    usd: dollars ? String(dollars.usd) : '',
+    per100: iqd((dollars?.rate ?? rateNow) * 100),
   });
   const costChanged = parseIqd(form.cost) !== product.cost;
+  const newKey = modelKey(form.label);
+  const modelProblem = !newKey
+    ? 'Write the model, e.g. V-400.'
+    : newKey !== product.key && taken.has(newKey)
+      ? `${form.label.trim()} is already on your list.`
+      : '';
 
   if (mode === 'edit') {
     return (
@@ -313,7 +345,15 @@ function ProductRow({
             <Photo model={product.key} image={product.image} className="size-10" />
             <span className="font-mono text-sm font-bold text-ink-900">{product.label}</span>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
+            <label className="block">
+              <FieldLabel>Model</FieldLabel>
+              <input
+                className={cn(field, 'font-mono font-semibold')}
+                value={form.label}
+                onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+              />
+            </label>
             <label className="block">
               <FieldLabel>Name</FieldLabel>
               <input className={field} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -342,22 +382,34 @@ function ProductRow({
               <Button
                 className="h-10"
                 loading={busy}
+                disabled={!!modelProblem}
                 leftIcon={<Check width={16} height={16} />}
                 onClick={() =>
-                  onSave({
-                    key: product.key,
-                    label: product.label,
-                    name: form.name.trim(),
-                    image: product.image,
-                    category: form.category.trim(),
-                    cost: parseIqd(form.cost),
-                  })
+                  onSave(
+                    {
+                      key: newKey,
+                      label: form.label.trim(),
+                      name: form.name.trim(),
+                      image: product.image,
+                      category: form.category.trim(),
+                      cost: parseIqd(form.cost),
+                      ...dollarsToSave(form),
+                    },
+                    product.key,
+                  )
                 }
               >
                 Save
               </Button>
             </div>
           </div>
+          {modelProblem && <p className="mt-2 text-sm font-semibold text-rose-600">{modelProblem}</p>}
+          {!modelProblem && newKey !== product.key && (
+            <p className="mt-2 text-xs text-ink-500">
+              The model becomes {form.label.trim()}. Orders already sold as {product.label} keep their cost; new orders need to be written as{' '}
+              {form.label.trim()}.
+            </p>
+          )}
           {costChanged && product.cost !== null && (
             <p className="mt-2 text-xs text-ink-500">
               Orders already sold keep {iqd(product.cost)} IQD. The new cost is for new orders only.
@@ -695,6 +747,114 @@ function OrdersToFix({
   );
 }
 
+/**
+ * The dollar rate of every product priced in dollars, changed in one go:
+ * products added before or after, from the wholesale list or by hand.
+ */
+function DollarRateForAll({
+  products,
+  prices,
+  rateNow,
+  open,
+  setOpen,
+  busy,
+  storesDollars,
+  onApply,
+}: {
+  products: ModelCost[];
+  prices: Map<string, DollarPrice>;
+  rateNow: number;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  busy: boolean;
+  /** False until social-profit.sql is run again: dollars typed by hand are then not kept. */
+  storesDollars: boolean;
+  onApply: (rate: number) => void;
+}) {
+  const [per100, setPer100] = useState(iqd(rateNow * 100));
+  const rate = (parseIqd(per100) ?? 0) / 100;
+  const changes = products.flatMap((p) => {
+    const price = prices.get(p.key);
+    if (!price || rate <= 0) return [];
+    const cost = Math.round(price.usd * rate);
+    return cost === p.cost ? [] : [{ p, price, cost }];
+  });
+  const example = changes[0];
+  return (
+    <Card className="px-4 py-3 sm:px-5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+        <DollarSign width={18} height={18} className="shrink-0 text-ink-400" />
+        <span className="min-w-0 flex-1 text-ink-600">
+          Dollar rate <b className="text-ink-900">100 $ = {iqd(rateNow * 100)} IQD</b> · {prices.size}{' '}
+          {prices.size === 1 ? 'product is' : 'products are'} priced in dollars
+        </span>
+        {!open && (
+          <button
+            type="button"
+            onClick={() => {
+              setPer100(iqd(rateNow * 100));
+              setOpen(true);
+            }}
+            className="font-semibold text-brand-700 hover:underline"
+          >
+            Change for all
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+          <label className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-semibold text-ink-900">New rate for all</span>
+            <span className="text-ink-600">100 $ =</span>
+            <span className="relative">
+              <input
+                inputMode="numeric"
+                autoFocus
+                aria-label="New IQD for 100 dollars, for every product"
+                className={cn(field, 'w-36 pr-12 text-right font-semibold tabular-nums')}
+                value={per100}
+                onChange={(e) => setPer100(moneyText(e.target.value))}
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-ink-400">IQD</span>
+            </span>
+          </label>
+          <p className="text-sm text-ink-600">
+            {changes.length === 0 ? (
+              'No cost changes at this rate.'
+            ) : (
+              <>
+                <b className="text-ink-900">{changes.length}</b> {changes.length === 1 ? 'cost changes' : 'costs change'}
+                {example && (
+                  <>
+                    {' '}
+                    — e.g. {example.p.label}: ${example.price.usd} = {example.p.cost === null ? '—' : iqd(example.p.cost)} →{' '}
+                    <b className="text-ink-900">{iqd(example.cost)} IQD</b>
+                  </>
+                )}
+                . Orders already sold keep their cost. Costs written in IQD stay as they are.
+              </>
+            )}
+          </p>
+          {!storesDollars && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Dollars you type for a product yourself are only kept once supabase/social-profit.sql has been run again in Supabase.
+              Until then this changes the wholesale list’s products.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={busy || rate <= 0 || changes.length === 0} loading={busy} leftIcon={<Check width={16} height={16} />} onClick={() => onApply(rate)}>
+              {changes.length ? `Change ${changes.length} ${changes.length === 1 ? 'cost' : 'costs'}` : 'Nothing to change'}
+            </Button>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /** Where a wholesale price stands against the owner's own list. */
 type WholesaleState = 'new' | 'no-cost' | 'same' | 'different';
 
@@ -712,16 +872,18 @@ const STATE_TEXT: Record<WholesaleState, { label: string; tone: string }> = {
  */
 function WholesalePrices({
   models,
+  rateNow,
   busy,
   onApply,
   onClose,
 }: {
   models: Record<string, ModelCost>;
+  rateNow: number;
   busy: boolean;
   onApply: (rate: number, replace: boolean) => void;
   onClose: () => void;
 }) {
-  const [per100, setPer100] = useState(iqd(DEFAULT_USD_RATE * 100));
+  const [per100, setPer100] = useState(iqd(rateNow * 100));
   const [replace, setReplace] = useState(false);
   const [showList, setShowList] = useState(false);
   const rate = (parseIqd(per100) ?? 0) / 100;
@@ -883,6 +1045,7 @@ export function ProductsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [wholesaleOpen, setWholesaleOpen] = useState(false);
+  const [rateOpen, setRateOpen] = useState(false);
   const [listQuery, setListQuery] = useState('');
   const [busy, setBusy] = useState(false);
   // The "added" message from Add from pictures shows here once.
@@ -905,6 +1068,9 @@ export function ProductsPage() {
     [profit],
   );
   const taken = useMemo(() => new Set(products.map((p) => p.key)), [products]);
+  // Products priced in dollars and the rate most of them are at today.
+  const dollars = useMemo(() => dollarPrices(profit?.models ?? {}), [profit]);
+  const rateNow = dollars.rate;
   const shownProducts = useMemo(() => products.filter((p) => matches(p, listQuery)), [products, listQuery]);
   const stats = useMemo(
     () => new Map(orders && profit ? summarizeProfit(orders, profit, '', '').byModel.map((r) => [r.key, r]) : []),
@@ -961,7 +1127,7 @@ export function ProductsPage() {
         const cost = Math.round(w.usd * rate);
         const mine = profit.models[w.key];
         if (!mine) {
-          list.push({ key: w.key, label: w.model, name: w.name, image: '', cost, category: w.type });
+          list.push({ key: w.key, label: w.model, name: w.name, image: '', cost, category: w.type, usd: w.usd, rate });
           added += 1;
         } else if (!mine.cost || (replace && mine.cost !== cost)) {
           // A cost of 0 is a cost nobody wrote yet, so it is filled in too.
@@ -970,7 +1136,7 @@ export function ProductsPage() {
             Object.assign(keep, costsToKeep(orders, profit, w.key));
             changed += 1;
           }
-          list.push({ key: mine.key, label: mine.label, name: mine.name, image: mine.image, cost, category: mine.category });
+          list.push({ key: mine.key, label: mine.label, name: mine.name, image: mine.image, cost, category: mine.category, usd: w.usd, rate });
         }
       }
       if (!list.length) return 'Every product already has its wholesale cost';
@@ -995,24 +1161,66 @@ export function ProductsPage() {
         .join(' · ') + ` at 100 $ = ${iqd(rate * 100)} IQD`;
     });
 
-  const saveProduct = (product: ModelValues) =>
+  // The model number may change too: the product then moves to its new
+  // model, and orders already sold under the old one keep their cost.
+  const saveProduct = (product: ModelValues, oldKey: string) =>
     run(async () => {
       if (!profit || !orders) return '';
-      const before = profit.models[product.key];
+      const before = profit.models[oldKey];
+      const moving = product.key !== oldKey;
+      if (moving && profit.models[product.key]) throw new Error(`${product.label} is already on your list.`);
       // A new cost is for new orders: those already sold keep the old one.
-      const keep = before && before.cost !== null && product.cost !== before.cost ? costsToKeep(orders, profit, product.key) : {};
+      const keep =
+        before && before.cost !== null && (moving || product.cost !== before.cost) ? costsToKeep(orders, profit, oldKey) : {};
       const store = getProfitStore();
       if (Object.keys(keep).length) await store.setOrderCosts(keep);
       await store.saveModels([product]);
+      if (moving) await store.deleteModels([oldKey]);
       const now = new Date().toISOString();
-      update((d) => ({
-        ...d,
-        orderCosts: { ...d.orderCosts, ...keep },
-        models: { ...d.models, [product.key]: { ...product, createdAt: before?.createdAt ?? now, updatedAt: now } },
-      }));
+      update((d) => {
+        const models = { ...d.models };
+        if (moving) delete models[oldKey];
+        models[product.key] = { ...product, createdAt: before?.createdAt ?? now, updatedAt: now };
+        return { ...d, orderCosts: { ...d.orderCosts, ...keep }, models };
+      });
       setEditing(null);
       const kept = Object.keys(keep).length;
-      return kept ? `${product.label} saved · ${kept} ${kept === 1 ? 'order' : 'orders'} already sold keep the old cost` : `${product.label} saved`;
+      const what = moving ? `${before?.label ?? oldKey} is now ${product.label}` : `${product.label} saved`;
+      return kept ? `${what} · ${kept} ${kept === 1 ? 'order' : 'orders'} already sold keep the old cost` : what;
+    });
+
+  // A new dollar rate for every product priced in dollars — added before or
+  // after, from the wholesale list or by hand. Costs written in IQD stay; orders
+  // already sold keep the cost they had.
+  const applyRateToAll = (rate: number) =>
+    run(async () => {
+      if (!profit || !orders || rate <= 0) return '';
+      const list: ModelValues[] = [];
+      const keep: Record<string, number> = {};
+      let changed = 0;
+      for (const m of Object.values(profit.models)) {
+        const price = dollars.prices.get(m.key);
+        if (!price) continue;
+        const cost = Math.round(price.usd * rate);
+        if (cost === m.cost && m.usd === price.usd && m.rate === rate) continue;
+        if (m.cost !== null && cost !== m.cost) {
+          Object.assign(keep, costsToKeep(orders, profit, m.key));
+          changed += 1;
+        }
+        list.push({ key: m.key, label: m.label, name: m.name, image: m.image, category: m.category, cost, usd: price.usd, rate });
+      }
+      if (!list.length) return `Every dollar price is already at 100 $ = ${iqd(rate * 100)} IQD`;
+      const store = getProfitStore();
+      if (Object.keys(keep).length) await store.setOrderCosts(keep);
+      await store.saveModels(list);
+      const now = new Date().toISOString();
+      update((d) => {
+        const models = { ...d.models };
+        for (const m of list) models[m.key] = { ...m, createdAt: d.models[m.key]?.createdAt ?? now, updatedAt: now };
+        return { ...d, models, orderCosts: { ...d.orderCosts, ...keep } };
+      });
+      setRateOpen(false);
+      return `${changed} ${changed === 1 ? 'cost' : 'costs'} changed to 100 $ = ${iqd(rate * 100)} IQD`;
     });
 
   const deleteProduct = (key: string) =>
@@ -1046,9 +1254,26 @@ export function ProductsPage() {
       for (const w of wholesale2026()) {
         const mine = profit.models[w.key];
         if (mine && !mine.cost)
-          filled.push({ key: mine.key, label: mine.label, name: mine.name, image: mine.image, cost: Math.round(w.usd * DEFAULT_USD_RATE), category: mine.category });
+          filled.push({ key: mine.key, label: mine.label, name: mine.name, image: mine.image, cost: Math.round(w.usd * rateNow), category: mine.category, usd: w.usd, rate: rateNow });
       }
       if (filled.length) await store.saveModels(filled);
+      // Products filled in before dollar prices were kept: keep their dollar
+      // price now, so a later rate reaches them even without the list. Their
+      // cost does not change.
+      if (store.storesDollars()) {
+        const unsaved = Object.values(profit.models).flatMap((m) => {
+          const price = dollars.prices.get(m.key);
+          return price && m.usd === null && m.cost ? [{ ...m, usd: price.usd, rate: price.rate }] : [];
+        });
+        if (unsaved.length) {
+          await store.saveModels(unsaved);
+          update((d) => {
+            const models = { ...d.models };
+            for (const m of unsaved) if (models[m.key]) models[m.key] = { ...models[m.key], usd: m.usd, rate: m.rate };
+            return { ...d, models };
+          });
+        }
+      }
       const now = new Date().toISOString();
       const models = { ...profit.models };
       for (const m of filled) models[m.key] = { ...m, createdAt: profit.models[m.key]?.createdAt ?? now, updatedAt: now };
@@ -1067,7 +1292,7 @@ export function ProductsPage() {
         orderCosts: { ...d.orderCosts, ...matched },
       }));
       return [
-        filled.length ? `${filled.length} ${filled.length === 1 ? 'cost' : 'costs'} added from the wholesale prices (100 $ = ${iqd(DEFAULT_USD_RATE * 100)} IQD)` : '',
+        filled.length ? `${filled.length} ${filled.length === 1 ? 'cost' : 'costs'} added from the wholesale prices (100 $ = ${iqd(rateNow * 100)} IQD)` : '',
         count ? `${count} ${count === 1 ? 'order' : 'orders'} matched to ${count === 1 ? 'its' : 'their'} product` : '',
       ]
         .filter(Boolean)
@@ -1185,11 +1410,11 @@ export function ProductsPage() {
                     {wholesaleNeeded} {wholesaleNeeded === 1 ? 'product needs a cost' : 'products need a cost'}
                   </p>
                   <p className="mt-0.5 text-sm text-amber-800">
-                    From the 2026 wholesale prices at 100 $ = {iqd(DEFAULT_USD_RATE * 100)} IQD — e.g. V-400 is $83 = {iqd(83 * DEFAULT_USD_RATE)} IQD.
+                    From the 2026 wholesale prices at 100 $ = {iqd(rateNow * 100)} IQD — e.g. V-400 is $83 = {iqd(83 * rateNow)} IQD.
                   </p>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 sm:mt-0 sm:shrink-0">
-                  <Button disabled={busy} loading={busy} leftIcon={<Check width={17} height={17} />} onClick={() => void applyWholesale(DEFAULT_USD_RATE, false)}>
+                  <Button disabled={busy} loading={busy} leftIcon={<Check width={17} height={17} />} onClick={() => void applyWholesale(rateNow, false)}>
                     Add {wholesaleNeeded} {wholesaleNeeded === 1 ? 'cost' : 'costs'}
                   </Button>
                   <Button variant="ghost" onClick={() => setWholesaleOpen(true)}>
@@ -1199,8 +1424,21 @@ export function ProductsPage() {
               </div>
             )}
 
+            {dollars.prices.size > 0 && (
+              <DollarRateForAll
+                products={products}
+                prices={dollars.prices}
+                rateNow={rateNow}
+                open={rateOpen}
+                setOpen={setRateOpen}
+                busy={busy}
+                storesDollars={getProfitStore().storesDollars()}
+                onApply={(rate) => void applyRateToAll(rate)}
+              />
+            )}
+
             {wholesaleOpen && (
-              <WholesalePrices models={profit.models} busy={busy} onApply={(rate, replace) => void applyWholesale(rate, replace)} onClose={() => setWholesaleOpen(false)} />
+              <WholesalePrices models={profit.models} rateNow={rateNow} busy={busy} onApply={(rate, replace) => void applyWholesale(rate, replace)} onClose={() => setWholesaleOpen(false)} />
             )}
 
             {adding && (
@@ -1208,6 +1446,7 @@ export function ProductsPage() {
                 key={adding.prefill}
                 taken={taken}
                 prefill={adding.prefill}
+                rateNow={rateNow}
                 busy={busy}
                 onSave={(p) => void addProduct(p)}
                 onCancel={() => setAdding(null)}
@@ -1299,6 +1538,9 @@ export function ProductsPage() {
                         <ProductRow
                           key={`${p.key}-${p.updatedAt}`}
                           product={p}
+                          dollars={dollars.prices.get(p.key)}
+                          rateNow={rateNow}
+                          taken={taken}
                           stats={stats.get(p.key)}
                           mode={editing === p.key ? 'edit' : deleting === p.key ? 'delete' : 'view'}
                           busy={busy}
@@ -1314,7 +1556,7 @@ export function ProductsPage() {
                             setEditing(null);
                             setDeleting(null);
                           }}
-                          onSave={(next) => void saveProduct(next)}
+                          onSave={(next, oldKey) => void saveProduct(next, oldKey)}
                           onConfirmDelete={() => void deleteProduct(p.key)}
                         />
                       ))}

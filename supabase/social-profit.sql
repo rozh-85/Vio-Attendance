@@ -2,7 +2,8 @@
 --
 -- The Profit pages of /rozhadmin/profit keep four things here:
 --   social_model_costs      the owner's products: model, name, picture, type
---                           and what one piece costs Vio
+--                           and what one piece costs Vio (in IQD, and in
+--                           dollars with its rate when priced in dollars)
 --   product-images          (storage) the pictures uploaded on Add from
 --                           pictures
 --   social_order_costs      an order's own cost, over its product's (set by
@@ -45,6 +46,12 @@ alter table public.social_model_costs alter column cost drop not null;
 alter table public.social_model_costs add column if not exists sale_price numeric(14, 0)
   check (sale_price >= 0);
 alter table public.social_model_costs add column if not exists category text not null default '';
+-- A product priced in dollars: the cost of one piece in dollars and the IQD
+-- for one dollar its cost was worked out at (cost = cost_usd × usd_rate), so
+-- a new dollar rate can change every dollar-priced cost at once. Both null
+-- when the cost was written in IQD.
+alter table public.social_model_costs add column if not exists cost_usd numeric(12, 2) check (cost_usd >= 0);
+alter table public.social_model_costs add column if not exists usd_rate numeric(12, 2) check (usd_rate > 0);
 alter table public.social_model_costs add column if not exists active boolean not null default true;
 -- Products: a name and picture ('' uses the app's own catalogue), and when
 -- it joined the list. The sale price above is no longer used — sellers write

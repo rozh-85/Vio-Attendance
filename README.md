@@ -280,8 +280,17 @@ insert statement for pointing the feature at the account UUID directly.
   afterwards on Products.
 - **A cost in dollars** — adding or editing a product, *Cost in dollars
   (optional)* takes the dollar price and that product's own rate
-  (100 $ = 169,000 IQD to start with) and fills in the IQD cost. Only the IQD
-  cost is saved; writing the IQD cost by hand is still fine.
+  (today's rate to start with) and fills in the IQD cost. The dollar price and
+  its rate are kept with the product (once `social-profit.sql` has been run
+  again), so editing shows them; writing the IQD cost by hand makes it an IQD
+  price again.
+- **Change the dollar rate for all** — the *Dollar rate* box on Products gives
+  every product priced in dollars, added before or after, from the wholesale
+  list or by hand, a new rate in one go. Costs written in IQD stay, and orders
+  already sold keep their cost. One product can still have its own rate.
+- **Change a model number** — editing a product, the model can change too
+  (not to one already on the list). Orders already sold under the old model
+  keep their cost.
 - **Wholesale prices 2026** (button on Products) — the 110 models of the
   2026 wholesale (jumla) price list with their dollar price, read by
   [`scripts/import-wholesale-2026.py`](scripts/import-wholesale-2026.py) into

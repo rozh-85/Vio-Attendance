@@ -22,6 +22,11 @@ export interface ProfitStore {
   load(): Promise<ProfitData>;
   /** Adds these products, or changes them, in one go. */
   saveModels(models: ModelValues[]): Promise<void>;
+  /**
+   * False until supabase/social-profit.sql has been run again for the dollar
+   * columns: products are then saved without their dollar price.
+   */
+  storesDollars(): boolean;
   deleteModels(keys: string[]): Promise<void>;
   /** null goes back to the product's cost. */
   setOrderCost(orderId: string, cost: number | null): Promise<void>;
@@ -110,6 +115,8 @@ interface ModelRow {
   category: string;
   created_at: string;
   updated_at: string;
+  cost_usd?: number | string | null;
+  usd_rate?: number | string | null;
 }
 
 interface OrderCostRow {
@@ -133,6 +140,18 @@ interface SponsorRow {
 const money = (value: number | string | null | undefined): number | null =>
   value === null || value === undefined || value === '' ? null : Number(value);
 
+/** A numeric column that may hold cents, or nothing. */
+function decimal(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** The dollar columns are not there yet: social-profit.sql was not run again. */
+function missingDollarColumns(error: { code?: string; message?: string }): boolean {
+  return error.code === '42703' || error.code === 'PGRST204' || /cost_usd|usd_rate/.test(error.message ?? '');
+}
+
 function toModel(row: ModelRow): ModelCost {
   return {
     key: row.model_key,
@@ -140,6 +159,8 @@ function toModel(row: ModelRow): ModelCost {
     name: row.name ?? '',
     image: row.image_url ?? '',
     cost: money(row.cost),
+    usd: decimal(row.cost_usd),
+    rate: decimal(row.usd_rate),
     category: row.category ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -195,9 +216,26 @@ function translate(error: { code?: string; message?: string }): Error {
 
 class SupabaseProfitStore implements ProfitStore {
   private client: SupabaseClient;
+  /** Whether social_model_costs has the dollar columns; null until asked. */
+  private dollars: boolean | null = null;
 
   constructor(client: SupabaseClient) {
     this.client = client;
+  }
+
+  /**
+   * Asks once whether the dollar columns are there. Without them everything
+   * still works; products are only saved without their dollar price.
+   */
+  private async hasDollarColumns(): Promise<boolean> {
+    if (this.dollars !== null) return this.dollars;
+    const { error } = await this.client.from('social_model_costs').select('cost_usd, usd_rate').limit(1);
+    this.dollars = !(error && missingDollarColumns(error));
+    return this.dollars;
+  }
+
+  storesDollars(): boolean {
+    return this.dollars !== false;
   }
 
   /** Every row of a table, 1000 at a time (Supabase's limit per request). */
@@ -214,10 +252,11 @@ class SupabaseProfitStore implements ProfitStore {
   }
 
   async load(): Promise<ProfitData> {
+    const dollars = await this.hasDollarColumns();
     const [models, orderCosts, sponsors, settings] = await Promise.all([
       this.all<ModelRow>(
         'social_model_costs',
-        'model_key, model_label, name, image_url, cost, category, created_at, updated_at',
+        `model_key, model_label, name, image_url, cost, category, created_at, updated_at${dollars ? ', cost_usd, usd_rate' : ''}`,
         'model_key',
       ),
       this.all<OrderCostRow>('social_order_costs', 'order_id, cost', 'order_id'),
@@ -234,7 +273,7 @@ class SupabaseProfitStore implements ProfitStore {
 
   async saveModels(models: ModelValues[]): Promise<void> {
     if (!models.length) return;
-    const { error } = await this.client.from('social_model_costs').upsert(
+    const rows = (dollars: boolean) =>
       models.map((m) => ({
         model_key: m.key,
         model_label: m.label.trim(),
@@ -244,9 +283,14 @@ class SupabaseProfitStore implements ProfitStore {
         category: m.category.trim(),
         active: true,
         updated_at: new Date().toISOString(),
-      })),
-      { onConflict: 'model_key' },
-    );
+        ...(dollars ? { cost_usd: m.usd, usd_rate: m.usd === null ? null : m.rate } : {}),
+      }));
+    let dollars = await this.hasDollarColumns();
+    let { error } = await this.client.from('social_model_costs').upsert(rows(dollars), { onConflict: 'model_key' });
+    if (error && dollars && missingDollarColumns(error)) {
+      this.dollars = dollars = false;
+      ({ error } = await this.client.from('social_model_costs').upsert(rows(false), { onConflict: 'model_key' }));
+    }
     if (error) throw translate(error);
   }
 
@@ -329,6 +373,8 @@ function read(): ProfitData {
         name: m.name ?? '',
         image: m.image ?? '',
         cost: m.cost ?? null,
+        usd: m.usd ?? null,
+        rate: m.rate ?? null,
         category: m.category ?? '',
         createdAt: m.createdAt ?? m.updatedAt,
       };
@@ -344,6 +390,10 @@ function write(data: ProfitData): void {
 }
 
 class LocalProfitStore implements ProfitStore {
+  storesDollars(): boolean {
+    return true;
+  }
+
   async load(): Promise<ProfitData> {
     const data = read();
     return { ...data, sponsors: [...data.sponsors].sort((a, b) => b.startDate.localeCompare(a.startDate)) };
@@ -360,6 +410,8 @@ class LocalProfitStore implements ProfitStore {
         name: m.name.trim(),
         image: m.image,
         cost: m.cost === null ? null : Math.round(m.cost),
+        usd: m.usd,
+        rate: m.usd === null ? null : m.rate,
         category: m.category.trim(),
         createdAt: models[m.key]?.createdAt ?? now,
         updatedAt: now,
