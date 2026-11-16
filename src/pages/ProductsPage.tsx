@@ -509,12 +509,20 @@ function ProductPicker({
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  // On a phone, tapping a product takes the focus off the search box before
+  // the tap reaches the product. Closing the list a moment later, not at once,
+  // keeps the product there to be tapped.
+  const closing = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(closing.current), []);
   const picked = products.find((p) => p.key === value);
   const list = useMemo(() => products.filter((p) => matches(p, query)), [products, query]);
   const choose = (p: ModelCost) => {
+    window.clearTimeout(closing.current);
     onChange(p.key);
     setQuery('');
     setOpen(false);
+    // Put the phone keyboard away once a product is picked.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   };
   return (
     <div className="relative min-w-0 flex-1 basis-64 scroll-mt-24 [&_input]:scroll-mt-24">
@@ -544,13 +552,17 @@ function ProductPicker({
             className={cn(field, 'pl-9')}
             value={query}
             onFocus={(e) => {
+              window.clearTimeout(closing.current);
               setOpen(true);
               // On a phone the keyboard covers the lower half: bring the box
               // up so the matches below it stay in sight.
               const box = e.currentTarget;
               window.setTimeout(() => box.scrollIntoView({ block: 'start', behavior: 'smooth' }), 300);
             }}
-            onBlur={() => setOpen(false)}
+            onBlur={() => {
+              window.clearTimeout(closing.current);
+              closing.current = window.setTimeout(() => setOpen(false), 300);
+            }}
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
@@ -567,12 +579,11 @@ function ProductPicker({
         </span>
       )}
       {open && (
+        // In the page, not floating over it: nothing can cut it off or sit on top of it.
         <ul
           role="listbox"
           aria-label={label}
-          // Keep the search box focused while a product is tapped.
-          onPointerDown={(e) => e.preventDefault()}
-          className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-card py-1 shadow-lg"
+          className="mt-1 max-h-72 overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-card py-1 shadow-sm"
         >
           {list.length === 0 ? (
             <li className="px-3 py-3 text-sm text-ink-500">No product matches “{query.trim()}”.</li>
