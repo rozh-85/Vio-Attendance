@@ -55,6 +55,9 @@ export interface Payslip {
   perDay: number;
   perHour: number;
   perMinute: number;
+  /** What one overtime hour pays: the hour rate × the overtime multiplier. */
+  overtimeRate: number;
+  overtimeMultiplier: number;
   earnings: PayslipLine[];
   deductions: PayslipLine[];
   totalEarnings: number;
@@ -117,12 +120,31 @@ export function buildPayslip(
       amount: earnedBase,
     },
   ];
-  if (entry.overtimeHours > 0)
-    earnings.push({
-      label: "Overtime",
-      detail: `${entry.overtimeHours}h × ${fmt(entry.overtimeRate, currency)}`,
-      amount: round(entry.overtimeHours * entry.overtimeRate),
-    });
+  if (entry.overtimeHours > 0) {
+    // One line per overtime day when the saved records still add up to what
+    // the payslip pays; otherwise the frozen total on one line.
+    const ids = new Set(entry.overtimeIds ?? []);
+    const days = w.overtime
+      .filter((o) => ids.has(o.id))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const listed = round(days.reduce((n, o) => n + o.hours, 0));
+    if (days.length && listed === round(entry.overtimeHours))
+      earnings.push(
+        ...days.map((o) => ({
+          label: `Overtime · ${formatHours(o.hours)}`,
+          detail: [o.date, o.reason || o.detail, `${formatHours(o.hours)} × ${fmt(entry.overtimeRate, currency)}`]
+            .filter(Boolean)
+            .join(" · "),
+          amount: round(o.hours * entry.overtimeRate),
+        })),
+      );
+    else
+      earnings.push({
+        label: "Overtime",
+        detail: `${formatHours(entry.overtimeHours)} × ${fmt(entry.overtimeRate, currency)} an hour`,
+        amount: round(entry.overtimeHours * entry.overtimeRate),
+      });
+  }
   earnings.push(...itemise("bonus", entry.bonuses, "Bonus", "Bonuses"));
 
   const ids = new Set(entry.deductionIds ?? []);
@@ -191,6 +213,8 @@ export function buildPayslip(
     perDay: entry.dayRate ?? 0,
     perHour: entry.hourRate ?? 0,
     perMinute: entry.minuteRate ?? 0,
+    overtimeRate: entry.overtimeRate,
+    overtimeMultiplier: w.settings.overtimeMultiplier,
     earnings,
     deductions,
     totalEarnings,
@@ -200,6 +224,12 @@ export function buildPayslip(
   };
 }
 
+/** 2 → "2 hours", 1.5 → "1h 30m", 0.25 → "15 min". */
+export function formatHours(hours: number): string {
+  const minutes = Math.round(hours * 60);
+  if (minutes % 60 === 0) return `${minutes / 60} ${minutes === 60 ? "hour" : "hours"}`;
+  return formatMinutes(minutes);
+}
 /** Whole numbers for big amounts, cents for small rates: "92 IQD", "0.07 USD". */
 export function fmt(value: number, currency: string): string {
   const digits = Math.abs(value) < 100 && value % 1 !== 0 ? 2 : 0;

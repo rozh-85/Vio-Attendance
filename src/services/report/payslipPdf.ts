@@ -73,6 +73,7 @@ function slipHtml(slip: Payslip): string {
       <div><b>${esc(fmt(slip.perDay, c))}</b><span>a day</span></div>
       <div><b>${esc(fmt(slip.perHour, c))}</b><span>an hour</span></div>
       <div><b>${esc(fmt(slip.perMinute, c))}</b><span>a minute</span></div>
+      <div><b>${esc(fmt(slip.overtimeRate, c))}</b><span>overtime hour (×${slip.overtimeMultiplier})</span></div>
     </div>
   </div>
 
@@ -90,7 +91,7 @@ function slipHtml(slip: Payslip): string {
 
   <div class="net"><span>Net pay</span><b>${esc(fmt(slip.net, c))}</b></div>
   ${slip.floored ? '<p class="floor">The deductions are more than the earnings, so the net pay stops at zero.</p>' : ''}
-  <p class="rule">Deductions for late arrival, early leave and absence are worked out from the check-ins at the rates above, and are only taken once approved.</p>
+  <p class="rule">Overtime, late arrival, early leave and absence are worked out from the check-ins at the rates above, and are only paid or taken once approved.</p>
 
   <div class="signs">
     <div><i></i><span>Prepared by (HR)</span></div>

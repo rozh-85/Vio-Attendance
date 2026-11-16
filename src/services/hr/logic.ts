@@ -217,6 +217,22 @@ export function validateLeave(
     return `Only ${round(balance.remaining - balance.pending)} ${type.unit} are available after pending requests.`;
   return null;
 }
+/**
+ * Overtime in a day's worked hours: everything past the shift's overtime
+ * point (7 hours on the 9-to-4 day), or every hour on a day off or a holiday.
+ * Less than the grace minutes is let go, like a few minutes late is.
+ */
+function overtimeIn(
+  w: HrWorkspace,
+  shift: HrShift | undefined,
+  holiday: boolean,
+  hours: number,
+): number {
+  if (hours <= 0) return 0;
+  const extra = !shift || holiday ? hours : hours - shift.overtimeAfterHours;
+  const grace = graceMinutes(w, shift ?? workDayShift(w));
+  return extra * 60 >= Math.max(1, grace) ? round(extra) : 0;
+}
 /** Minutes late (or early) that are let go: the late-grace rule, or the shift's own. */
 export function graceMinutes(w: HrWorkspace, shift: HrShift): number {
   const rule = w.rules.find((r) => r.id === "late-grace" && r.enabled);
@@ -374,9 +390,7 @@ export function attendanceRows(
           scheduledMinutes: shift ? Math.round(shiftHours(shift) * 60) : 0,
           startTime: shift?.startTime ?? "",
           endTime: shift?.endTime ?? "",
-          overtime: shift
-            ? round(Math.max(0, hours - shift.overtimeAfterHours))
-            : 0,
+          overtime: overtimeIn(w, shift, holiday, hours),
           status,
         };
       }),
@@ -541,8 +555,10 @@ export function periodDeductions(
   );
 }
 /**
- * Overtime the check-ins show — hours past the shift's overtime point — that
- * is not in the overtime list yet, ready to be added there for approval.
+ * Overtime the check-ins show that nobody has decided on yet, as "pending".
+ * Like the deductions, it is worked out every time and never saved until it
+ * is approved or rejected; a day that already has an overtime record —
+ * decided, or typed in by hand — is not offered again.
  */
 export function attendanceOvertime(
   w: HrWorkspace,
@@ -556,19 +572,49 @@ export function attendanceOvertime(
           (o) => o.employeeId === row.employeeId && o.date === row.date,
         ),
     )
-    .map((row) => ({
-      id: `ot-${row.employeeId}-${row.date}`,
-      employeeId: row.employeeId,
-      date: row.date,
-      hours: row.overtime,
-      reason: `From check-ins: worked ${row.hours} hours on a ${round(row.scheduledMinutes / 60)}-hour day`,
-      status: "pending" as const,
-    }));
+    .map((row) => {
+      const holiday = w.holidays.find(
+        (h) => h.startDate <= row.date && h.endDate >= row.date,
+      );
+      const worked = `Worked ${clock(row.checkIn)} – ${clock(row.checkOut)} · ${row.hours} hours`;
+      return {
+        id: `ot-${row.employeeId}-${row.date}`,
+        employeeId: row.employeeId,
+        date: row.date,
+        hours: row.overtime,
+        reason: "",
+        detail: holiday
+          ? `${worked} on a holiday (${holiday.name})`
+          : row.scheduledMinutes
+            ? `${worked} on a ${round(row.scheduledMinutes / 60)}-hour day`
+            : `${worked} on a day off`,
+        status: "pending" as const,
+      };
+    });
+}
+/** A month's overtime: what is saved, and what the check-ins show waiting. */
+export function periodOvertime(
+  w: HrWorkspace,
+  found: HrOvertimeRecord[],
+  period: string,
+): HrOvertimeRecord[] {
+  return [
+    ...found,
+    ...w.overtime.filter((o) => o.date.startsWith(period)),
+  ].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.employeeId.localeCompare(b.employeeId),
+  );
+}
+/** True when overtime only counts once approved (the overtime-approval rule). */
+export function overtimeNeedsApproval(w: HrWorkspace): boolean {
+  return w.rules.some((r) => r.id === "overtime-approval" && r.enabled);
 }
 export function calculatePayroll(
   w: HrWorkspace,
   employees: Employee[],
   period: string,
+  /** Overtime found in the check-ins; it only counts with approval turned off. */
+  foundOvertime: HrOvertimeRecord[] = [],
 ): HrPayrollEntry[] {
   if (!/^\d{4}-\d{2}$/.test(period))
     throw new Error("Choose a payroll month.");
@@ -622,19 +668,19 @@ export function calculatePayroll(
       const timeDeductions = round(
         approvedDeductions.reduce((n, d) => n + d.amount, 0),
       );
-      const requireApproval = w.rules.some(
-        (r) => r.id === "overtime-approval" && r.enabled,
+      const requireApproval = overtimeNeedsApproval(w);
+      const paidOvertime = [
+        ...w.overtime,
+        ...(requireApproval ? [] : foundOvertime),
+      ].filter(
+        (o) =>
+          o.employeeId === e.id &&
+          o.date.startsWith(period) &&
+          (o.status === "approved" ||
+            (!requireApproval && o.status === "pending")),
       );
       const overtimeHours = round(
-        w.overtime
-          .filter(
-            (o) =>
-              o.employeeId === e.id &&
-              o.date.startsWith(period) &&
-              (o.status === "approved" ||
-                (!requireApproval && o.status === "pending")),
-          )
-          .reduce((n, o) => n + o.hours, 0),
+        paidOvertime.reduce((n, o) => n + o.hours, 0),
       );
       // An hour is the salary over the month's work hours; without any work
       // time to divide by, fall back to the old fixed monthly hours.
@@ -696,6 +742,7 @@ export function calculatePayroll(
         earnedBase,
         timeDeductions,
         deductionIds: approvedDeductions.map((d) => d.id),
+        overtimeIds: paidOvertime.map((o) => o.id),
       };
     });
 }

@@ -42,7 +42,9 @@ import {
   leaveBalance,
   localDate,
   monthRows,
+  overtimeNeedsApproval,
   payslipLocked,
+  periodOvertime,
   periodDeductions,
   salaryRates,
   validateLeave,
@@ -357,22 +359,38 @@ export function HrManagementPage() {
     () => attendanceRows(workspace, employees, attendance, today, today, legacyLeave),
     [workspace, employees, attendance, today, legacyLeave],
   );
+  // The payroll month's register, read once for its deductions and overtime.
+  const payrollRows = useMemo(
+    () => monthRows(workspace, employees, attendance, period, legacyLeave),
+    [workspace, employees, attendance, period, legacyLeave],
+  );
+  // Overtime in the check-ins that is still waiting. A payslip already
+  // approved cannot take more, so its person's waiting overtime is left out.
+  const overtimeFound = useMemo(
+    () =>
+      attendanceOvertime(workspace, payrollRows).filter(
+        (o) => !payslipLocked(workspace, o.employeeId, period),
+      ),
+    [workspace, payrollRows, period],
+  );
+  const overtime = useMemo(
+    () => periodOvertime(workspace, overtimeFound, period),
+    [workspace, overtimeFound, period],
+  );
   const payrollRun = useMemo(() => {
     try {
-      return { rows: calculatePayroll(workspace, employees, period), error: "" };
+      return {
+        rows: calculatePayroll(workspace, employees, period, overtimeFound),
+        error: "",
+      };
     } catch (err) {
       return {
         rows: [],
         error: err instanceof Error ? err.message : "Payroll could not be calculated.",
       };
     }
-  }, [workspace, employees, period]);
+  }, [workspace, employees, period, overtimeFound]);
   const payroll = payrollRun.rows;
-  // The payroll month's register, read once for its deductions and overtime.
-  const payrollRows = useMemo(
-    () => monthRows(workspace, employees, attendance, period, legacyLeave),
-    [workspace, employees, attendance, period, legacyLeave],
-  );
   // Deductions of a payslip that is already approved cannot be decided any
   // more, so they are not counted as waiting.
   const deductions = useMemo(
@@ -384,14 +402,11 @@ export function HrManagementPage() {
       ),
     [workspace, payrollRows, period],
   );
-  const overtimeFound = useMemo(
-    () =>
-      attendanceOvertime(workspace, payrollRows).filter(
-        (o) => !payslipLocked(workspace, o.employeeId, period),
-      ),
-    [workspace, payrollRows, period],
-  );
   const waitingDeductions = deductions.filter((d) => d.status === "pending").length;
+  const waitingOvertime = overtimeNeedsApproval(workspace)
+    ? overtime.filter((o) => o.status === "pending").length
+    : 0;
+  const waiting = waitingDeductions + waitingOvertime;
   // What each HR room shows on its door in the lobby and the corridor.
   const draftPayroll = workspace.payrollEntries
     .filter((p) => p.period === workspace.payrollPeriod)
@@ -420,11 +435,16 @@ export function HrManagementPage() {
         ? { value: `${pendingRequests.length} waiting`, alert: true, count: pendingRequests.length }
         : { value: `${workspace.holidays.length} holidays` },
     payroll:
-      waitingDeductions > 0
+      waiting > 0
         ? {
-            value: `${waitingDeductions} ${waitingDeductions === 1 ? "deduction" : "deductions"} to approve`,
+            value: [
+              waitingDeductions ? `${waitingDeductions} ${waitingDeductions === 1 ? "deduction" : "deductions"}` : "",
+              waitingOvertime ? `${waitingOvertime} overtime` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ") + " to approve",
             alert: true,
-            count: waitingDeductions,
+            count: waiting,
           }
         : { value: draftPayroll ? money(draftPayroll, workspace.settings.currency) : workspace.payrollPeriod },
     hiring: {
@@ -758,7 +778,7 @@ export function HrManagementPage() {
           payroll={payroll}
           payrollError={payrollRun.error}
           deductions={deductions}
-          overtimeFound={overtimeFound}
+          overtime={overtime}
           commit={commit}
         />
       )}
@@ -1572,6 +1592,10 @@ function Time({
               .filter(Boolean)
               .join(" · ")
           : "—",
+    },
+    {
+      title: "Overtime",
+      render: (r) => (r.overtime ? formatMinutes(r.overtime * 60) : "—"),
     },
     { title: "Status", render: (r) => <Status>{r.status}</Status> },
   ];

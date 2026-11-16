@@ -178,6 +178,8 @@ export interface HrPayrollEntry {
   timeDeductions?: number;
   /** The approved deductions this payslip includes, frozen with it. */
   deductionIds?: string[];
+  /** The overtime records this payslip pays, frozen with it. */
+  overtimeIds?: string[];
   approvedAt?: string;
   paidAt?: string;
 }
@@ -227,12 +229,20 @@ export interface HrPerformanceReview {
 }
 
 export interface HrOvertimeRecord {
+  /**
+   * `ot-<employeeId>-<date>` for overtime found in the check-ins, so the same
+   * evening is never offered twice; a random id for overtime typed in by hand.
+   */
   id: string;
   employeeId: string;
   date: string;
   hours: number;
+  /** HR's own words, optional. */
   reason: string;
+  /** What the check-ins showed, e.g. "Worked 9 AM – 6 PM · 9 hours". */
+  detail?: string;
   status: HrRequestStatus;
+  decidedAt?: string;
 }
 
 export type HrInterviewStatus =

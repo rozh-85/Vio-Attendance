@@ -13,12 +13,15 @@ import {
   clockRange,
   formatMinutes,
   localDate,
+  overtimeNeedsApproval,
   payslipLocked,
   round,
   salaryRates,
+  shiftHours,
   weekdays,
+  workDayShift,
 } from "@/services/hr/logic";
-import { buildPayslip, describeDays, fmt } from "@/services/hr/payslip";
+import { buildPayslip, describeDays, fmt, formatHours } from "@/services/hr/payslip";
 import { exportPayslipsPdf } from "@/services/report/payslipPdf";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -78,7 +81,7 @@ export function HrPayroll({
   payroll,
   payrollError,
   deductions,
-  overtimeFound,
+  overtime,
   commit,
 }: {
   workspace: HrWorkspace;
@@ -90,8 +93,8 @@ export function HrPayroll({
   payrollError: string;
   /** This month's deductions: decided ones and the check-ins' pending ones. */
   deductions: HrDeduction[];
-  /** Overtime in this month's check-ins not yet in the overtime list. */
-  overtimeFound: HrOvertimeRecord[];
+  /** This month's overtime: saved records and the check-ins' pending ones. */
+  overtime: HrOvertimeRecord[];
   commit: Commit;
 }) {
   const currency = workspace.settings.currency;
@@ -109,6 +112,13 @@ export function HrPayroll({
   const [adding, setAdding] = useState(false);
   const [view, setView] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [who, setWho] = useState("");
+  const [otView, setOtView] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const [otWho, setOtWho] = useState("");
+  const needsApproval = overtimeNeedsApproval(workspace);
+  const otWaitingFor = (employeeId: string) =>
+    needsApproval
+      ? overtime.filter((o) => o.status === "pending" && o.employeeId === employeeId).length
+      : 0;
 
   const pending = deductions.filter((d) => d.status === "pending");
   const waitingFor = (employeeId: string) =>
@@ -195,18 +205,35 @@ export function HrPayroll({
       ),
     },
     {
-      title: "Bonus / OT",
-      render: (r) => (
-        <div>
-          <div>{money(r.bonuses + round(r.overtimeHours * r.overtimeRate))}</div>
-          {r.overtimeHours > 0 && (
+      title: "Overtime",
+      render: (r) => {
+        const waiting = r.status === "draft" ? otWaitingFor(r.employeeId) : 0;
+        return (
+          <div>
+            <div>{money(round(r.overtimeHours * r.overtimeRate))}</div>
             <div className="text-xs text-ink-500">
-              {r.overtimeHours}h × {money(r.overtimeRate)}
+              {r.overtimeHours > 0
+                ? `${formatHours(r.overtimeHours)} × ${money(r.overtimeRate)}`
+                : `${money(r.overtimeRate)} an hour`}
             </div>
-          )}
-        </div>
-      ),
+            {waiting > 0 && (
+              <button
+                type="button"
+                className="text-xs font-semibold text-amber-700 hover:underline"
+                onClick={() => {
+                  setOtView("pending");
+                  setOtWho(r.employeeId);
+                  document.getElementById("hr-overtime")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                {waiting} waiting for approval
+              </button>
+            )}
+          </div>
+        );
+      },
     },
+    { title: "Bonus", render: (r) => money(r.bonuses) },
     {
       title: "Deductions",
       render: (r) => {
@@ -380,13 +407,6 @@ export function HrPayroll({
     { key: "date", label: "Date", type: "date", required: true },
     { key: "reason", label: "Reason (optional)" },
   ];
-  const overtimeFields: Field[] = [
-    employeeField,
-    { key: "date", label: "Date", type: "date", required: true },
-    { key: "hours", label: "Hours", type: "number", min: 0, required: true },
-    { key: "reason", label: "Reason", required: true },
-    { key: "status", label: "Approval", type: "select", options: options(["pending", "approved", "rejected"]), required: true },
-  ];
   const lockCheck = (r: { employeeId: string; date: string }) =>
     locked(r.employeeId, r.date.slice(0, 7)) ? LOCKED_NOTE : null;
 
@@ -557,116 +577,46 @@ export function HrPayroll({
         </Section>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Collection<HrAdjustment>
-          title="Adjustments"
-          description="One-time bonuses and penalties for a payroll month. The reason is optional."
-          rows={workspace.adjustments}
-          columns={[
-            { title: "Employee", render: (r) => nameOf(employees, r.employeeId) },
-            { title: "Type", render: (r) => <Status>{r.type}</Status> },
-            { title: "Amount", render: (r) => money(r.amount) },
-            { title: "Date", render: (r) => r.date },
-            { title: "Reason", render: (r) => r.reason || "—" },
-          ]}
-          fields={adjustmentFields}
-          defaults={{ id: "", employeeId: "", type: "bonus", amount: 0, date: localDate(), reason: "" }}
-          canEdit={(r) => !lockCheck(r)}
-          validate={lockCheck}
-          onSave={async (r) =>
-            commit(
-              (w) => ({ ...w, adjustments: [...w.adjustments.filter((a) => a.id !== r.id), r] }),
-              `Saved ${r.type} adjustment for ${nameOf(employees, r.employeeId)}`,
-            )
-          }
-          onDelete={async (r) =>
-            commit(
-              (w) => ({ ...w, adjustments: w.adjustments.filter((a) => a.id !== r.id) }),
-              `Deleted ${r.type} adjustment for ${nameOf(employees, r.employeeId)}`,
-            )
-          }
-        />
-        <Collection<HrOvertimeRecord>
-          title="Overtime approvals"
-          description="Only approved overtime enters payroll when the approval rule is on. An overtime hour pays the hour rate times the overtime multiplier."
-          rows={workspace.overtime}
-          extra={
-            overtimeFound.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="text-ink-600">
-                  {overtimeFound.length} {overtimeFound.length === 1 ? "day" : "days"} of overtime in the {monthLabel(period)} check-ins ·{" "}
-                  {round(overtimeFound.reduce((n, o) => n + o.hours, 0))}h
-                </span>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() =>
-                    void commit(
-                      (w) => ({ ...w, overtime: [...w.overtime, ...overtimeFound.filter((o) => !locked(o.employeeId, o.date.slice(0, 7)))] }),
-                      `Added ${overtimeFound.length} overtime days from the check-ins for approval`,
-                    )
-                  }
-                >
-                  Add them for approval
-                </Button>
-              </div>
-            ) : undefined
-          }
-          columns={[
-            { title: "Employee", render: (r) => nameOf(employees, r.employeeId) },
-            { title: "Date", render: (r) => r.date },
-            { title: "Hours", render: (r) => r.hours },
-            { title: "Reason", render: (r) => r.reason },
-            { title: "Status", render: (r) => <Status>{r.status}</Status> },
-          ]}
-          fields={overtimeFields}
-          defaults={{ id: "", employeeId: "", date: localDate(), hours: 1, reason: "", status: "pending" }}
-          canEdit={(r) => !lockCheck(r)}
-          validate={lockCheck}
-          actions={(r) =>
-            r.status === "pending" ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() =>
-                    void commit(
-                      (w) => ({ ...w, overtime: w.overtime.map((o) => (o.id === r.id ? { ...o, status: "approved" } : o)) }),
-                      `Approved ${r.hours}h overtime for ${nameOf(employees, r.employeeId)} (${r.date})`,
-                    )
-                  }
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    void commit(
-                      (w) => ({ ...w, overtime: w.overtime.map((o) => (o.id === r.id ? { ...o, status: "rejected" } : o)) }),
-                      `Rejected ${r.hours}h overtime for ${nameOf(employees, r.employeeId)} (${r.date})`,
-                    )
-                  }
-                >
-                  Reject
-                </Button>
-              </>
-            ) : null
-          }
-          onSave={async (r) =>
-            commit(
-              (w) => ({ ...w, overtime: [...w.overtime.filter((o) => o.id !== r.id), r] }),
-              `Saved overtime for ${nameOf(employees, r.employeeId)}`,
-            )
-          }
-          onDelete={async (r) =>
-            commit(
-              (w) => ({ ...w, overtime: w.overtime.filter((o) => o.id !== r.id) }),
-              `Deleted overtime for ${nameOf(employees, r.employeeId)} (${r.date})`,
-            )
-          }
-        />
-      </div>
+      <OvertimeSection
+        workspace={workspace}
+        employees={employees}
+        period={period}
+        overtime={overtime}
+        view={otView}
+        setView={setOtView}
+        who={otWho}
+        setWho={setOtWho}
+        commit={commit}
+      />
+
+      <Collection<HrAdjustment>
+        title="Adjustments"
+        description="One-time bonuses and penalties for a payroll month. The reason is optional."
+        rows={workspace.adjustments}
+        columns={[
+          { title: "Employee", render: (r) => nameOf(employees, r.employeeId) },
+          { title: "Type", render: (r) => <Status>{r.type}</Status> },
+          { title: "Amount", render: (r) => money(r.amount) },
+          { title: "Date", render: (r) => r.date },
+          { title: "Reason", render: (r) => r.reason || "—" },
+        ]}
+        fields={adjustmentFields}
+        defaults={{ id: "", employeeId: "", type: "bonus", amount: 0, date: localDate(), reason: "" }}
+        canEdit={(r) => !lockCheck(r)}
+        validate={lockCheck}
+        onSave={async (r) =>
+          commit(
+            (w) => ({ ...w, adjustments: [...w.adjustments.filter((a) => a.id !== r.id), r] }),
+            `Saved ${r.type} adjustment for ${nameOf(employees, r.employeeId)}`,
+          )
+        }
+        onDelete={async (r) =>
+          commit(
+            (w) => ({ ...w, adjustments: w.adjustments.filter((a) => a.id !== r.id) }),
+            `Deleted ${r.type} adjustment for ${nameOf(employees, r.employeeId)}`,
+          )
+        }
+      />
 
       <Collection
         title="Performance reviews"
@@ -850,6 +800,321 @@ export function HrPayroll({
                 ],
               }),
               `Added a ${money(amount)} deduction for ${nameOf(employees, employeeId)} (${day})${note ? `: ${note}` : ""}`,
+            );
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The month's overtime: what the check-ins show past the work day (or on a
+ * day off or holiday), each with what it pays. Like the deductions, nothing
+ * is paid until somebody approves it — unless the overtime-approval rule is
+ * turned off.
+ */
+function OvertimeSection({
+  workspace,
+  employees,
+  period,
+  overtime,
+  view,
+  setView,
+  who,
+  setWho,
+  commit,
+}: {
+  workspace: HrWorkspace;
+  employees: Employee[];
+  period: string;
+  overtime: HrOvertimeRecord[];
+  view: "pending" | "approved" | "rejected" | "all";
+  setView: (v: "pending" | "approved" | "rejected" | "all") => void;
+  who: string;
+  setWho: (v: string) => void;
+  commit: Commit;
+}) {
+  const currency = workspace.settings.currency;
+  const money = (n: number) => fmt(n, currency);
+  const needsApproval = overtimeNeedsApproval(workspace);
+  const [approving, setApproving] = useState<HrOvertimeRecord | null>(null);
+  const [approvingAll, setApprovingAll] = useState<HrOvertimeRecord[] | null>(null);
+  const [adding, setAdding] = useState(false);
+  const locked = (o: { employeeId: string; date: string }) =>
+    payslipLocked(workspace, o.employeeId, o.date.slice(0, 7));
+  /** What one overtime hour pays this person that month. */
+  const rateFor = (employeeId: string, day: string) => {
+    const base = workspace.profiles[employeeId]?.baseSalary ?? 0;
+    const perHour =
+      salaryRates(workspace, employeeId, day.slice(0, 7), base).perHour ||
+      base / (workspace.settings.monthlyHours || 208);
+    return round(perHour * workspace.settings.overtimeMultiplier);
+  };
+  const pending = overtime.filter((o) => o.status === "pending");
+  const shown = overtime.filter(
+    (o) => (view === "all" || o.status === view) && (!who || o.employeeId === who),
+  );
+  const shownPending = shown.filter((o) => o.status === "pending");
+  const remove = (o: HrOvertimeRecord, action: string) =>
+    commit((w) => ({ ...w, overtime: w.overtime.filter((x) => x.id !== o.id) }), action);
+  function decide(list: HrOvertimeRecord[], status: "approved" | "rejected", note?: string, hours?: number) {
+    const at = new Date().toISOString();
+    const ids = new Set(list.map((o) => o.id));
+    return commit(
+      (w) => ({
+        ...w,
+        overtime: [
+          ...w.overtime.filter((o) => !ids.has(o.id)),
+          ...list.map((o) => ({
+            ...o,
+            status,
+            hours: hours ?? o.hours,
+            reason: note ?? o.reason,
+            decidedAt: at,
+          })),
+        ],
+      }),
+      list.length === 1
+        ? `${status === "approved" ? "Approved" : "Rejected"} ${formatHours(hours ?? list[0].hours)} overtime for ${nameOf(employees, list[0].employeeId)} (${list[0].date})`
+        : `${status === "approved" ? "Approved" : "Rejected"} ${list.length} overtime days (${formatHours(round(list.reduce((n, o) => n + o.hours, 0)))})`,
+    );
+  }
+  const noteField: Field = {
+    key: "note",
+    label: "Note (optional)",
+    placeholder: "e.g. stock count",
+    hint: "Your own words, printed on the payslip.",
+  };
+  const hoursHint = (employeeId: string, day: string) => (v: Values) => {
+    if (!employeeId || !day) return "Choose the employee and the date to see what it pays.";
+    const rate = rateFor(employeeId, day);
+    const hours = Number(v.hours) || 0;
+    return hours > 0
+      ? `${formatHours(hours)} × ${money(rate)} an hour = ${money(round(hours * rate))}`
+      : `${money(rate)} an hour (the hour rate × ${workspace.settings.overtimeMultiplier}).`;
+  };
+
+  const columns: Column<HrOvertimeRecord>[] = [
+    { title: "Date", render: (o) => <span className="whitespace-nowrap">{shortDate(o.date)}</span> },
+    { title: "Employee", render: (o) => nameOf(employees, o.employeeId) },
+    {
+      title: "Overtime",
+      render: (o) => (
+        <div>
+          <div className="font-semibold">{formatHours(o.hours)}</div>
+          {o.detail && <div className="text-xs text-ink-500">{o.detail}</div>}
+        </div>
+      ),
+    },
+    {
+      title: "Pays",
+      render: (o) => {
+        const rate = rateFor(o.employeeId, o.date);
+        return (
+          <div>
+            <div className="font-semibold">{money(round(o.hours * rate))}</div>
+            <div className="text-xs text-ink-500">{money(rate)} an hour</div>
+          </div>
+        );
+      },
+    },
+    { title: "Note", render: (o) => o.reason || <span className="text-ink-400">—</span> },
+    {
+      title: "Status",
+      render: (o) => (
+        <Status>
+          {o.status === "pending"
+            ? needsApproval
+              ? "pending approval"
+              : "paid — approval is off"
+            : o.status}
+        </Status>
+      ),
+    },
+    {
+      title: "Actions",
+      render: (o) =>
+        locked(o) ? (
+          <span title={LOCKED_NOTE}>
+            <Status>Payslip approved</Status>
+          </span>
+        ) : o.status === "pending" ? (
+          <div className="flex flex-wrap gap-1">
+            <Button size="sm" variant="secondary" leftIcon={<Check width={14} />} onClick={() => setApproving(o)}>
+              Approve
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => void decide([o], "rejected")}>
+              Reject
+            </Button>
+          </div>
+        ) : o.id.startsWith("ot-") ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void remove(o, `Undid the overtime decision for ${nameOf(employees, o.employeeId)} (${o.date})`)}
+          >
+            Undo
+          </Button>
+        ) : (
+          <ConfirmButton
+            label="Delete"
+            confirm="Delete?"
+            onConfirm={() => remove(o, `Deleted ${formatHours(o.hours)} overtime for ${nameOf(employees, o.employeeId)} (${o.date})`)}
+          />
+        ),
+    },
+  ];
+
+  const shownHours = round(shown.reduce((n, o) => n + o.hours, 0));
+  const shownPay = round(shown.reduce((n, o) => n + o.hours * rateFor(o.employeeId, o.date), 0));
+  return (
+    <div id="hr-overtime" className="scroll-mt-4">
+      <Section
+        title={`Overtime · ${monthLabel(period)}`}
+        description={`Found in the check-ins: time worked past the work day (${clockRange(workspace.settings.workStart, workspace.settings.workEnd)} is ${formatHours(shiftHours(workDayShift(workspace)))}), or every hour worked on a day off or a holiday. Each hour pays the hour rate × ${workspace.settings.overtimeMultiplier}. ${needsApproval ? "Nothing is paid until you approve it — you can change the hours and add a note." : "The approval rule is off, so it is paid straight away."} Overtime you add by hand counts straight away.`}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Show overtime"
+              className={filterClass}
+              value={view}
+              onChange={(e) => setView(e.target.value as typeof view)}
+            >
+              <option value="pending">Waiting for approval ({pending.length})</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="all">All</option>
+            </select>
+            <select
+              aria-label="Overtime for"
+              className={filterClass}
+              value={who}
+              onChange={(e) => setWho(e.target.value)}
+            >
+              <option value="">Everyone</option>
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.fullName}
+                </option>
+              ))}
+            </select>
+            {shownPending.length > 1 && (
+              <Button size="sm" variant="secondary" leftIcon={<Check width={15} />} onClick={() => setApprovingAll(shownPending)}>
+                Approve all ({shownPending.length})
+              </Button>
+            )}
+            <Button size="sm" leftIcon={<Plus width={15} />} onClick={() => setAdding(true)}>
+              Add overtime
+            </Button>
+          </div>
+        }
+      >
+        {shown.length > 0 && (
+          <p className="border-b border-slate-100 px-5 py-2.5 text-sm text-ink-500">
+            {shown.length} {shown.length === 1 ? "day" : "days"} · {formatHours(shownHours)} ·{" "}
+            <b className="text-ink-900">{money(shownPay)}</b>
+          </p>
+        )}
+        <Table
+          rows={shown}
+          columns={columns}
+          empty={
+            view === "pending"
+              ? "Nothing waiting. Time worked past the work day shows up here from the check-ins."
+              : "No overtime here for this month."
+          }
+        />
+      </Section>
+
+      {approving && (
+        <Editor
+          title={`Approve overtime — ${nameOf(employees, approving.employeeId)}`}
+          description={`${shortDate(approving.date)}${approving.detail ? ` · ${approving.detail}` : ""}`}
+          fields={[
+            {
+              key: "hours",
+              label: "Overtime hours to pay",
+              type: "number",
+              min: 0,
+              required: true,
+              hint: hoursHint(approving.employeeId, approving.date),
+            },
+            noteField,
+          ]}
+          initial={{ hours: approving.hours, note: approving.reason }}
+          onClose={() => setApproving(null)}
+          onSave={async (v) => {
+            const hours = Number(v.hours);
+            if (!(hours > 0)) throw new Error("Enter hours above zero, or reject the overtime instead.");
+            await decide([approving], "approved", String(v.note ?? "").trim(), round(hours));
+          }}
+        />
+      )}
+
+      {approvingAll && (
+        <Editor
+          title={`Approve ${approvingAll.length} overtime days`}
+          description={`${formatHours(round(approvingAll.reduce((n, o) => n + o.hours, 0)))} · ${money(round(approvingAll.reduce((n, o) => n + o.hours * rateFor(o.employeeId, o.date), 0)))} in all${who ? ` for ${nameOf(employees, who)}` : ""}, each with the hours shown. The note goes on every one.`}
+          fields={[noteField]}
+          initial={{ note: "" }}
+          onClose={() => setApprovingAll(null)}
+          onSave={async (v) => {
+            const note = String(v.note ?? "").trim();
+            await decide(approvingAll, "approved", note || undefined);
+          }}
+        />
+      )}
+
+      {adding && (
+        <Editor
+          title="Add overtime"
+          description="For overtime the check-ins do not show. It counts straight away."
+          fields={[
+            {
+              key: "employeeId",
+              label: "Employee",
+              type: "select",
+              options: employees.map((e) => ({ value: e.id, label: e.fullName })),
+              required: true,
+            },
+            { key: "date", label: "Date", type: "date", required: true },
+            {
+              key: "hours",
+              label: "Hours",
+              type: "number",
+              min: 0,
+              required: true,
+              hint: (v) => hoursHint(String(v.employeeId ?? ""), String(v.date ?? ""))(v),
+            },
+            noteField,
+          ]}
+          initial={{ employeeId: who, date: localDate().startsWith(period) ? localDate() : `${period}-01`, hours: "", note: "" }}
+          onClose={() => setAdding(false)}
+          onSave={async (v) => {
+            const employeeId = String(v.employeeId);
+            const day = String(v.date);
+            const hours = round(Number(v.hours));
+            if (!(hours > 0)) throw new Error("Enter hours above zero.");
+            if (locked({ employeeId, date: day })) throw new Error(LOCKED_NOTE);
+            const note = String(v.note ?? "").trim();
+            await commit(
+              (w) => ({
+                ...w,
+                overtime: [
+                  ...w.overtime,
+                  {
+                    id: createHrId("overtime"),
+                    employeeId,
+                    date: day,
+                    hours,
+                    reason: note,
+                    status: "approved",
+                    decidedAt: new Date().toISOString(),
+                  },
+                ],
+              }),
+              `Added ${formatHours(hours)} overtime for ${nameOf(employees, employeeId)} (${day})${note ? `: ${note}` : ""}`,
             );
           }}
         />

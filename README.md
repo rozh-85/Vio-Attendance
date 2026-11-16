@@ -235,9 +235,14 @@ CSV reports and an audit log.
   frozen: recalculating, new deductions, bonuses and overtime cannot change
   it until it is reopened. Each payslip prints (or saves as PDF) on its own
   page, with the rates and every deduction listed.
-- Overtime in the check-ins can be added to *Overtime approvals*; it is paid
-  at the hour rate × the overtime multiplier. Someone who joins mid-month is
-  paid for the work time after their join date. Net pay never goes below zero.
+- **Overtime needs approval too** — time worked past the work day (more than
+  7 hours on 9 AM – 4 PM), or every hour on a day off or holiday, is found in
+  the check-ins and priced at the hour rate × the overtime multiplier (1.5).
+  It is paid once approved; the approver can change the hours and add a note.
+  Each overtime day is listed on the payslip. Turning off the
+  *Overtime requires approval* rule pays it straight away.
+- Someone who joins mid-month is paid for the work time after their join
+  date. Net pay never goes below zero.
 
 The logic lives in [`logic.ts`](src/services/hr/logic.ts) and
 [`payslip.ts`](src/services/hr/payslip.ts); the page is
