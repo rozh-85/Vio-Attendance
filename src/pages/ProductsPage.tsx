@@ -15,6 +15,7 @@ import {
   ordersToFix,
   parseIqd,
   summarizeProfit,
+  westernDigits,
   type ModelCost,
   type ModelRow,
   type ModelValues,
@@ -68,6 +69,71 @@ function CostBox({ value, onChange, autoFocus }: { value: string; onChange: (v: 
   );
 }
 
+/** Dollars as typed: "83", "83.5", "٨٣", "1,200" → 83, 83.5, 83, 1200; null when empty. */
+function parseUsd(value: string): number | null {
+  const text = westernDigits(value).replace(/[٫]/g, '.').replace(/[^\d.]/g, '');
+  if (!text) return null;
+  const n = Number.parseFloat(text);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** The IQD cost of a dollar price at "IQD for 100 $", as the cost box writes it; '' when either is missing. */
+function dollarsToIqd(usd: string, per100: string): string {
+  const dollars = parseUsd(usd);
+  const rate = (parseIqd(per100) ?? 0) / 100;
+  return dollars === null || rate <= 0 ? '' : iqd(Math.round(dollars * rate));
+}
+
+/**
+ * Optional: the cost of one piece in dollars, at this product's own dollar
+ * rate. Typing either fills in the IQD cost above; only the IQD cost is saved.
+ */
+function DollarBox({
+  usd,
+  per100,
+  onChange,
+}: {
+  usd: string;
+  per100: string;
+  onChange: (next: { usd: string; per100: string }) => void;
+}) {
+  const result = dollarsToIqd(usd, per100);
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
+      <span className="font-medium text-ink-600">Cost in dollars (optional)</span>
+      <span className="relative">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-semibold text-ink-400">$</span>
+        <input
+          inputMode="decimal"
+          autoComplete="off"
+          aria-label="Cost of one piece in dollars"
+          placeholder="83"
+          className={cn(field, 'w-28 pl-7 text-right font-semibold tabular-nums')}
+          value={usd}
+          onChange={(e) => onChange({ usd: e.target.value.replace(/[^\d.,٠-٩۰-۹٫]/g, ''), per100 })}
+        />
+      </span>
+      <span className="text-ink-500">at 100 $ =</span>
+      <span className="relative">
+        <input
+          inputMode="numeric"
+          autoComplete="off"
+          aria-label="IQD for 100 dollars, for this product"
+          className={cn(field, 'w-36 pr-12 text-right font-semibold tabular-nums')}
+          value={per100}
+          onChange={(e) => onChange({ usd, per100: moneyText(e.target.value) })}
+        />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-ink-400">IQD</span>
+      </span>
+      {result && (
+        <span className="text-ink-500">
+          = <b className="tabular-nums text-ink-900">{result} IQD</b>
+        </span>
+      )}
+    </div>
+  );
+}
+
 function FieldLabel({ children }: { children: string }) {
   return <span className="mb-1 block text-xs font-medium text-ink-500">{children}</span>;
 }
@@ -90,7 +156,14 @@ function AddProduct({
   // A model written on an order is filled in as the catalogue writes it, when it is there.
   const [form, setForm] = useState(() => {
     const item = prefill ? catalogItem(prefill) : undefined;
-    return { label: item?.model ?? prefill, name: item?.name ?? '', category: item ? item.typeKu || item.group : '', cost: '' };
+    return {
+      label: item?.model ?? prefill,
+      name: item?.name ?? '',
+      category: item ? item.typeKu || item.group : '',
+      cost: '',
+      usd: '',
+      per100: iqd(DEFAULT_USD_RATE * 100),
+    };
   });
   const [problem, setProblem] = useState<string | null>(null);
   const set = (patch: Partial<typeof form>) => {
@@ -165,7 +238,8 @@ function AddProduct({
         </div>
       )}
 
-      <form onSubmit={submit} className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+      <form onSubmit={submit} className="mt-4 border-t border-slate-100 pt-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
         <label className="block">
           <FieldLabel>Model *</FieldLabel>
           <input className={cn(field, 'font-mono font-semibold')} placeholder="V-400" value={form.label} onChange={(e) => set({ label: e.target.value })} />
@@ -180,11 +254,20 @@ function AddProduct({
         </label>
         <label className="block">
           <FieldLabel>Your cost (one piece)</FieldLabel>
-          <CostBox value={form.cost} onChange={(cost) => set({ cost })} />
+          {/* Writing the IQD cost by hand drops the dollars it came from. */}
+          <CostBox value={form.cost} onChange={(cost) => set({ cost, usd: '' })} />
         </label>
-        <Button type="submit" loading={busy} leftIcon={<Check width={16} height={16} />} className="h-10">
-          Save product
-        </Button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <DollarBox
+            usd={form.usd}
+            per100={form.per100}
+            onChange={({ usd, per100 }) => set({ usd, per100, cost: dollarsToIqd(usd, per100) || form.cost })}
+          />
+          <Button type="submit" loading={busy} leftIcon={<Check width={16} height={16} />} className="h-10">
+            Save product
+          </Button>
+        </div>
       </form>
       {problem && <p className="mt-2 text-sm font-semibold text-rose-600">{problem}</p>}
     </Card>
@@ -217,6 +300,8 @@ function ProductRow({
     name: product.name,
     category: product.category,
     cost: product.cost === null ? '' : iqd(product.cost),
+    usd: '',
+    per100: iqd(DEFAULT_USD_RATE * 100),
   });
   const costChanged = parseIqd(form.cost) !== product.cost;
 
@@ -228,7 +313,7 @@ function ProductRow({
             <Photo model={product.key} image={product.image} className="size-10" />
             <span className="font-mono text-sm font-bold text-ink-900">{product.label}</span>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
             <label className="block">
               <FieldLabel>Name</FieldLabel>
               <input className={field} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -239,8 +324,17 @@ function ProductRow({
             </label>
             <label className="block">
               <FieldLabel>Your cost (one piece)</FieldLabel>
-              <CostBox value={form.cost} autoFocus onChange={(cost) => setForm((f) => ({ ...f, cost }))} />
+              <CostBox value={form.cost} autoFocus onChange={(cost) => setForm((f) => ({ ...f, cost, usd: '' }))} />
             </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <DollarBox
+              usd={form.usd}
+              per100={form.per100}
+              onChange={({ usd, per100 }) =>
+                setForm((f) => ({ ...f, usd, per100, cost: dollarsToIqd(usd, per100) || f.cost }))
+              }
+            />
             <div className="flex gap-2">
               <Button variant="ghost" className="h-10" onClick={onCancel}>
                 Cancel
