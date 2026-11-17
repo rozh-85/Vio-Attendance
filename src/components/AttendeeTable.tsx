@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card } from './ui/Card';
+import { Button } from './ui/Button';
+import { Modal } from './ui/Modal';
 import type { AttendanceMark, Session, SessionAttendee } from '@/types';
 import { ATTENDANCE_MARKS, MARK_LABEL, isExcused } from '@/services/attendance/status';
-import { formatClock, presentMinutes } from '@/utils/time';
+import { formatClock, formatDateTime, presentMinutes } from '@/utils/time';
 import { cn } from '@/utils/cn';
-import { ChevronDown, MoreHorizontal, Pencil, Trash, X } from './icons';
+import { ChevronDown, MessageSquare, MoreHorizontal, Pencil, Trash, X } from './icons';
 
 const STATUS_PILL: Record<SessionAttendee['status'], { label: string; className: string; dot: string }> = {
   'checked-in': { label: 'Checked in', className: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
@@ -79,6 +81,136 @@ function Duration({ session, attendee }: { session: Session; attendee: SessionAt
 }
 
 /** The ⋯ list: a native select under the dots, so it opens where it fits and as the phone's own picker. */
+/** The longest note, in characters. */
+const NOTE_MAX = 500;
+
+/**
+ * A note on a row, shown only when there is one: one line on the table, a
+ * few on a phone card. Tapping it opens the note when it can be changed.
+ */
+function NotePreview({
+  note,
+  onOpen,
+  full,
+}: {
+  note: string;
+  onOpen?: () => void;
+  /** Phone cards: the note wraps over up to three lines. */
+  full?: boolean;
+}) {
+  const body = (
+    <>
+      <MessageSquare width={13} height={13} className="mt-px shrink-0 text-amber-600" />
+      <bdi className={cn('min-w-0 text-left', full ? 'line-clamp-3' : 'truncate')}>{note}</bdi>
+    </>
+  );
+  const look = cn(
+    'flex items-start gap-1.5 rounded-lg bg-amber-50 text-xs text-amber-900',
+    full ? 'w-full px-3 py-2' : 'mt-1 max-w-[18rem] px-2 py-1',
+  );
+  return onOpen ? (
+    <button type="button" onClick={onOpen} title={note} className={cn(look, 'transition hover:bg-amber-100')}>
+      {body}
+    </button>
+  ) : (
+    <div title={note} className={look}>
+      {body}
+    </div>
+  );
+}
+
+/** Write, change or delete the note on one employee's attendance in a session. */
+function NoteDialog({
+  session,
+  attendee,
+  onSave,
+  onClose,
+}: {
+  session: Session;
+  attendee: SessionAttendee;
+  onSave: (note: string | null) => Promise<void>;
+  onClose: () => void;
+}) {
+  const existing = attendee.record?.note ?? '';
+  const [text, setText] = useState(existing);
+  const [busy, setBusy] = useState<'save' | 'delete' | null>(null);
+  const [error, setError] = useState('');
+  const unchanged = text.trim() === existing.trim();
+
+  async function save(note: string | null, kind: 'save' | 'delete') {
+    setBusy(kind);
+    setError('');
+    try {
+      await onSave(note);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Could not save the note. Please try again.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={() => !busy && onClose()}
+      title={existing ? 'Note' : 'Add a note'}
+      description={`${attendee.employee.fullName} · ${session.title || session.supervisorName} · ${formatDateTime(session.startedAt)}`}
+      className="max-w-lg"
+    >
+      <form
+        className="mt-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim() && !unchanged) void save(text, 'save');
+        }}
+      >
+        <textarea
+          autoFocus
+          dir="auto"
+          rows={5}
+          maxLength={NOTE_MAX}
+          aria-label={`Note for ${attendee.employee.fullName}`}
+          placeholder="e.g. Came late — the bus broke down. Left at 3 PM with permission."
+          className="w-full resize-y rounded-xl border border-slate-200 bg-card px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <div className="mt-1.5 flex items-start justify-between gap-3 text-xs text-ink-400">
+          <span>Only supervisors see it. It is printed on the employee’s PDF report.</span>
+          <span className="shrink-0 tabular-nums">
+            {text.length}/{NOTE_MAX}
+          </span>
+        </div>
+        {error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p>}
+        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          {existing && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-rose-600 hover:bg-rose-50"
+              leftIcon={<Trash width={15} height={15} />}
+              loading={busy === 'delete'}
+              disabled={!!busy}
+              onClick={() => void save(null, 'delete')}
+            >
+              Delete note
+            </Button>
+          )}
+          <div className="ml-auto flex gap-2">
+            <Button type="button" variant="ghost" disabled={!!busy} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={busy === 'save'} disabled={!!busy || !text.trim() || unchanged}>
+              Save note
+            </Button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function MarkMenu({
   value,
   label,
@@ -126,6 +258,7 @@ export function AttendeeTable({
   onEditEmployee,
   onMarkChange,
   onBulkMark,
+  onNoteChange,
   emptyText,
 }: {
   session: Session;
@@ -138,11 +271,17 @@ export function AttendeeTable({
   onMarkChange?: (attendee: SessionAttendee, mark: AttendanceMark | null) => void;
   /** The same mark on every ticked employee. */
   onBulkMark?: (employeeIds: string[], mark: AttendanceMark | null) => Promise<void>;
+  /** Saves the supervisor's note; `null` deletes it. Throws when it cannot. */
+  onNoteChange?: (attendee: SessionAttendee, note: string | null) => Promise<void>;
   emptyText: string;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
-  const showActions = !!onDeleteEmployee || !!onEditEmployee || !!onMarkChange;
+  // The employee whose note is open, by id, so the dialog follows the row.
+  const [notingId, setNotingId] = useState<string | null>(null);
+  const noting = attendees.find((a) => a.employee.id === notingId) ?? null;
+  const openNote = onNoteChange ? (attendee: SessionAttendee) => setNotingId(attendee.employee.id) : undefined;
+  const showActions = !!onDeleteEmployee || !!onEditEmployee || !!onMarkChange || !!onNoteChange;
   const selectable = !!onBulkMark;
 
   // Ticks only count for rows still listed.
@@ -295,6 +434,11 @@ export function AttendeeTable({
                       </div>
                     </div>
                   </div>
+                  {record?.note && (
+                    <div className="mt-2">
+                      <NotePreview note={record.note} full onOpen={openNote && (() => openNote(attendee))} />
+                    </div>
+                  )}
                   {showActions && (
                     <div className="mt-2 flex items-center justify-end gap-1">
                       <RowButtons
@@ -302,6 +446,7 @@ export function AttendeeTable({
                         onDeleteEmployee={onDeleteEmployee}
                         onEditEmployee={onEditEmployee}
                         onMarkChange={onMarkChange}
+                        onOpenNote={openNote}
                       />
                     </div>
                   )}
@@ -390,6 +535,9 @@ export function AttendeeTable({
                               Same phone as {sharedWith.join(', ')}
                             </div>
                           )}
+                          {record?.note && (
+                            <NotePreview note={record.note} onOpen={openNote && (() => openNote(attendee))} />
+                          )}
                         </div>
                       </div>
                     </td>
@@ -419,6 +567,7 @@ export function AttendeeTable({
                             onDeleteEmployee={onDeleteEmployee}
                             onEditEmployee={onEditEmployee}
                             onMarkChange={onMarkChange}
+                            onOpenNote={openNote}
                           />
                         </div>
                       </td>
@@ -430,6 +579,16 @@ export function AttendeeTable({
           </table>
         </div>
       </Card>
+
+      {noting && onNoteChange && (
+        <NoteDialog
+          key={noting.employee.id}
+          session={session}
+          attendee={noting}
+          onSave={(note) => onNoteChange(noting, note)}
+          onClose={() => setNotingId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -439,16 +598,36 @@ function RowButtons({
   onDeleteEmployee,
   onEditEmployee,
   onMarkChange,
+  onOpenNote,
 }: {
   attendee: SessionAttendee;
   onDeleteEmployee?: (employeeId: string, employeeCode: string, employeeName: string) => void;
   onEditEmployee?: (attendee: SessionAttendee) => void;
   onMarkChange?: (attendee: SessionAttendee, mark: AttendanceMark | null) => void;
+  onOpenNote?: (attendee: SessionAttendee) => void;
 }) {
   const { employee, record } = attendee;
   const icon = 'inline-flex size-9 items-center justify-center rounded-lg text-ink-500 transition';
+  const note = record?.note;
   return (
     <>
+      {onOpenNote && (
+        <button
+          type="button"
+          className={cn(
+            icon,
+            'relative',
+            note ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700' : 'hover:bg-slate-100 hover:text-ink-900',
+          )}
+          onClick={() => onOpenNote(attendee)}
+          title={note ? `Note: ${note}` : 'Add a note'}
+          aria-label={note ? `Note for ${employee.fullName}` : `Add a note for ${employee.fullName}`}
+        >
+          <MessageSquare width={16} height={16} />
+          {/* A dot when there is a note to read. */}
+          {note && <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-amber-500 ring-2 ring-card" />}
+        </button>
+      )}
       {onEditEmployee && (
         <button
           type="button"

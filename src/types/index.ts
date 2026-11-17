@@ -55,6 +55,12 @@ export interface AttendanceRecord {
   checkOutAt?: string; // ISO timestamp
   /** Set by the supervisor from the ⋯ menu on the session screen. */
   mark?: AttendanceMark;
+  /**
+   * The supervisor's own note on this employee in this session, if any. Kept
+   * apart from the attendance row (supabase/attendance-notes.sql), so it never
+   * goes back to the employee's phone with a check-in.
+   */
+  note?: string;
 }
 
 /**

@@ -13,6 +13,8 @@ export interface EmployeePdfRow {
    * printed instead of "Absent"; on any other row, next to the status.
    */
   mark?: string;
+  /** The supervisor's note on this session, printed under its row when there is one. */
+  note?: string;
   hours: string;
 }
 
@@ -87,17 +89,26 @@ export function buildEmployeePdfHtml(
           ? badge(row.mark, MARK_PAINT)
           : badge(row.status, STATUS_PAINT[row.status]) +
             (row.mark ? ` ${badge(row.mark, MARK_PAINT)}` : '');
-      return `<tr style="background:${index % 2 === 0 ? '#FFFFFF' : '#FBF6F6'}">
+      const shade = `background:${index % 2 === 0 ? '#FFFFFF' : '#FBF6F6'}`;
+      const note = row.note?.trim();
+      // Each session in its own tbody, so a note is never printed on another
+      // page than its row.
+      return `<tbody class="session"><tr class="${note ? 'has-note' : ''}" style="${shade}">
         <td>${esc(row.session)}</td>
         <td>${esc(row.date)}</td>
         <td class="num">${esc(row.checkIn)}</td>
         <td class="num${missing ? ' missing' : ''}">${esc(row.checkOut)}</td>
         <td>${statusCell}</td>
         <td class="num">${esc(row.hours)}</td>
-      </tr>`;
+      </tr>${
+        note
+          ? `<tr class="note-row" style="${shade}"><td colspan="6"><span class="note-tag">Note</span><span class="note-text" dir="auto">${esc(note)}</span></td></tr>`
+          : ''
+      }</tbody>`;
     })
     .join('');
   const anyMark = rows.some((row) => row.mark);
+  const anyNote = rows.some((row) => row.note?.trim());
 
   return `<!DOCTYPE html>
 <html>
@@ -142,6 +153,11 @@ export function buildEmployeePdfHtml(
   .key span { display: inline-flex; align-items: center; gap: 6px; }
   .key i { width: 8px; height: 8px; border-radius: 50%; }
   tr { page-break-inside: avoid; }
+  tbody.session { page-break-inside: avoid; break-inside: avoid; }
+  tr.has-note td { border-bottom: 0; padding-bottom: 4px; }
+  tr.note-row td { padding: 0 10px 9px; border-bottom: 1px solid #F0E2E3; }
+  .note-tag { display: inline-block; margin-right: 8px; border-radius: 999px; padding: 1px 8px; font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: ${AMBER}; background: #FDF1CF; vertical-align: 1px; }
+  .note-text { color: #4B5563; font-size: 10.5px; line-height: 1.45; white-space: pre-wrap; }
   .foot { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; color: #9CA3AF; font-size: 10px; border-top: 1px solid #EEE; padding-top: 8px; }
   .foot .mark { display: flex; align-items: center; gap: 6px; }
   .foot .mark svg { border: 1px solid #EADADA; border-radius: 4px; }
@@ -182,13 +198,14 @@ export function buildEmployeePdfHtml(
     <span><i style="background:${AMBER}"></i>Not checked out — attended, no check-out scanned</span>
     <span><i style="background:${RED_DARK}"></i>Absent</span>
     ${anyMark ? `<span><i style="background:${VIOLET}"></i>Marked by the supervisor — off, not their shift, overtime, hourly or official leave; a marked absence counts as excused</span>` : ''}
+    ${anyNote ? `<span><i style="background:${AMBER}"></i>Note — the supervisor’s note on that session</span>` : ''}
   </div>
 
   <table>
     <thead>
       <tr><th>Session</th><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Status</th><th>Hours</th></tr>
     </thead>
-    <tbody>${tableRows}</tbody>
+    ${tableRows}
   </table>
 
   <div class="foot">

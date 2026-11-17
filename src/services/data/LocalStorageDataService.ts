@@ -491,6 +491,31 @@ export class LocalStorageDataService implements DataService {
     });
   }
 
+  async setAttendanceNote(
+    sessionId: string,
+    employeeId: string,
+    note: string | null,
+  ): Promise<AttendanceRecord> {
+    return this.mutate(async () => {
+      const records = await this.listAttendance();
+      const existing = records.find(
+        (r) => r.sessionId === sessionId && r.employeeId === employeeId,
+      );
+      const text = note?.trim() ?? '';
+      const record: AttendanceRecord = {
+        ...(existing ?? { id: uid(), sessionId, employeeId }),
+        note: text || undefined,
+      };
+      this.write(
+        KEYS.attendance,
+        existing
+          ? records.map((r) => (r.id === existing.id ? record : r))
+          : [...records, record],
+      );
+      return record;
+    });
+  }
+
   // ── Leave management ──────────────────────────────────────────────────────
   async listLeaveAllowances(year?: number): Promise<LeaveAllowance[]> {
     const all = this.read<LeaveAllowance[]>(KEYS.leaveAllowances, []);

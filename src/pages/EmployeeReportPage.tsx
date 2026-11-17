@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
-import { Download, Pencil, Search } from '@/components/icons';
+import { Download, MessageSquare, Pencil, Search } from '@/components/icons';
 import { useDataService } from '@/services/data/context';
 import { exportEmployeePdf } from '@/services/report/employeePdf';
 import { exportEmployeeTotalsPdf } from '@/services/report/employeeTotalsPdf';
@@ -420,6 +420,7 @@ export function EmployeeReportPage() {
                 ? 'Not registered yet'
                 : 'Absent',
         mark: record?.mark ? MARK_LABEL[record.mark] : undefined,
+        note: record?.note,
         hours: record?.checkInAt ? formatMinutes(minutes) : '—',
       })),
     );
@@ -833,6 +834,16 @@ export function EmployeeReportPage() {
                               <Badge tone="note">{MARK_LABEL[record.mark]}</Badge>
                             )}
                           </div>
+                          {/* The supervisor's note, only when there is one. */}
+                          {record?.note && (
+                            <div
+                              title={record.note}
+                              className="mt-1.5 flex max-w-xs items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900"
+                            >
+                              <MessageSquare width={13} height={13} className="mt-px shrink-0 text-amber-600" />
+                              <bdi className="line-clamp-2">{record.note}</bdi>
+                            </div>
+                          )}
                         </td>
                         <td
                           className={cn(

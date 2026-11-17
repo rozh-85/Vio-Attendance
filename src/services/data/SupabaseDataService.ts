@@ -29,9 +29,50 @@ import { DataError, type DataErrorCode } from './errors';
  */
 export class SupabaseDataService implements DataService {
   private readonly client: SupabaseClient;
+  /** True once the notes table turned out not to be there; reading stops asking. */
+  private notesMissing = false;
 
   constructor(client: SupabaseClient) {
     this.client = client;
+  }
+
+  /**
+   * The supervisor's notes, by session and employee — of one session, or all.
+   * None until supabase/attendance-notes.sql has been run.
+   */
+  private async notes(sessionId?: string): Promise<Map<string, string>> {
+    if (this.notesMissing) return new Map();
+    try {
+      const rows = await this.fetchAllRows<AttendanceNoteRow>(
+        'attendance_notes',
+        'id',
+        true,
+        sessionId ? { column: 'session_id', value: sessionId } : undefined,
+      );
+      return new Map(rows.map((r) => [noteKey(r.session_id, r.employee_id), r.note]));
+    } catch (err) {
+      if (isMissingNotesTable(err as { code?: string; message?: string })) {
+        this.notesMissing = true;
+        return new Map();
+      }
+      throw err;
+    }
+  }
+
+  /** One record with its note, for a record that was just written. */
+  private async withNote(record: AttendanceRecord): Promise<AttendanceRecord> {
+    if (this.notesMissing) return record;
+    const { data, error } = await this.client
+      .from('attendance_notes')
+      .select('note')
+      .eq('session_id', record.sessionId)
+      .eq('employee_id', record.employeeId)
+      .maybeSingle();
+    if (error) {
+      if (isMissingNotesTable(error)) this.notesMissing = true;
+      return record;
+    }
+    return { ...record, note: (data as { note?: string } | null)?.note || undefined };
   }
 
   // ── Mappers ───────────────────────────────────────────────────────────────
@@ -353,7 +394,12 @@ export class SupabaseDataService implements DataService {
       true,
       sessionId ? { column: 'session_id', value: sessionId } : undefined,
     );
-    return rows.map((r) => this.toRecord(r));
+    const notes = await this.notes(sessionId);
+    return rows.map((r) => {
+      const record = this.toRecord(r);
+      const note = notes.get(noteKey(record.sessionId, record.employeeId));
+      return note ? { ...record, note } : record;
+    });
   }
 
   async checkIn(
@@ -470,7 +516,59 @@ export class SupabaseDataService implements DataService {
       }
       throw error;
     }
-    return this.toRecord(data as AttendanceRow);
+    // The screen swaps in what is returned: keep the note on it.
+    return this.withNote(this.toRecord(data as AttendanceRow));
+  }
+
+  async setAttendanceNote(
+    sessionId: string,
+    employeeId: string,
+    note: string | null,
+  ): Promise<AttendanceRecord> {
+    const text = note?.trim() ?? '';
+    const written = text
+      ? await this.client.from('attendance_notes').upsert(
+          {
+            session_id: sessionId,
+            employee_id: employeeId,
+            note: text,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'session_id,employee_id' },
+        )
+      : await this.client
+          .from('attendance_notes')
+          .delete()
+          .eq('session_id', sessionId)
+          .eq('employee_id', employeeId);
+    if (written.error) {
+      if (isMissingNotesTable(written.error)) {
+        throw new DataError(
+          'DATABASE_OUTDATED',
+          'Notes need a one-time database update: run supabase/attendance-notes.sql in the Supabase SQL editor.',
+        );
+      }
+      throw written.error;
+    }
+    this.notesMissing = false;
+    // The note belongs to the employee's attendance in the session, so an
+    // absent employee gets an attendance record — as a mark gives one. An
+    // existing record, check-in and mark included, is left as it is.
+    const ensured = await this.client
+      .from('attendance')
+      .upsert(
+        { session_id: sessionId, employee_id: employeeId },
+        { onConflict: 'session_id,employee_id', ignoreDuplicates: true },
+      );
+    if (ensured.error) throw ensured.error;
+    const { data, error } = await this.client
+      .from('attendance')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('employee_id', employeeId)
+      .single();
+    if (error) throw error;
+    return { ...this.toRecord(data as AttendanceRow), note: text || undefined };
   }
 
   // ── Leave management ──────────────────────────────────────────────────────
@@ -583,6 +681,13 @@ interface AttendanceRow {
   mark?: AttendanceMark | null;
 }
 
+interface AttendanceNoteRow {
+  id: string;
+  session_id: string;
+  employee_id: string;
+  note: string;
+}
+
 interface CheckInEventRow {
   id: string;
   session_id: string;
@@ -644,6 +749,19 @@ function hasPostgresErrorCode(err: unknown, code: string): boolean {
  * True when the database has no such column yet — PostgREST reports it as
  * PGRST204 when writing and Postgres as 42703 when reading.
  */
+/** The notes table is not there yet: supabase/attendance-notes.sql was not run. */
+function isMissingNotesTable(err: { code?: string; message?: string }): boolean {
+  return (
+    err.code === '42P01' ||
+    err.code === 'PGRST205' ||
+    (/attendance_notes/.test(err.message ?? '') && /does not exist|could not find/i.test(err.message ?? ''))
+  );
+}
+
+function noteKey(sessionId: string, employeeId: string): string {
+  return `${sessionId}|${employeeId}`;
+}
+
 function isMissingColumn(
   err: { code?: string; message?: string },
   column: string,

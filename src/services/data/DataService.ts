@@ -90,6 +90,16 @@ export interface DataService {
     employeeId: string,
     mark: AttendanceMark | null,
   ): Promise<AttendanceRecord>;
+  /**
+   * Writes (or, with `null` or blank, removes) the supervisor's note on an
+   * employee's attendance for a session — creating the record for an absent
+   * employee, as a mark does. Times and mark are left as they are.
+   */
+  setAttendanceNote(
+    sessionId: string,
+    employeeId: string,
+    note: string | null,
+  ): Promise<AttendanceRecord>;
 
   // ── Leave management ──────────────────────────────────────────────────────
   listLeaveAllowances(year?: number): Promise<LeaveAllowance[]>;

@@ -202,6 +202,11 @@ export function SessionView() {
     }
   }
 
+  /** Saves the note and shows it at once; the dialog reports a failure. */
+  async function onNoteChange(attendee: SessionAttendee, note: string | null) {
+    applyRecord(await data.setAttendanceNote(session!.id, attendee.employee.id, note));
+  }
+
   async function onBulkMark(employeeIds: string[], mark: AttendanceMark | null) {
     setMarkError(null);
     const failed: string[] = [];
@@ -580,6 +585,7 @@ export function SessionView() {
           onEditEmployee={onEditEmployeeClick}
           onMarkChange={onMarkChange}
           onBulkMark={onBulkMark}
+          onNoteChange={onNoteChange}
           emptyText={
             attendees.length === 0
               ? 'No employees registered yet. Use “Add employee” to register the first one — they get a code to check in and out with.'

@@ -30,6 +30,13 @@ workbook, and any one employee's history exports to a Vio-branded PDF.
   employee PDF and in both Excel sheets — and counts as **Excused** instead of
   absent. On someone who did, it shows next to their status. Needs
   [`supabase/attendance-marks.sql`](supabase/attendance-marks.sql) run once.
+- **Note button on an employee row** → the supervisor's own note on that
+  person in that session (up to 500 characters). A row with a note shows a dot
+  on the button and the note under the name; a row without one shows nothing
+  extra. The note is on the employee report and printed on the employee PDF
+  under that session. Notes live in their own supervisor-only table, so they
+  never go back to the employee's phone with a check-in. Needs
+  [`supabase/attendance-notes.sql`](supabase/attendance-notes.sql) run once.
 - **Delete session** → after a confirmation, removes the session for good
   together with its attendance and check-in log. The database must allow
   signed-in supervisors to delete sessions; until it does, the button says so.
