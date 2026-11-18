@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
 /**
- * A simple, realistic maintenance screen shown over the admin areas while the
- * owner's switch is on. Fixed colours, so it reads the same in light and dark
- * mode, like a real status page. The gate that renders it re-checks the switch
+ * A clean, realistic maintenance screen shown over the admin areas while the
+ * owner's switch is on. It uses a fixed light palette so it always looks the
+ * same, like a real status page. The gate that renders it re-checks the switch
  * on its own and swaps back to the app the moment it is turned off, so nothing
  * here needs to reload.
  */
@@ -12,98 +12,131 @@ export function ServerDown() {
     <div
       role="alert"
       aria-live="polite"
-      className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-[#0b1120] px-6 py-10 text-slate-300"
+      className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-[#f6f9ff] px-6 py-12 text-center"
     >
       <LocalKeyframes />
 
-      {/* A faint grid and a soft glow give the dark field some depth. */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div
-          className="absolute inset-0 opacity-[0.05]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(148,163,184,0.9) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.9) 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-            maskImage: 'radial-gradient(70% 55% at 50% 36%, black, transparent)',
-            WebkitMaskImage: 'radial-gradient(70% 55% at 50% 36%, black, transparent)',
-          }}
-        />
-        <div className="absolute left-1/2 top-[34%] h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/10 blur-3xl" />
-      </div>
+      <div className="relative z-10 w-full max-w-md">
+        <MaintenanceIcon />
 
-      <div className="relative z-10 w-full max-w-sm text-center">
-        {/* The icon: a server tile with a soft breathing glow behind it. */}
-        <div className="relative mx-auto grid size-24 place-items-center">
-          <span className="absolute inline-flex size-16 rounded-2xl bg-amber-400/20 [animation:vio-pulse_2.6s_ease-in-out_infinite]" />
-          <span className="relative grid size-16 place-items-center rounded-2xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40">
-            <ServerGlyph />
+        <div className="mt-8 inline-flex items-center rounded-full bg-[#dbeafe] px-4 py-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#2563eb]">
+            Maintenance in progress
           </span>
         </div>
 
-        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.25em] text-amber-400/90">
-          Maintenance in progress
-        </p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-white">
+        <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-[#101a30] sm:text-5xl">
           We&rsquo;ll be right back
         </h1>
-        <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-slate-400">
+        <p className="mx-auto mt-4 max-w-sm text-base leading-relaxed text-[#64748b]">
           The service is down for a short maintenance break. It will be back in a
           few minutes — thanks for your patience.
         </p>
 
-        {/* One animated touch: an indeterminate progress sweep. */}
-        <div className="mt-7 h-1 w-full overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full w-1/3 rounded-full bg-amber-400/90 [animation:vio-sweep_1.7s_ease-in-out_infinite]" />
-        </div>
+        <Dots />
 
-        <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500">
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full rounded-full bg-amber-400 opacity-75 [animation:vio-ping_1.6s_cubic-bezier(0,0,0.2,1)_infinite]" />
-            <span className="relative inline-flex size-2 rounded-full bg-amber-400" />
+        <div className="mx-auto mt-8 flex max-w-xs items-center gap-3">
+          <span className="h-px flex-1 bg-[#e2e8f0]" />
+          <span className="whitespace-nowrap text-sm text-[#94a3b8]">
+            This page updates on its own.
           </span>
-          <span>
-            Checking the connection<Dots />
-          </span>
+          <span className="h-px flex-1 bg-[#e2e8f0]" />
         </div>
-
-        <p className="mt-8 text-xs text-slate-600">This page updates on its own.</p>
       </div>
+
+      <Waves />
     </div>
   );
 }
 
-/** Three dots that fill in one at a time: "", ".", "..", "...". */
-function Dots() {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setN((v) => (v + 1) % 4), 450);
-    return () => window.clearInterval(id);
-  }, []);
-  return <span className="inline-block w-4 text-left">{'.'.repeat(n)}</span>;
+/** The light-blue tile: a server, a spinning progress ring and a gear. */
+function MaintenanceIcon() {
+  return (
+    <div className="mx-auto grid size-40 place-items-center rounded-[2rem] bg-[#e3ecfb] shadow-sm">
+      <svg viewBox="0 0 120 120" className="size-28" fill="none" aria-hidden>
+        {/* Progress ring: a faint track with a brighter arc that spins slowly. */}
+        <circle cx="56" cy="58" r="40" stroke="#cbddf9" strokeWidth="4" />
+        <circle
+          cx="56"
+          cy="58"
+          r="40"
+          stroke="#3b82f6"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray="168 83"
+          className="[animation:vio-spin_2.6s_linear_infinite]"
+          style={{ transformOrigin: '56px 58px' }}
+        />
+
+        {/* Server: two stacked drawers with status lights. */}
+        <g
+          stroke="#1e293b"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="34" y="40" width="48" height="18" rx="6" fill="#ffffff" />
+          <rect x="34" y="62" width="48" height="18" rx="6" fill="#ffffff" />
+          <line x1="42" y1="49" x2="48" y2="49" />
+          <line x1="42" y1="71" x2="48" y2="71" />
+        </g>
+        <circle cx="74" cy="49" r="2.4" fill="#1e293b" />
+        <circle cx="74" cy="71" r="2.4" fill="#1e293b" />
+
+        {/* Gear, overlapping the lower-right corner. */}
+        <circle cx="84" cy="82" r="16" fill="#e3ecfb" />
+        <g transform="translate(68.4 66.4) scale(1.3)">
+          <path
+            fill="#2563eb"
+            d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+          />
+        </g>
+      </svg>
+    </div>
+  );
 }
 
-/** A small server-stack mark, in amber. */
-function ServerGlyph() {
+/** Three carousel dots; the active one steps along, 0 → 1 → 2 → 0. */
+function Dots() {
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setActive((v) => (v + 1) % 3), 600);
+    return () => window.clearInterval(id);
+  }, []);
   return (
-    <svg
-      width="30"
-      height="30"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-amber-400"
-      aria-hidden
-    >
-      <rect x="3" y="4" width="18" height="6" rx="1.5" />
-      <rect x="3" y="14" width="18" height="6" rx="1.5" />
-      <line x1="7" y1="7" x2="7" y2="7" />
-      <line x1="7" y1="17" x2="7" y2="17" />
-      <line x1="16" y1="7" x2="18" y2="7" />
-      <line x1="16" y1="17" x2="18" y2="17" />
-    </svg>
+    <div className="mt-8 flex items-center justify-center gap-2">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={
+            'h-2.5 rounded-full transition-all duration-300 ' +
+            (i === active ? 'w-6 bg-[#2563eb]' : 'w-2.5 bg-[#cbd5e1]')
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Soft layered waves along the bottom edge. */
+function Waves() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-0">
+      <svg
+        viewBox="0 0 1440 220"
+        preserveAspectRatio="none"
+        className="h-40 w-full sm:h-48"
+      >
+        <path
+          fill="#e8f1ff"
+          d="M0 90 C 240 150 480 30 720 70 C 960 110 1200 180 1440 120 L1440 220 L0 220 Z"
+        />
+        <path
+          fill="#d6e7ff"
+          d="M0 140 C 280 100 520 180 760 150 C 1000 120 1220 170 1440 140 L1440 220 L0 220 Z"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -111,21 +144,11 @@ function ServerGlyph() {
 function LocalKeyframes() {
   return (
     <style>{`
-      @keyframes vio-sweep {
-        0%   { transform: translateX(-120%); }
-        100% { transform: translateX(420%); }
-      }
-      @keyframes vio-ping {
-        75%, 100% { transform: scale(2); opacity: 0; }
-      }
-      @keyframes vio-pulse {
-        0%, 100% { transform: scale(1);    opacity: 0.55; }
-        50%      { transform: scale(1.22); opacity: 0.12; }
+      @keyframes vio-spin {
+        to { transform: rotate(360deg); }
       }
       @media (prefers-reduced-motion: reduce) {
-        [class*="vio-sweep"], [class*="vio-ping"], [class*="vio-pulse"] {
-          animation: none !important;
-        }
+        [class*="vio-spin"] { animation: none !important; }
       }
     `}</style>
   );
