@@ -243,7 +243,8 @@ function OwnerPanel({ onSignOut }: { onSignOut: () => void }) {
               (/VioAdmin and every supervisor page) and the{' '}
               <b className="text-ink-900">Rozh admin</b> area (/rozhadmin) show a realistic
               “service is down” page to everyone except this owner browser — even an admin
-              who is already signed in. The{' '}
+              who is already signed in has their screen switch over within a few seconds,
+              with no sign-out or refresh. The{' '}
               <b className="text-ink-900">employee check-in and check-out</b> pages are
               never touched, so your team keeps clocking in and out normally while the
               admins are held out. Your own access stays full.
