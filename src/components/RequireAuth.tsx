@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { Screen } from '@/components/Screen';
-import { LockdownGate } from '@/components/LockdownGate';
 import { useAuth } from '@/services/auth/context';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
@@ -14,7 +13,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { authRequired, user, loading } = useAuth();
 
-  if (!authRequired) return <LockdownGate>{children}</LockdownGate>;
+  if (!authRequired) return <>{children}</>;
 
   if (loading) {
     return (
@@ -28,5 +27,5 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return <NotFoundPage />;
   }
 
-  return <LockdownGate>{children}</LockdownGate>;
+  return <>{children}</>;
 }

@@ -239,11 +239,14 @@ function OwnerPanel({ onSignOut }: { onSignOut: () => void }) {
 
           <div className="border-t border-slate-200/80 px-6 py-4 text-sm text-ink-600">
             <p>
-              When this is on, <b className="text-ink-900">/VioAdmin</b> (Vio admin) and{' '}
+              When this is on, <b className="text-ink-900">only the two admin views</b>{' '}
+              change: <b className="text-ink-900">/VioAdmin</b> (Vio admin) and{' '}
               <b className="text-ink-900">/rozhadmin</b> (Rozh admin) show a realistic
-              “service is down” page to everyone except this owner browser. The next time
-              an admin tries to sign in, that is what they get. Employee check-in pages
-              keep working the whole time.
+              “service is down” page to everyone except this owner browser — so the next
+              time those admins open them, that is what they get. Everything else keeps
+              working normally: <b className="text-ink-900">employee check-in and
+              check-out</b>, attendance and sessions, and your own access are all
+              untouched.
             </p>
             {busy && <p className="mt-2 text-xs text-ink-400">Saving…</p>}
             {!busy && note && (
@@ -273,8 +276,8 @@ function OwnerPanel({ onSignOut }: { onSignOut: () => void }) {
             <AreaLink to={paths.profit} icon={<Settings width={20} height={20} />} label="Profit" sub="Costs & sponsors" />
           </div>
           <p className="mt-3 text-xs text-ink-400">
-            Your browser passes the maintenance screen everywhere. The data pages still
-            ask for your supervisor sign-in at the admin sign-in link above.
+            Your browser is never shown the maintenance screen. The data pages still ask
+            for your supervisor sign-in at the admin sign-in link above.
           </p>
         </section>
 
