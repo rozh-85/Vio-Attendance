@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { AuthField, AuthShell, PasswordField } from './auth/AuthShell';
+import { LockdownGate } from './LockdownGate';
 import { ArrowRight, Lock, Mail, Phone, Wallet } from './icons';
 import { isOwnerUnlocked, unlockOwner, verifyOwner } from '@/services/auth/ownerGate';
 
@@ -31,7 +32,7 @@ export function OwnerGate({
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
 
-  if (unlocked) return <>{children}</>;
+  if (unlocked) return <LockdownGate>{children}</LockdownGate>;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -52,6 +53,7 @@ export function OwnerGate({
   }
 
   return (
+    <LockdownGate>
     <AuthShell
       badgeIcon={<Lock width={20} height={20} />}
       badge={landOn ? 'Private owner area' : `Private owner area · ${title}`}
@@ -106,5 +108,6 @@ export function OwnerGate({
         </Button>
       </form>
     </AuthShell>
+    </LockdownGate>
   );
 }

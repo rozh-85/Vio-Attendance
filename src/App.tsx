@@ -22,6 +22,7 @@ import { CheckInPage } from '@/pages/CheckInPage';
 import { CheckOutPage } from '@/pages/CheckOutPage';
 import { RecoverCodePage } from '@/pages/RecoverCodePage';
 import { LoginPage } from '@/pages/LoginPage';
+import { OwnerControlPage } from '@/pages/OwnerControlPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { LeaveManagementPage } from '@/pages/LeaveManagementPage';
 import { CatalogManagementPage } from '@/pages/CatalogManagementPage';
@@ -184,6 +185,10 @@ export default function App() {
 
             {/* Admin sign-in lives at the non-obvious /admin path. */}
             <Route path={routePatterns.admin} element={<LoginPage />} />
+
+            {/* The master owner account: never gated, controls the maintenance
+                switch and passes this browser through it everywhere. */}
+            <Route path={routePatterns.owner} element={<OwnerControlPage />} />
 
             {/* Public — employee-facing only. */}
             <Route path={routePatterns.recover} element={<RecoverCodePage />} />

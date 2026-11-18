@@ -8,6 +8,8 @@ export const paths = {
   // it. Everything else employees might guess (/login, /register, unknown URLs)
   // falls through to the neutral NotFound page.
   admin: '/VioAdmin',
+  // The master owner account: the maintenance switch and full-access launcher.
+  owner: '/owner',
   employees: '/employees',
   leave: '/leave',
   catalog: '/catalog',
@@ -44,6 +46,7 @@ export const routePatterns = {
   home: '/',
   dashboard: '/attendance',
   admin: '/VioAdmin',
+  owner: '/owner',
   employees: '/employees',
   leave: '/leave',
   catalog: '/catalog',

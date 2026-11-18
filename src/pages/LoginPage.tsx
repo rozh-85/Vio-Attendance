@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { AuthField, AuthShell, PasswordField } from '@/components/auth/AuthShell';
+import { LockdownGate } from '@/components/LockdownGate';
 import { ArrowRight, FileText, Mail, QrIcon, Users } from '@/components/icons';
 import { useAuth } from '@/services/auth/context';
 import { paths } from '@/routes';
@@ -48,6 +49,7 @@ export function LoginPage() {
   }
 
   return (
+    <LockdownGate>
     <AuthShell
       badgeIcon={<Users width={20} height={20} />}
       badge="Sign in to your account"
@@ -131,5 +133,6 @@ export function LoginPage() {
         </Button>
       </form>
     </AuthShell>
+    </LockdownGate>
   );
 }
