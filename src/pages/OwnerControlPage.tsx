@@ -239,14 +239,14 @@ function OwnerPanel({ onSignOut }: { onSignOut: () => void }) {
 
           <div className="border-t border-slate-200/80 px-6 py-4 text-sm text-ink-600">
             <p>
-              When this is on, <b className="text-ink-900">only the two admin views</b>{' '}
-              change: <b className="text-ink-900">/VioAdmin</b> (Vio admin) and{' '}
-              <b className="text-ink-900">/rozhadmin</b> (Rozh admin) show a realistic
-              “service is down” page to everyone except this owner browser — so the next
-              time those admins open them, that is what they get. Everything else keeps
-              working normally: <b className="text-ink-900">employee check-in and
-              check-out</b>, attendance and sessions, and your own access are all
-              untouched.
+              When this is on, the <b className="text-ink-900">Vio admin</b> app
+              (/VioAdmin and every supervisor page) and the{' '}
+              <b className="text-ink-900">Rozh admin</b> area (/rozhadmin) show a realistic
+              “service is down” page to everyone except this owner browser — even an admin
+              who is already signed in. The{' '}
+              <b className="text-ink-900">employee check-in and check-out</b> pages are
+              never touched, so your team keeps clocking in and out normally while the
+              admins are held out. Your own access stays full.
             </p>
             {busy && <p className="mt-2 text-xs text-ink-400">Saving…</p>}
             {!busy && note && (
