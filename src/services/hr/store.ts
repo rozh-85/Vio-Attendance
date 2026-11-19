@@ -102,28 +102,11 @@ const defaultRules: HrRule[] = [
     enabled: true,
   },
   {
-    id: "overtime-approval",
-    name: "Overtime requires approval",
-    description: "Only approved overtime is added to payroll.",
-    kind: "overtime",
-    value: "true",
-    enabled: true,
-  },
-  {
     id: "leave-balance",
     name: "Prevent leave over balance",
     description: "Warn the approver when a request exceeds the annual balance.",
     kind: "leave",
     value: "true",
-    enabled: true,
-  },
-  {
-    id: "monthly-payroll",
-    name: "Monthly payroll calculation",
-    description:
-      "Calculate base salary plus approved overtime and adjustments.",
-    kind: "payroll",
-    value: "monthly",
     enabled: true,
   },
   {
@@ -159,11 +142,7 @@ export function createDefaultHrWorkspace(): HrWorkspace {
     locations: [],
     devices: [],
     rules: defaultRules,
-    adjustments: [],
-    payrollEntries: [],
-    deductions: [],
     performanceReviews: [],
-    overtime: [],
     sectors: [
       "General commerce",
       "Residential projects",
@@ -172,7 +151,6 @@ export function createDefaultHrWorkspace(): HrWorkspace {
       "Government institutions",
       "Banks",
     ],
-    payrollPeriod: new Date().toISOString().slice(0, 7),
     holidays: [],
     cycles: [],
     leaveBalances: [],
@@ -182,14 +160,10 @@ export function createDefaultHrWorkspace(): HrWorkspace {
     audit: [],
     settings: {
       currency: "IQD",
-      monthlyHours: 208,
       // 9 to 4, Saturday to Thursday: Iraq's week, Friday off.
       workStart: "09:00",
       workEnd: "16:00",
       workDays: ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu"],
-      overtimeMultiplier: 1.5,
-      taxPercent: 0,
-      insurancePercent: 0,
       approvalLevels: 1,
     },
   };
@@ -214,14 +188,9 @@ function mergeWorkspace(
     locations: input?.locations ?? defaults.locations,
     devices: input?.devices ?? defaults.devices,
     rules: input?.rules?.length ? input.rules : defaults.rules,
-    adjustments: input?.adjustments ?? defaults.adjustments,
-    payrollEntries: input?.payrollEntries ?? defaults.payrollEntries,
-    deductions: input?.deductions ?? defaults.deductions,
     performanceReviews:
       input?.performanceReviews ?? defaults.performanceReviews,
-    overtime: input?.overtime ?? defaults.overtime,
     sectors: input?.sectors?.length ? input.sectors : defaults.sectors,
-    payrollPeriod: input?.payrollPeriod ?? defaults.payrollPeriod,
     holidays: input?.holidays ?? defaults.holidays,
     cycles: input?.cycles ?? defaults.cycles,
     leaveBalances: input?.leaveBalances ?? defaults.leaveBalances,

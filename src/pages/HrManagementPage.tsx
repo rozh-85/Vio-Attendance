@@ -31,26 +31,17 @@ import {
   sortDepartments,
 } from "@/services/hr/store";
 import {
-  attendanceOvertime,
   attendanceRows,
   approvalChain,
-  calculatePayroll,
   clockRange,
   csvDownload,
   formatMinutes,
   hierarchyError,
   leaveBalance,
   localDate,
-  monthRows,
-  overtimeNeedsApproval,
-  payslipLocked,
-  periodOvertime,
-  periodDeductions,
-  salaryRates,
   validateLeave,
   weekdays,
 } from "@/services/hr/logic";
-import { fmt } from "@/services/hr/payslip";
 import {
   Collection,
   Editor,
@@ -70,7 +61,6 @@ import { readCheckInLocation } from "@/utils/geolocation";
 import { HrDocuments } from "@/components/hr/HrDocuments";
 import { HrDeviceImport } from "@/components/hr/HrDeviceImport";
 import { InterviewTracking } from "@/components/hr/InterviewTracking";
-import { HrPayroll, monthLabel } from "@/components/hr/HrPayroll";
 import { HrCorridor, HrLobby, hrFloor, type RoomSign } from "@/components/hr/HrBuilding";
 import {
   hrTabLabel,
@@ -84,8 +74,8 @@ const date = () => localDate();
 const id = (prefix: string) => createHrId(prefix);
 /**
  * Whether someone still works here. `inactive` is what every "current staff"
- * filter in the app keys off — attendance rows, payroll and the head counts
- * all skip it — so the label spells out what it means rather than making HR
+ * filter in the app keys off — attendance rows and the head counts both
+ * skip it — so the label spells out what it means rather than making HR
  * remember that "inactive" is how you say "left".
  */
 const statusOptions = [
@@ -149,26 +139,21 @@ const leaveUnitOptions = options(["days", "hours"]);
 function profileValues(p: HrEmployeeProfile): Values {
   return { ...p, documents: p.documents.map((d) => d.title).join(", ") };
 }
+/**
+ * The rules the Rules room lists. Workspaces saved before payroll was removed
+ * still hold its two rules; they are kept in the saved data but not shown.
+ */
+const RETIRED_RULE_IDS = new Set(["monthly-payroll", "overtime-approval"]);
+function shownRules(w: HrWorkspace): HrWorkspace["rules"] {
+  return w.rules.filter(
+    (r) => !RETIRED_RULE_IDS.has(r.id) && (r.kind as string) !== "payroll",
+  );
+}
 function employeeName(employees: Employee[], idValue?: string): string {
   return employees.find((e) => e.id === idValue)?.fullName ?? "Unassigned";
 }
 function money(value: number, currency = "IQD"): string {
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)} ${currency}`;
-}
-/**
- * The salary divided by this month's work time — what a day, an hour and a
- * minute of it are worth — for under the salary field.
- */
-function salaryHint(w: HrWorkspace, employeeId: string, salary: number): string {
-  const month = localDate().slice(0, 7);
-  if (salary <= 0)
-    return `Divided by the work time (${clockRange(w.settings.workStart, w.settings.workEnd)} on work days) to get the rate for a day, an hour and a minute.`;
-  const r = salaryRates(w, employeeId, month, salary);
-  if (!r.workMinutes) return "There is no work time this month to divide the salary by.";
-  const c = w.settings.currency;
-  const hours = Math.round((r.workMinutes / 60) * 10) / 10;
-  const perDay = Math.round((hours / r.workDays) * 10) / 10;
-  return `${fmt(r.perDay, c)} a day · ${fmt(r.perHour, c)} an hour · ${fmt(r.perMinute, c)} a minute — ${r.workDays} work days × ${perDay} hours = ${hours} hours in ${monthLabel(month)}.`;
 }
 function downloadJson(name: string, value: unknown) {
   const blob = new Blob([JSON.stringify(value, null, 2)], {
@@ -203,7 +188,6 @@ export function HrManagementPage() {
   const editingEmployeeId = searchParams.get("edit");
   const profileEditor =
     employees.find((employee) => employee.id === editingEmployeeId) ?? null;
-  const [period, setPeriod] = useState(workspace.payrollPeriod);
   const [attendanceFrom, setAttendanceFrom] = useState(date());
   const [attendanceTo, setAttendanceTo] = useState(date());
   const [employeeQuery, setEmployeeQuery] = useState("");
@@ -232,7 +216,6 @@ export function HrManagementPage() {
       setEmployees(people);
       setLegacyLeave(leave);
       setAttendance(records);
-      setPeriod(w.payrollPeriod);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not load HR workspace.",
@@ -359,58 +342,7 @@ export function HrManagementPage() {
     () => attendanceRows(workspace, employees, attendance, today, today, legacyLeave),
     [workspace, employees, attendance, today, legacyLeave],
   );
-  // The payroll month's register, read once for its deductions and overtime.
-  const payrollRows = useMemo(
-    () => monthRows(workspace, employees, attendance, period, legacyLeave),
-    [workspace, employees, attendance, period, legacyLeave],
-  );
-  // Overtime in the check-ins that is still waiting. A payslip already
-  // approved cannot take more, so its person's waiting overtime is left out.
-  const overtimeFound = useMemo(
-    () =>
-      attendanceOvertime(workspace, payrollRows).filter(
-        (o) => !payslipLocked(workspace, o.employeeId, period),
-      ),
-    [workspace, payrollRows, period],
-  );
-  const overtime = useMemo(
-    () => periodOvertime(workspace, overtimeFound, period),
-    [workspace, overtimeFound, period],
-  );
-  const payrollRun = useMemo(() => {
-    try {
-      return {
-        rows: calculatePayroll(workspace, employees, period, overtimeFound),
-        error: "",
-      };
-    } catch (err) {
-      return {
-        rows: [],
-        error: err instanceof Error ? err.message : "Payroll could not be calculated.",
-      };
-    }
-  }, [workspace, employees, period, overtimeFound]);
-  const payroll = payrollRun.rows;
-  // Deductions of a payslip that is already approved cannot be decided any
-  // more, so they are not counted as waiting.
-  const deductions = useMemo(
-    () =>
-      periodDeductions(workspace, payrollRows, period).filter(
-        (d) =>
-          d.status !== "pending" ||
-          !payslipLocked(workspace, d.employeeId, period),
-      ),
-    [workspace, payrollRows, period],
-  );
-  const waitingDeductions = deductions.filter((d) => d.status === "pending").length;
-  const waitingOvertime = overtimeNeedsApproval(workspace)
-    ? overtime.filter((o) => o.status === "pending").length
-    : 0;
-  const waiting = waitingDeductions + waitingOvertime;
   // What each HR room shows on its door in the lobby and the corridor.
-  const draftPayroll = workspace.payrollEntries
-    .filter((p) => p.period === workspace.payrollPeriod)
-    .reduce((n, p) => n + p.netSalary, 0);
   function interviewSign(): string {
     const people = workspace.interviewCandidates ?? [];
     const due = people.filter(
@@ -434,25 +366,12 @@ export function HrManagementPage() {
       pendingRequests.length > 0
         ? { value: `${pendingRequests.length} waiting`, alert: true, count: pendingRequests.length }
         : { value: `${workspace.holidays.length} holidays` },
-    payroll:
-      waiting > 0
-        ? {
-            value: [
-              waitingDeductions ? `${waitingDeductions} ${waitingDeductions === 1 ? "deduction" : "deductions"}` : "",
-              waitingOvertime ? `${waitingOvertime} overtime` : "",
-            ]
-              .filter(Boolean)
-              .join(" · ") + " to approve",
-            alert: true,
-            count: waiting,
-          }
-        : { value: draftPayroll ? money(draftPayroll, workspace.settings.currency) : workspace.payrollPeriod },
     hiring: {
       value: `${workspace.candidates.length} ${workspace.candidates.length === 1 ? "candidate" : "candidates"}`,
     },
     interviews: { value: interviewSign() },
     locations: { value: `${workspace.locations.length} sites · ${workspace.devices.length} devices` },
-    rules: { value: `${workspace.rules.length} rules` },
+    rules: { value: `${shownRules(workspace).length} rules` },
     reports: { value: "Exports & audit log" },
   };
   // The profile form is laid out down the page in these sections. Grouping is
@@ -505,8 +424,6 @@ export function HrManagementPage() {
           type: "number",
           min: 0,
           required: true,
-          hint: (v) =>
-            salaryHint(workspace, profileEditor?.id ?? "", Number(v.baseSalary) || 0),
         },
         { key: "email", label: "Work email", type: "email" },
         { key: "bankAccount", label: "Bank account / IBAN" },
@@ -570,7 +487,7 @@ export function HrManagementPage() {
           key: "attendanceNotes",
           label: "Attendance notes",
           type: "textarea",
-          hint: "Notes only — they do not change attendance, leave balances or payroll.",
+          hint: "Notes only — they do not change attendance or leave balances.",
         },
       ],
     },
@@ -727,6 +644,11 @@ export function HrManagementPage() {
             employees={employees}
             commit={commit}
           />
+          <PerformanceReviews
+            workspace={workspace}
+            employees={employees}
+            commit={commit}
+          />
         </div>
       )}
       {tab === "employee-details" && (
@@ -769,19 +691,6 @@ export function HrManagementPage() {
           commit={commit}
         />
       )}
-      {tab === "payroll" && (
-        <HrPayroll
-          workspace={workspace}
-          employees={employees}
-          period={period}
-          setPeriod={setPeriod}
-          payroll={payroll}
-          payrollError={payrollRun.error}
-          deductions={deductions}
-          overtime={overtime}
-          commit={commit}
-        />
-      )}
       {tab === "hiring" && <Hiring workspace={workspace} commit={commit} />}
       {tab === "interviews" && (
         <InterviewTracking workspace={workspace} commit={commit} />
@@ -802,8 +711,6 @@ export function HrManagementPage() {
           workspace={workspace}
           employees={employees}
           rows={currentRows}
-          payroll={payroll}
-          period={period}
           commit={commit}
         />
       )}
@@ -932,7 +839,7 @@ function People({
       <Card className="p-5">
         <h2 className="font-bold">Profile checklist</h2>
         <p className="mt-1 text-sm text-ink-500">
-          Complete these fields for each person to keep payroll and reporting
+          Complete these fields for each person to keep records and reporting
           accurate.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -952,7 +859,7 @@ function People({
               ).length,
             ],
             [
-              "Payroll / compliance",
+              "Salary & compliance",
               "Salary, bank account and documents",
               employees.filter(
                 (e) =>
@@ -1280,7 +1187,6 @@ function EmployeeDetails({
                                     info("Contract end", formatEmployeeDate(profile.contractEnd)),
                                     info("Work hours", profile.workHours),
                                     info("Monthly salary", profile.baseSalary ? money(profile.baseSalary, workspace.settings.currency) : "—"),
-                                    info("Salary rate", profile.baseSalary ? salaryHint(workspace, employee.id, profile.baseSalary).split(" — ")[0] : "—"),
                                     info("National ID", profile.nationalId),
                                     info("Bank account", profile.bankAccount),
                                   ]
@@ -1720,7 +1626,7 @@ function Time({
       />
       <Collection
         title="Holidays"
-        description="Mark paid holidays so attendance and payroll reports can explain non-working days."
+        description="Mark paid holidays so attendance reports can explain non-working days."
         rows={workspace.holidays}
         columns={[
           {
@@ -2480,6 +2386,144 @@ function GeofenceTester({ locations }: { locations: HrLocation[] }) {
   );
 }
 
+function PerformanceReviews({
+  workspace,
+  employees,
+  commit,
+}: {
+  workspace: HrWorkspace;
+  employees: Employee[];
+  commit: (m: (w: HrWorkspace) => HrWorkspace, a: string) => Promise<void>;
+}) {
+  return (
+    <Collection
+      title="Performance reviews"
+      description="Store periodic appraisals with a rating, notes and completion state."
+      rows={workspace.performanceReviews}
+      columns={[
+        { title: "Employee", render: (r) => employeeName(employees, r.employeeId) },
+        { title: "Period", render: (r) => r.period },
+        { title: "Rating", render: (r) => `${r.rating}/5` },
+        { title: "Status", render: (r) => <Status>{r.status}</Status> },
+        { title: "Notes", render: (r) => r.notes || "—" },
+      ]}
+      fields={[
+        {
+          key: "employeeId",
+          label: "Employee",
+          type: "select",
+          options: employees.map((e) => ({ value: e.id, label: e.fullName })),
+          required: true,
+        },
+        { key: "period", label: "Review period", type: "month", required: true },
+        { key: "rating", label: "Rating (1–5)", type: "number", min: 1, max: 5, step: 0.5, required: true },
+        { key: "status", label: "Status", type: "select", options: options(["draft", "complete"]), required: true },
+        { key: "notes", label: "Notes", type: "textarea" },
+      ]}
+      defaults={{
+        id: "",
+        employeeId: "",
+        period: date().slice(0, 7),
+        rating: 3,
+        notes: "",
+        status: "draft",
+      }}
+      onSave={async (r) =>
+        commit(
+          (w) => ({
+            ...w,
+            performanceReviews: [...w.performanceReviews.filter((p) => p.id !== r.id), r],
+          }),
+          `Saved performance review for ${employeeName(employees, r.employeeId)}`,
+        )
+      }
+    />
+  );
+}
+
+/** The work day everyone without a shift of their own works, and a few app-wide settings. */
+function WorkTimeSettings({
+  workspace,
+  commit,
+}: {
+  workspace: HrWorkspace;
+  commit: (m: (w: HrWorkspace) => HrWorkspace, a: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const s = workspace.settings;
+  const [a, b] = [s.workStart, s.workEnd].map(
+    (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3)),
+  );
+  const workHours = Math.round(((((b - a + 1440) % 1440) || 0) / 60) * 100) / 100;
+  const fields: Field[] = [
+    { key: "workStart", label: "Work day starts", type: "time", required: true },
+    { key: "workEnd", label: "Work day ends", type: "time", required: true },
+    {
+      key: "workDays",
+      label: "Work days",
+      type: "multi",
+      required: true,
+      options: ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"].map((d) => ({ value: d, label: d })),
+    },
+    { key: "currency", label: "Currency", required: true, hint: "Displayed beside every salary." },
+    { key: "approvalLevels", label: "Leave approval levels", type: "number", min: 1, max: 10, required: true },
+  ];
+  const cards: [string, string][] = [
+    ["Work day", `${clockRange(s.workStart, s.workEnd)} · ${workHours} hours`],
+    ["Work days", s.workDays.length ? s.workDays.join(", ") : "None"],
+    ["Currency", s.currency],
+    ["Leave approval levels", String(s.approvalLevels)],
+  ];
+  return (
+    <>
+      <Section
+        title="Work time & settings"
+        description="The work day everyone without a shift of their own works. The attendance register reads late arrivals, early leaves and overtime against it."
+        action={
+          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+            Edit settings
+          </Button>
+        }
+      >
+        <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          {cards.map(([label, value]) => (
+            <div key={label} className="rounded-xl bg-slate-50 p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-ink-400">{label}</div>
+              <div className="mt-1 text-lg font-bold">{value}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      {open && (
+        <Editor
+          title="Work time & settings"
+          fields={fields}
+          initial={s as unknown as Values}
+          onClose={() => setOpen(false)}
+          onSave={async (v) => {
+            if (v.workStart === v.workEnd)
+              throw new Error("The work day must end at a different time from when it starts.");
+            await commit(
+              (w) => ({
+                ...w,
+                settings: {
+                  ...w.settings,
+                  workStart: String(v.workStart),
+                  workEnd: String(v.workEnd),
+                  workDays: weekdays.filter((d) => (v.workDays as string[]).includes(d)),
+                  currency: String(v.currency).trim(),
+                  approvalLevels: Number(v.approvalLevels),
+                },
+              }),
+              "Updated work time settings",
+            );
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 function Rules({
   workspace,
   commit,
@@ -2493,7 +2537,7 @@ function Rules({
       key: "kind",
       label: "Category",
       type: "select",
-      options: options(["late", "overtime", "leave", "payroll", "attendance"]),
+      options: options(["late", "overtime", "leave", "attendance"]),
       required: true,
     },
     { key: "value", label: "Value", required: true },
@@ -2502,10 +2546,11 @@ function Rules({
   ];
   return (
     <div className="space-y-5">
+      <WorkTimeSettings workspace={workspace} commit={commit} />
       <Collection
         title="HR rules"
-        description="Rules control late grace, overtime approval, leave balance warnings, payroll periods and mobile location requirements. Every change is audited."
-        rows={workspace.rules}
+        description="Rules control late grace, leave balance warnings and mobile location requirements. Every change is audited."
+        rows={shownRules(workspace)}
         columns={[
           {
             title: "Rule",
@@ -2552,10 +2597,6 @@ function Rules({
             approval status before it can be approved.
           </p>
           <p className="rounded-xl bg-slate-50 p-4">
-            Payroll preserves approved and paid rows so a recalculation cannot
-            silently change a completed payroll.
-          </p>
-          <p className="rounded-xl bg-slate-50 p-4">
             Device attendance is append-only and includes source device IDs for
             reconciliation.
           </p>
@@ -2572,16 +2613,11 @@ function Reports({
   workspace,
   employees,
   rows,
-  payroll,
-  period,
   commit,
 }: {
   workspace: HrWorkspace;
   employees: Employee[];
   rows: ReturnType<typeof attendanceRows>;
-  /** The payroll month the payroll rows are for. */
-  payroll: HrWorkspace["payrollEntries"];
-  period: string;
   commit: (m: (w: HrWorkspace) => HrWorkspace, a: string) => Promise<void>;
 }) {
   const exportAttendance = () =>
@@ -2612,48 +2648,6 @@ function Reports({
         r.overtime,
       ]),
     );
-  const exportPayroll = () =>
-    csvDownload(
-      `payroll-${period}.csv`,
-      [
-        "Employee",
-        "Period",
-        "Bank account",
-        "Base salary",
-        "Salary for the month",
-        "Work days",
-        "Minute rate",
-        "Bonus",
-        "Overtime hours",
-        "Overtime rate",
-        "Time deductions",
-        "Penalty",
-        "Unpaid leave",
-        "Tax",
-        "Insurance",
-        "Net",
-        "Status",
-      ],
-      payroll.map((r) => [
-        employeeName(employees, r.employeeId),
-        r.period,
-        workspace.profiles[r.employeeId]?.bankAccount ?? "",
-        r.baseSalary,
-        r.earnedBase ?? r.baseSalary,
-        r.workDays ?? "",
-        r.minuteRate ?? "",
-        r.bonuses,
-        r.overtimeHours,
-        r.overtimeRate,
-        r.timeDeductions ?? 0,
-        r.penalties,
-        r.unpaidDeduction ?? 0,
-        r.tax ?? 0,
-        r.insurance ?? 0,
-        r.netSalary,
-        r.status,
-      ]),
-    );
   const importBackup = (file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -2682,16 +2676,9 @@ function Reports({
         title="Export reports"
         description="CSV files are UTF-8 with formula-injection protection so they open safely in Excel or Google Sheets."
       >
-        <div className="grid gap-3 p-5 sm:grid-cols-3">
+        <div className="grid gap-3 p-5 sm:grid-cols-2">
           <Button leftIcon={<Download width={17} />} onClick={exportAttendance}>
             Attendance CSV
-          </Button>
-          <Button
-            variant="secondary"
-            leftIcon={<Download width={17} />}
-            onClick={exportPayroll}
-          >
-            Payroll CSV · {monthLabel(period)}
           </Button>
           <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-card px-5 text-sm font-semibold text-ink-700 hover:bg-slate-50">
             <Upload width={17} /> Import HR backup
@@ -2710,7 +2697,7 @@ function Reports({
       </Section>
       <Section
         title="Audit log"
-        description="Every HR write records the actor, time and action. Keep this log with your payroll and compliance records."
+        description="Every HR write records the actor, time and action. Keep this log with your compliance records."
       >
         <Table
           rows={workspace.audit.slice().reverse()}
@@ -2744,8 +2731,8 @@ function Reports({
           <div className="rounded-xl bg-slate-50 p-4">
             <div className="font-semibold text-ink-900">Retention</div>
             <p className="mt-1">
-              Decide retention periods for CVs, contracts, payroll and
-              face-terminal exports with your organization policy.
+              Decide retention periods for CVs, contracts and face-terminal
+              exports with your organization policy.
             </p>
           </div>
         </div>

@@ -112,7 +112,7 @@ export const APPS: AppTile[] = [
 ];
 
 /** The HR rooms with their own square on Home, as shortcuts into the building. */
-export const HR_SHORTCUTS: HrTab[] = ['people', 'time', 'leave', 'payroll'];
+export const HR_SHORTCUTS: HrTab[] = ['people', 'time', 'leave'];
 
 /** One icon per HR room, the same in the lobby, the corridor and on Home. */
 export const HR_ROOM_ICONS: Record<HrTab, Icon> = {
@@ -122,7 +122,6 @@ export const HR_ROOM_ICONS: Record<HrTab, Icon> = {
   organization: Building,
   time: Clock,
   leave: CalendarDays,
-  payroll: Wallet,
   hiring: FileText,
   interviews: UserPlus,
   locations: MapPin,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode, type SVGProps } from 'react';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { HR_FLOOR_COLORS, HR_ROOM_ICONS } from '@/components/apps';
-import { Building, Cake, CalendarDays, Check, ChevronRight, Clock, FileText, Home, Phone, Users, Wallet } from '@/components/icons';
+import { Building, Cake, CalendarDays, Check, ChevronRight, Clock, FileText, Home, Phone, Users } from '@/components/icons';
 import { localDate, type AttendanceRow } from '@/services/hr/logic';
 import { HR_NAV_GROUPS, type HrTab } from '@/services/hr/navigation';
 import type { HrWorkspace } from '@/services/hr/types';
@@ -178,21 +178,9 @@ function KeyFigures({
   const active = employees.filter((e) => workspace.profiles[e.id]?.status !== 'inactive').length;
   const { came, expected, counts } = countToday(rows);
   const pending = workspace.leaveRequests.filter((r) => r.status === 'pending').length;
-  const slips = workspace.payrollEntries.filter((p) => p.period === workspace.payrollPeriod);
-  const payTotal = slips.reduce((n, p) => n + p.netSalary, 0);
-  const drafts = slips.filter((p) => p.status === 'draft').length;
-  const month = /^\d{4}-\d{2}$/.test(workspace.payrollPeriod) ? format(parseISO(`${workspace.payrollPeriod}-01`), 'MMMM') : '';
-  const payNote =
-    slips.length === 0
-      ? 'Not prepared yet'
-      : drafts > 0
-        ? `Draft · ${plural(drafts, 'payslip')} to approve`
-        : slips.every((p) => p.status === 'paid')
-          ? `Paid · ${plural(slips.length, 'payslip')}`
-          : `Approved · ${plural(slips.length, 'payslip')}`;
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
       <Figure
         label="Employees"
         icon={Users}
@@ -219,14 +207,6 @@ function KeyFigures({
         note={pending > 0 ? `Waiting for you · ${counts.onLeave} on leave today` : `${counts.onLeave} on leave today`}
         alert={pending > 0}
         onClick={() => onOpen('leave')}
-      />
-      <Figure
-        label={month ? `Payroll · ${month}` : 'Payroll'}
-        icon={Wallet}
-        value={slips.length ? Math.round(payTotal).toLocaleString('en-US') : '—'}
-        unit={slips.length ? workspace.settings?.currency || 'IQD' : undefined}
-        note={payNote}
-        onClick={() => onOpen('payroll')}
       />
     </div>
   );
@@ -412,16 +392,6 @@ function tasksFor(w: HrWorkspace, employees: Employee[], today: string): Task[] 
       room: 'people',
     });
   }
-
-  const drafts = w.payrollEntries.filter((p) => p.period === w.payrollPeriod && p.status === 'draft');
-  if (drafts.length > 0)
-    tasks.push({
-      key: 'payroll',
-      icon: Wallet,
-      title: `${format(parseISO(`${w.payrollPeriod}-01`), 'MMMM')} payroll is a draft`,
-      meta: `${drafts.length} ${drafts.length === 1 ? 'payslip' : 'payslips'} to approve`,
-      room: 'payroll',
-    });
 
   if (w.departments.length > 0) {
     const loose = employees.filter((e) => {

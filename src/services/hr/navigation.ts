@@ -5,7 +5,6 @@ export type HrTab =
   | "organization"
   | "time"
   | "leave"
-  | "payroll"
   | "hiring"
   | "interviews"
   | "locations"
@@ -30,7 +29,6 @@ export const HR_NAV_GROUPS: {
     items: [
       { id: "time", label: "Time & attendance" },
       { id: "leave", label: "Leave & holidays" },
-      { id: "payroll", label: "Payroll" },
     ],
   },
   {

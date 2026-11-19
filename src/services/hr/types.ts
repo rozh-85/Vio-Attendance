@@ -1,4 +1,3 @@
-export type HrAdjustmentType = "bonus" | "penalty";
 export type HrRequestStatus = "pending" | "approved" | "rejected";
 
 export interface HrDocument {
@@ -53,7 +52,7 @@ export interface HrEmployeeProfile {
   duties?: string;
   /**
    * Absences, late arrivals, early leaves, overtime and deductions as written
-   * on the paper HR form. Kept as notes: they change no attendance or payroll.
+   * on the paper HR form. Kept as notes: they change no attendance records.
    */
   attendanceNotes?: string;
   portalHash?: string;
@@ -136,87 +135,9 @@ export interface HrRule {
   id: string;
   name: string;
   description: string;
-  kind: "late" | "overtime" | "leave" | "payroll" | "attendance";
+  kind: "late" | "overtime" | "leave" | "attendance";
   value: string;
   enabled: boolean;
-}
-
-export interface HrAdjustment {
-  id: string;
-  employeeId: string;
-  type: HrAdjustmentType;
-  reason: string;
-  amount: number;
-  date: string;
-}
-
-export interface HrPayrollEntry {
-  id: string;
-  employeeId: string;
-  period: string;
-  baseSalary: number;
-  bonuses: number;
-  penalties: number;
-  overtimeHours: number;
-  overtimeRate: number;
-  netSalary: number;
-  tax?: number;
-  insurance?: number;
-  unpaidDeduction?: number;
-  status: "draft" | "approved" | "paid";
-  /** Days the work schedule has in the month (9:00–16:00 days by default). */
-  workDays?: number;
-  /** Minutes the work schedule has in the month; the salary is divided by it. */
-  workMinutes?: number;
-  /** The salary divided by the month's work time. */
-  dayRate?: number;
-  hourRate?: number;
-  minuteRate?: number;
-  /** The base salary for the part of the month after the join date. */
-  earnedBase?: number;
-  /** Approved deductions for late, early leave, absence and the like. */
-  timeDeductions?: number;
-  /** The approved deductions this payslip includes, frozen with it. */
-  deductionIds?: string[];
-  /** The overtime records this payslip pays, frozen with it. */
-  overtimeIds?: string[];
-  approvedAt?: string;
-  paidAt?: string;
-}
-
-/**
- * Money taken off a salary for time not worked, or for anything else HR types
- * in by hand. Nothing found in the check-ins comes off a salary by itself:
- * a deduction is only counted once somebody approves it.
- */
-export type HrDeductionKind =
-  | "late"
-  | "early"
-  | "absent"
-  | "unpaid-holiday"
-  | "manual";
-
-export interface HrDeduction {
-  /**
-   * `<kind>-<employeeId>-<date>` for one found in the check-ins, so the same
-   * late morning is never offered twice; a random id for one typed in by hand.
-   */
-  id: string;
-  employeeId: string;
-  /** The day it is for, YYYY-MM-DD. Its month is the payroll month it hits. */
-  date: string;
-  kind: HrDeductionKind;
-  /** The time missed, in minutes; 0 for a plain amount. */
-  minutes: number;
-  /** The money taken off. */
-  amount: number;
-  /** HR's own words, optional — e.g. "late". */
-  note: string;
-  /** What the check-ins showed, e.g. "In 09:25 · starts 09:00". */
-  detail?: string;
-  /** "pending" only ever lives in memory: what is saved has been decided. */
-  status: HrRequestStatus;
-  decidedAt?: string;
 }
 
 export interface HrPerformanceReview {
@@ -226,23 +147,6 @@ export interface HrPerformanceReview {
   rating: number;
   notes: string;
   status: "draft" | "complete";
-}
-
-export interface HrOvertimeRecord {
-  /**
-   * `ot-<employeeId>-<date>` for overtime found in the check-ins, so the same
-   * evening is never offered twice; a random id for overtime typed in by hand.
-   */
-  id: string;
-  employeeId: string;
-  date: string;
-  hours: number;
-  /** HR's own words, optional. */
-  reason: string;
-  /** What the check-ins showed, e.g. "Worked 9 AM – 6 PM · 9 hours". */
-  detail?: string;
-  status: HrRequestStatus;
-  decidedAt?: string;
 }
 
 export type HrInterviewStatus =
@@ -286,13 +190,8 @@ export interface HrWorkspace {
   locations: HrLocation[];
   devices: HrDevice[];
   rules: HrRule[];
-  adjustments: HrAdjustment[];
-  payrollEntries: HrPayrollEntry[];
-  deductions: HrDeduction[];
   performanceReviews: HrPerformanceReview[];
-  overtime: HrOvertimeRecord[];
   sectors: string[];
-  payrollPeriod: string;
   holidays: {
     id: string;
     name: string;
@@ -339,20 +238,12 @@ export interface HrWorkspace {
   audit: { id: string; at: string; actor: string; action: string }[];
   settings: {
     currency: string;
-    /**
-     * Only used when an employee has no work time in a month to divide the
-     * salary by; the work day below is what normally sets the rates.
-     */
-    monthlyHours: number;
     /** The work day for everyone without a shift of their own, "09:00". */
     workStart: string;
     /** "16:00". */
     workEnd: string;
     /** The days of that work day, e.g. ["Sat", "Sun", …, "Thu"]. */
     workDays: string[];
-    overtimeMultiplier: number;
-    taxPercent: number;
-    insurancePercent: number;
     approvalLevels: number;
   };
 }
