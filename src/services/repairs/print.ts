@@ -10,9 +10,9 @@ import type { RepairTicket } from './types';
 export type PrintSize = '80' | '58' | 'label';
 
 export const PRINT_SIZES: { id: PrintSize; label: string; hint: string }[] = [
-  { id: '80', label: 'پسوولە ٨٠ ملم', hint: 'بۆ کڕیار' },
-  { id: '58', label: 'پسوولە ٥٨ ملم', hint: 'پرینتەری بچووک' },
-  { id: 'label', label: 'لیبڵ ٥٠×٣٠', hint: 'بۆ سەر ئامێرەکە' },
+  { id: '80', label: '٨٠ ملم', hint: 'پسوولە بۆ کڕیار — پرینتەری پسوولەی ٨٠ ملم' },
+  { id: '58', label: '٥٨ ملم', hint: 'پسوولە بۆ کڕیار — پرینتەری بچووکی ٥٨ ملم' },
+  { id: 'label', label: 'لیبڵ', hint: 'لیبڵی ٥٠×٣٠ ملم بۆ سەر ئامێرەکە' },
 ];
 
 const SIZE_KEY = 'vio.repairPrintSize';

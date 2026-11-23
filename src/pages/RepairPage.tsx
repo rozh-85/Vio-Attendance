@@ -1,25 +1,20 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Logo } from '@/components/Logo';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowRight,
   Check,
   CheckCircle,
   Eye,
   EyeOff,
-  Lock,
   Logout,
-  Mail,
   Pencil,
   Phone,
   Plus,
   Printer,
   Search,
   Trash,
-  Wrench,
   X,
 } from '@/components/icons';
 import { CATEGORIES } from '@/services/orders/options';
@@ -28,6 +23,7 @@ import {
   STATUS_TEXT,
   daysInShop,
   daysText,
+  deliveredDay,
   formatPhone,
   groupByCustomer,
   isOverdue,
@@ -35,7 +31,6 @@ import {
   repairStatus,
   searchCustomers,
   showDate,
-  sortNewest,
   todayKey,
   type RepairCustomer,
 } from '@/services/repairs/logic';
@@ -58,11 +53,38 @@ import {
 import type { RepairDraft, RepairSession, RepairTicket } from '@/services/repairs/types';
 import { cn } from '@/utils/cn';
 
-/** Vivid red in light and dark mode alike: the "too long in the shop" colour. */
-const RED = 'bg-[#DC2626] text-white';
+// ── The few styles the whole page is built from ─────────────────────────────
 
-const fieldClass =
-  'h-12 w-full rounded-xl border border-slate-200 bg-card px-4 text-base text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30';
+const panel = 'rounded-xl border border-slate-200 bg-card';
+
+const TONES = {
+  primary: 'bg-brand-600 text-white hover:bg-brand-700',
+  secondary: 'border border-slate-200 bg-card text-ink-800 hover:bg-slate-50',
+  ghost: 'text-ink-600 hover:bg-slate-100 hover:text-ink-900',
+  green: 'bg-emerald-600 text-white hover:bg-emerald-700',
+  danger: 'bg-rose-600 text-white hover:bg-rose-700',
+} as const;
+
+/** A button of one tone; `size` carries its height and padding (and width). */
+function button(tone: keyof typeof TONES, size = 'h-10 px-4'): string {
+  return cn(
+    'inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+    TONES[tone],
+    size,
+  );
+}
+
+const inputBase =
+  'w-full rounded-lg border border-slate-300 bg-card px-3 text-[15px] text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/15';
+const input = cn(inputBase, 'h-11');
+
+/** Too long in the shop: the same red in light and dark mode. */
+const LATE = '#DC2626';
+
+/** Numbers, phones and dates read left to right inside the Kurdish text. */
+function Ltr({ children }: { children: ReactNode }) {
+  return <bdi dir="ltr">{children}</bdi>;
+}
 
 /** The whole page is Kurdish, right to left. */
 function Rtl({ children }: { children: ReactNode }) {
@@ -71,6 +93,10 @@ function Rtl({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+function Spinner() {
+  return <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />;
 }
 
 /**
@@ -120,7 +146,7 @@ export function RepairPage() {
   if (checking) {
     return (
       <Rtl>
-        <div className="py-24 text-center text-ink-400">چاوەڕێ بکە…</div>
+        <Loading />
       </Rtl>
     );
   }
@@ -175,44 +201,35 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
 
   return (
     <Rtl>
-      <div className="flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="w-full max-w-sm">
-          <div className="flex flex-col items-center text-center">
-            <Logo size={56} className="rounded-2xl shadow-sm" />
-            <h1 className="mt-4 text-2xl font-bold">بەشی عەتڵ</h1>
-            <p className="mt-1 text-ink-500">بە ئیمەیڵ و وشەی نهێنی بچۆ ژوورەوە</p>
-          </div>
+      <div className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
+        <div className="w-full max-w-[22rem]">
+          <Logo size={44} className="rounded-xl" />
+          <h1 className="mt-5 text-2xl font-bold">بەشی عەتڵ</h1>
+          <p className="mt-1 text-ink-500">بۆ بەردەوامبوون بچۆ ژوورەوە.</p>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-4 rounded-3xl border border-slate-200/80 bg-card p-5 shadow-sm sm:p-6">
-            {notice && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div>}
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold">ئیمەیڵ</span>
+          <form onSubmit={onSubmit} className="mt-7 space-y-4">
+            {notice && <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">{notice}</p>}
+            <Field label="ئیمەیڵ">
+              <input
+                className={cn(input, 'text-left')}
+                dir="ltr"
+                type="email"
+                required
+                autoFocus
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Field>
+            <Field label="وشەی نهێنی">
               <div className="relative" dir="ltr">
-                <Mail className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-ink-400" width={18} height={18} />
                 <input
-                  className={cn(fieldClass, 'ps-11')}
-                  type="email"
-                  required
-                  autoFocus
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  autoComplete="email"
-                  placeholder="name@vio.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold">وشەی نهێنی</span>
-              <div className="relative" dir="ltr">
-                <Lock className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-ink-400" width={18} height={18} />
-                <input
-                  className={cn(fieldClass, 'pe-11 ps-11')}
+                  className={cn(input, 'pr-11')}
                   type={shown ? 'text' : 'password'}
                   required
                   autoComplete="current-password"
-                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -220,19 +237,15 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
                   type="button"
                   onClick={() => setShown((s) => !s)}
                   aria-label={shown ? 'شاردنەوەی وشەی نهێنی' : 'پیشاندانی وشەی نهێنی'}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"
                 >
                   {shown ? <EyeOff width={18} height={18} /> : <Eye width={18} height={18} />}
                 </button>
               </div>
-            </label>
-            {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
-            <button
-              type="submit"
-              disabled={busy || !email.trim() || !password}
-              className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 text-base font-semibold text-white shadow-lg shadow-brand-600/20 transition-colors hover:bg-brand-700 disabled:opacity-60"
-            >
-              {busy ? <Spinner /> : null}
+            </Field>
+            {error && <p className="text-sm text-rose-600">{error}</p>}
+            <button type="submit" disabled={busy} className={button('primary', 'h-11 w-full px-4')}>
+              {busy && <Spinner />}
               چوونەژوورەوە
             </button>
           </form>
@@ -242,19 +255,13 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
   );
 }
 
-function Spinner() {
-  return <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />;
-}
-
 // ── The desk ─────────────────────────────────────────────────────────────────
 
-type Tab = 'open' | 'done' | 'all';
+type Tab = 'open' | 'late' | 'done';
 
-interface Flash {
+interface Toast {
   text: string;
-  ticket?: RepairTicket;
-  /** The view it belongs to; it goes away once someone moves on. */
-  view: string;
+  action?: { label: string; run: () => void };
 }
 
 function RepairDesk({
@@ -272,11 +279,11 @@ function RepairDesk({
   const [tickets, setTickets] = useState<RepairTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
   const [printing, setPrinting] = useState<RepairTicket | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('open');
 
-  const viewKey = params.toString();
   const customerPhone = params.get('c');
   const editId = params.get('edit');
   const isNew = params.has('new');
@@ -312,6 +319,13 @@ function RepairDesk({
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [load]);
+
+  // A message at the bottom goes away by itself.
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   const customers = useMemo(() => groupByCustomer(tickets), [tickets]);
   const overdue = useMemo(
@@ -356,10 +370,13 @@ function RepairDesk({
     try {
       const next = await store.setDelivered(session.token, ticket.id, delivered);
       upsert(next);
-      setFlash(
+      setToast(
         delivered
-          ? { text: `#${next.ticketNo} — ${next.itemType} چاککرا و درایەوە بە ${next.customerName}.`, ticket: next, view: viewKey }
-          : { text: `#${next.ticketNo} گەڕایەوە بۆ «لە چاکردندایە».`, view: viewKey },
+          ? {
+              text: `${next.itemType}ی ${next.customerName} درایەوە.`,
+              action: { label: 'گەڕاندنەوە', run: () => void setDelivered(next, false) },
+            }
+          : { text: `#${next.ticketNo} گەڕایەوە بۆ «لە چاکردندایە».` },
       );
     } catch (err) {
       fail(err);
@@ -371,10 +388,9 @@ function RepairDesk({
   async function save(draft: RepairDraft) {
     const saved = await store.save(session.token, draft);
     upsert(saved);
-    setFlash({
-      text: draft.id ? `گۆڕانکارییەکان پاشەکەوت کران — #${saved.ticketNo}.` : `عەتڵەکە پاشەکەوت کرا — ژمارەی پسوولە #${saved.ticketNo}.`,
-      ticket: saved,
-      view: new URLSearchParams({ c: saved.phone }).toString(),
+    setToast({
+      text: draft.id ? 'گۆڕانکارییەکان پاشەکەوت کران.' : `پاشەکەوت کرا — پسوولەی #${saved.ticketNo}`,
+      action: { label: 'چاپکردن', run: () => setPrinting(saved) },
     });
     go({ c: saved.phone }, true);
   }
@@ -382,10 +398,9 @@ function RepairDesk({
   async function remove(ticket: RepairTicket) {
     await store.remove(session.token, ticket.id);
     setTickets((list) => list.filter((t) => t.id !== ticket.id));
+    setToast({ text: `#${ticket.ticketNo} سڕایەوە.` });
     const others = tickets.filter((t) => t.phone === ticket.phone && t.id !== ticket.id);
-    const next: Record<string, string> = others.length ? { c: ticket.phone } : {};
-    setFlash({ text: `#${ticket.ticketNo} سڕایەوە.`, view: new URLSearchParams(next).toString() });
-    go(next, true);
+    go(others.length ? { c: ticket.phone } : {}, true);
   }
 
   let body: ReactNode;
@@ -433,76 +448,88 @@ function RepairDesk({
         customers={customers}
         overdue={overdue}
         loading={loading}
+        tab={tab}
+        onTab={setTab}
         onOpen={(phone) => go({ c: phone })}
-        onNew={(phone) => go(phone ? { new: '1', phone } : { new: '1' })}
+        onNew={(phone) => go({ new: '1', phone })}
       />
     );
   }
 
   return (
     <Rtl>
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-card/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
-          <button type="button" onClick={() => go({})} className="flex min-w-0 flex-1 items-center gap-3 text-start">
-            <Logo size={38} />
-            <span className="min-w-0">
-              <span className="block text-lg font-bold leading-tight">عەتڵەکان</span>
-              <span className="block truncate text-xs text-ink-500">{session.displayName}</span>
-            </span>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-card">
+        <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
+          <button type="button" onClick={() => go({})} className="flex items-center gap-2.5 rounded-lg">
+            <Logo size={30} className="rounded-lg" />
+            <span className="text-base font-bold">عەتڵ</span>
           </button>
           {overdue.length > 0 && (
             <button
               type="button"
-              onClick={() => go({})}
-              className={cn('flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-bold', RED)}
-              aria-label={`${overdue.length} ئامێر دواکەوتووە`}
+              onClick={() => {
+                setTab('late');
+                go({});
+              }}
+              title="دواکەوتوو"
+              className="ms-1 flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold text-white"
+              style={{ background: LATE }}
             >
-              <AlertTriangle width={16} height={16} />
               {overdue.length}
             </button>
           )}
-          <ThemeToggle variant="icon" />
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-sm font-semibold text-ink-600 hover:bg-slate-100"
-          >
-            <Logout width={18} height={18} />
-            <span className="hidden sm:inline">دەرچوون</span>
+          <div className="flex-1" />
+          <span className="hidden text-sm text-ink-500 sm:inline">{session.displayName}</span>
+          {!isNew && !editId && (
+            <button type="button" onClick={() => go({ new: '1' })} className={cn(button('primary', 'h-9 px-3 sm:px-4'), 'ms-2')}>
+              <Plus width={18} height={18} />
+              <span>عەتڵی نوێ</span>
+            </button>
+          )}
+          <button type="button" onClick={onSignOut} title="دەرچوون" aria-label="دەرچوون" className={button('ghost', 'h-9 px-2')}>
+            <Logout width={19} height={19} />
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-16 pt-5">
+      <main className="mx-auto max-w-5xl px-4 pb-28 pt-5 sm:pt-8">
         {error && (
-          <div className="flex items-start gap-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mb-4 flex items-center gap-3 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <span className="flex-1">{error}</span>
             <button type="button" className="font-semibold underline" onClick={() => void load()}>
               دووبارە
             </button>
           </div>
         )}
-        {flash?.view === viewKey && (
-          <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-            <CheckCircle width={20} height={20} className="shrink-0" />
-            <span className="flex-1 text-sm font-semibold">{flash.text}</span>
-            {flash.ticket && (
-              <button
-                type="button"
-                onClick={() => setPrinting(flash.ticket ?? null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-card px-3 text-sm font-semibold text-ink-800 shadow-sm"
-              >
-                <Printer width={16} height={16} />
-                چاپ
-              </button>
-            )}
-            <button type="button" onClick={() => setFlash(null)} aria-label="داخستن" className="shrink-0 text-emerald-700">
-              <X width={18} height={18} />
-            </button>
-          </div>
-        )}
         {body}
       </main>
+
+      {toast && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+          <div
+            role="status"
+            className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-lg bg-[#1e293b] px-4 py-3 text-sm text-white shadow-lg ring-1 ring-white/10"
+          >
+            <CheckCircle width={18} height={18} className="shrink-0 text-emerald-400" />
+            <span className="min-w-0 flex-1">{toast.text}</span>
+            {toast.action && (
+              <button
+                type="button"
+                className="shrink-0 font-semibold text-white underline-offset-4 hover:underline"
+                onClick={() => {
+                  toast.action?.run();
+                  setToast(null);
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
+            <button type="button" onClick={() => setToast(null)} aria-label="داخستن" className="shrink-0 text-white/60 hover:text-white">
+              <X width={16} height={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {printing && <PrintSheet ticket={printing} onClose={() => setPrinting(null)} />}
     </Rtl>
@@ -510,20 +537,55 @@ function RepairDesk({
 }
 
 function Loading() {
-  return <div className="py-16 text-center text-ink-400">چاوەڕێ بکە…</div>;
+  return <div className="py-24 text-center text-ink-400">چاوەڕێ بکە…</div>;
 }
 
-function Empty({ text }: { text: string }) {
-  return <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-12 text-center text-ink-500">{text}</div>;
+function Empty({ text, children }: { text: string; children?: ReactNode }) {
+  return (
+    <div className={cn(panel, 'px-6 py-14 text-center text-ink-500')}>
+      <p>{text}</p>
+      {children}
+    </div>
+  );
+}
+
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="-ms-1 inline-flex h-9 items-center gap-1.5 rounded-lg px-1 text-sm text-ink-500 hover:text-ink-900">
+      <ArrowRight width={17} height={17} />
+      گەڕانەوە
+    </button>
+  );
+}
+
+/** A dot and a word: where the repair is. */
+function StatusLabel({ ticket, small = false, end = false }: { ticket: RepairTicket; small?: boolean; end?: boolean }) {
+  const status = repairStatus(ticket);
+  const late = isOverdue(ticket);
+  const dot = { waiting: 'bg-amber-500', ready: 'bg-blue-500', delivered: 'bg-emerald-500' }[status];
+  return (
+    <span
+      className={cn('flex items-center gap-1.5', small ? 'text-xs' : 'text-sm', end && 'justify-end', late ? 'font-semibold' : 'text-ink-600')}
+      style={late ? { color: LATE } : undefined}
+    >
+      <span className={cn('size-2 shrink-0 rounded-full', !late && dot)} style={late ? { background: LATE } : undefined} />
+      {late ? 'دواکەوتووە' : STATUS_TEXT[status]}
+    </span>
+  );
 }
 
 // ── List ─────────────────────────────────────────────────────────────────────
+
+/** From a laptop up the list is a table with these columns. */
+const COLUMNS = 'md:grid md:grid-cols-[3.5rem_minmax(0,1.5fr)_minmax(0,1fr)_6.5rem_5.5rem_8rem] md:items-center md:gap-4';
 
 function ListView({
   tickets,
   customers,
   overdue,
   loading,
+  tab,
+  onTab,
   onOpen,
   onNew,
 }: {
@@ -531,83 +593,96 @@ function ListView({
   customers: RepairCustomer[];
   overdue: RepairTicket[];
   loading: boolean;
+  tab: Tab;
+  onTab: (tab: Tab) => void;
   onOpen: (phone: string) => void;
-  onNew: (phone?: string) => void;
+  onNew: (phone: string) => void;
 }) {
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<Tab>('open');
-
   const searching = query.trim().length > 0;
   const found = useMemo(() => (searching ? searchCustomers(customers, query) : []), [customers, query, searching]);
   const typedPhone = normalizePhone(query);
   const fullPhone = /^07\d{9}$/.test(typedPhone) ? typedPhone : '';
 
-  const counts = useMemo(
-    () => ({
-      open: tickets.filter((t) => repairStatus(t) !== 'delivered').length,
-      done: tickets.filter((t) => repairStatus(t) === 'delivered').length,
-      all: tickets.length,
-    }),
-    [tickets],
-  );
+  const visits = useMemo(() => new Map(customers.map((c) => [c.phone, c.tickets.length])), [customers]);
 
-  const shown = useMemo(() => {
-    if (tab === 'open') {
-      // The ones waiting longest first: they are the ones to deal with.
-      return tickets
-        .filter((t) => repairStatus(t) !== 'delivered')
-        .sort((a, b) => a.broughtOn.localeCompare(b.broughtOn) || a.ticketNo - b.ticketNo);
-    }
-    if (tab === 'done') {
-      return tickets
-        .filter((t) => repairStatus(t) === 'delivered')
-        .sort((a, b) => (b.deliveredAt ?? '').localeCompare(a.deliveredAt ?? ''));
-    }
-    return sortNewest(tickets);
-  }, [tickets, tab]);
+  const lists = useMemo(() => {
+    // Waiting longest first: those are the ones to deal with.
+    const open = tickets
+      .filter((t) => repairStatus(t) !== 'delivered')
+      .sort((a, b) => a.broughtOn.localeCompare(b.broughtOn) || a.ticketNo - b.ticketNo);
+    const done = tickets
+      .filter((t) => repairStatus(t) === 'delivered')
+      .sort((a, b) => (b.deliveredAt ?? '').localeCompare(a.deliveredAt ?? ''));
+    return { open, late: overdue, done };
+  }, [tickets, overdue]);
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'open', label: 'لە دوکان' },
+    { id: 'late', label: 'دواکەوتوو' },
+    { id: 'done', label: 'دراوەتەوە' },
+  ];
 
   return (
-    <>
-      {overdue.length > 0 && !searching && (
-        <section className={cn('rounded-2xl p-4 shadow-sm', RED)} role="alert">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle width={22} height={22} className="shrink-0" />
-            <h2 className="text-base font-bold">
-              {overdue.length} ئامێر زیاتر لە {OVERDUE_DAYS} ڕۆژە لێرەیە و هێشتا چاک نەکراوە
-            </h2>
-          </div>
-          <ul className="mt-3 space-y-1.5">
-            {overdue.slice(0, 6).map((t) => (
-              <li key={t.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(t.phone)}
-                  className="flex w-full items-center gap-3 rounded-xl bg-white/15 px-3 py-2 text-start text-sm transition hover:bg-white/25"
-                >
-                  <span className="font-bold" dir="ltr">
-                    #{t.ticketNo}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">
-                    {t.customerName} · {t.itemType}
-                  </span>
-                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-bold text-[#B91C1C]">
-                    {daysText(daysInShop(t))}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {overdue.length > 6 && <p className="mt-2 text-sm text-white/85">و {overdue.length - 6} ی تر لە خوارەوە.</p>}
-        </section>
+    <div className="space-y-4">
+      {overdue.length > 0 && tab !== 'late' && !searching && (
+        <button
+          type="button"
+          role="alert"
+          onClick={() => onTab('late')}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-start text-white transition-opacity hover:opacity-95"
+          style={{ background: LATE }}
+        >
+          <AlertTriangle width={20} height={20} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-bold">{overdue.length} ئامێر دواکەوتووە</span>
+            <span className="block text-sm text-white/85">{OVERDUE_DAYS} ڕۆژ یان زیاترە هاتووە و هێشتا چاک نەکراوە</span>
+          </span>
+          <span className="shrink-0 text-sm font-semibold underline underline-offset-4">بینین</span>
+        </button>
       )}
 
-      <div className="flex gap-2">
-        <label className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-ink-400" width={20} height={20} />
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {searching ? (
+          <p className="text-sm text-ink-500">
+            {found.length ? `${found.length} کڕیار دۆزرایەوە` : 'هیچ کڕیارێک نەدۆزرایەوە'}
+          </p>
+        ) : (
+          <nav className="flex gap-5" aria-label="پاڵاوتن">
+            {tabs.map((t) => {
+              const count = lists[t.id].length;
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onTab(t.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex h-10 items-center gap-1.5 border-b-2 text-[15px] font-semibold transition-colors',
+                    active ? 'border-brand-600 text-ink-900' : 'border-transparent text-ink-500 hover:text-ink-800',
+                  )}
+                >
+                  {t.label}
+                  <span
+                    className={cn('text-sm', t.id === 'late' && count > 0 ? 'font-bold' : 'font-normal text-ink-400')}
+                    style={t.id === 'late' && count > 0 ? { color: LATE } : undefined}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
+
+        <div className="relative sm:w-80">
+          <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-ink-400" width={18} height={18} />
           <input
-            className={cn(fieldClass, 'h-13 ps-11 pe-10 text-lg shadow-sm')}
-            type="search"
+            className={cn(input, 'pe-9 ps-10')}
+            type="text"
             inputMode="tel"
+            enterKeyHint="search"
             placeholder="گەڕان بە ژمارەی مۆبایل"
             aria-label="گەڕان بە ژمارەی مۆبایل"
             value={query}
@@ -618,144 +693,112 @@ function ListView({
               type="button"
               onClick={() => setQuery('')}
               aria-label="سڕینەوەی گەڕان"
-              className="absolute end-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-ink-400 hover:bg-slate-100"
+              className="absolute end-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-ink-400 hover:bg-slate-100 hover:text-ink-700"
             >
               <X width={16} height={16} />
             </button>
           )}
-        </label>
-        <button
-          type="button"
-          onClick={() => onNew(fullPhone || undefined)}
-          className="flex h-13 shrink-0 items-center gap-2 rounded-xl bg-brand-600 px-4 font-semibold text-white shadow-sm transition hover:bg-brand-700"
-        >
-          <Plus width={20} height={20} />
-          <span className="hidden sm:inline">عەتڵی نوێ</span>
-          <span className="sm:hidden">نوێ</span>
-        </button>
+        </div>
       </div>
 
       {searching ? (
-        <section className="space-y-2">
-          {found.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-card px-4 py-8 text-center">
-              <p className="text-ink-500">هیچ کڕیارێک بەم ژمارەیە نەدۆزرایەوە.</p>
-              {fullPhone && (
-                <button
-                  type="button"
-                  onClick={() => onNew(fullPhone)}
-                  className="mx-auto mt-4 flex h-11 items-center gap-2 rounded-xl bg-brand-600 px-4 font-semibold text-white"
-                >
-                  <Plus width={18} height={18} />
-                  عەتڵی نوێ بۆ <span dir="ltr">{formatPhone(fullPhone)}</span>
-                </button>
-              )}
-            </div>
-          ) : (
-            found.slice(0, 30).map((c) => <CustomerRow key={c.phone} customer={c} onOpen={() => onOpen(c.phone)} />)
-          )}
-        </section>
-      ) : (
-        <>
-          <div className="flex gap-1 rounded-2xl bg-slate-100 p-1">
-            {(
-              [
-                ['open', 'لە دوکانن'],
-                ['done', 'دراونەتەوە'],
-                ['all', 'هەمووی'],
-              ] as [Tab, string][]
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={cn(
-                  'flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition',
-                  tab === id ? 'bg-raised text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-800',
-                )}
-              >
-                {label}
-                <span className={cn('rounded-full px-1.5 text-xs', tab === id ? 'bg-slate-100 text-ink-600' : 'text-ink-400')}>
-                  {counts[id]}
-                </span>
+        found.length === 0 ? (
+          <Empty text="ئەم ژمارەیە پێشتر تۆمار نەکراوە.">
+            {fullPhone && (
+              <button type="button" onClick={() => onNew(fullPhone)} className={cn(button('primary'), 'mt-4')}>
+                <Plus width={18} height={18} />
+                عەتڵی نوێ بۆ <Ltr>{formatPhone(fullPhone)}</Ltr>
               </button>
+            )}
+          </Empty>
+        ) : (
+          <ul className={cn(panel, 'divide-y divide-slate-100 overflow-hidden')}>
+            {found.slice(0, 30).map((c) => (
+              <li key={c.phone}>
+                <CustomerRow customer={c} onOpen={() => onOpen(c.phone)} />
+              </li>
             ))}
+          </ul>
+        )
+      ) : loading ? (
+        <Loading />
+      ) : lists[tab].length === 0 ? (
+        <Empty
+          text={
+            tab === 'open'
+              ? 'هیچ ئامێرێک لە دوکان نییە.'
+              : tab === 'late'
+                ? 'هیچ ئامێرێک دوانەکەوتووە.'
+                : 'هێشتا هیچ ئامێرێک نەدراوەتەوە.'
+          }
+        />
+      ) : (
+        <div className={cn(panel, 'overflow-hidden')}>
+          <div className={cn('hidden border-b border-slate-200 px-4 py-2.5 text-xs font-medium text-ink-500', COLUMNS)}>
+            <span>پسوولە</span>
+            <span>کڕیار</span>
+            <span>ئایتم</span>
+            <span>بەرواری هێنان</span>
+            <span>ماوە</span>
+            <span>دۆخ</span>
           </div>
-
-          {loading ? (
-            <Loading />
-          ) : shown.length === 0 ? (
-            <Empty
-              text={
-                tab === 'open'
-                  ? 'هیچ ئامێرێک لە دوکان نییە. بۆ زیادکردن «عەتڵی نوێ» دابگرە.'
-                  : tab === 'done'
-                    ? 'هێشتا هیچ ئامێرێک نەدراوەتەوە.'
-                    : 'هێشتا هیچ عەتڵێک تۆمار نەکراوە.'
-              }
-            />
-          ) : (
-            <ul className="space-y-2">
-              {shown.map((t) => (
-                <li key={t.id}>
-                  <TicketRow ticket={t} visits={customers.find((c) => c.phone === t.phone)?.tickets.length ?? 1} onOpen={() => onOpen(t.phone)} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+          <ul className="divide-y divide-slate-100">
+            {lists[tab].map((t) => (
+              <li key={t.id}>
+                <TicketRow ticket={t} visits={visits.get(t.phone) ?? 1} onOpen={() => onOpen(t.phone)} />
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-    </>
-  );
-}
-
-function StatusChip({ ticket }: { ticket: RepairTicket }) {
-  const status = repairStatus(ticket);
-  if (isOverdue(ticket)) {
-    return <span className={cn('rounded-full px-2.5 py-1 text-xs font-bold', RED)}>{daysText(daysInShop(ticket))} — دواکەوتووە</span>;
-  }
-  const tone = {
-    waiting: 'bg-amber-50 text-amber-700',
-    ready: 'bg-blue-50 text-blue-700',
-    delivered: 'bg-emerald-50 text-emerald-700',
-  }[status];
-  return (
-    <span className={cn('whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', tone)}>
-      {status === 'waiting' ? `${STATUS_TEXT.waiting} · ${daysText(daysInShop(ticket))}` : STATUS_TEXT[status]}
-    </span>
+    </div>
   );
 }
 
 function TicketRow({ ticket, visits, onOpen }: { ticket: RepairTicket; visits: number; onOpen: () => void }) {
   const late = isOverdue(ticket);
+  const delivered = repairStatus(ticket) === 'delivered';
+  const age = delivered ? '—' : daysText(daysInShop(ticket));
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={cn(
-        'flex w-full items-center gap-3 rounded-2xl border bg-card p-3 text-start shadow-sm transition hover:shadow-md sm:p-4',
-        late ? 'border-[#DC2626] ring-1 ring-[#DC2626]/40' : 'border-slate-200/80',
-      )}
+      className={cn('relative flex w-full items-center gap-3 px-4 py-3.5 text-start transition-colors hover:bg-slate-50', COLUMNS)}
     >
-      <span
-        className={cn(
-          'grid size-12 shrink-0 place-items-center rounded-xl text-sm font-bold',
-          late ? RED : 'bg-slate-100 text-ink-700',
-        )}
-        dir="ltr"
-      >
-        #{ticket.ticketNo}
+      {late && <span aria-hidden className="absolute inset-y-0 start-0 w-1" style={{ background: LATE }} />}
+      <span className="hidden text-sm text-ink-400 md:block">
+        <Ltr>#{ticket.ticketNo}</Ltr>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate font-bold">{ticket.customerName}</span>
-          {visits > 1 && <span className="shrink-0 rounded-full bg-violet-50 px-2 text-xs font-semibold text-violet-700">{visits} جار</span>}
+        <span className="flex items-baseline gap-2">
+          <span className="truncate font-semibold">{ticket.customerName}</span>
+          {visits > 1 && <span className="shrink-0 text-xs text-ink-400">{visits} جار</span>}
         </span>
         <span className="mt-0.5 block truncate text-sm text-ink-500">
-          {ticket.itemType} · <span dir="ltr">{formatPhone(ticket.phone)}</span>
+          <span className="md:hidden">{ticket.itemType} · </span>
+          <Ltr>{formatPhone(ticket.phone)}</Ltr>
         </span>
       </span>
-      <StatusChip ticket={ticket} />
+      <span className="hidden truncate md:block">{ticket.itemType}</span>
+      <span className="hidden text-sm text-ink-600 md:block">
+        <Ltr>{showDate(ticket.broughtOn)}</Ltr>
+      </span>
+      <span className={cn('hidden text-sm md:block', late ? 'font-bold' : 'text-ink-600')} style={late ? { color: LATE } : undefined}>
+        {age}
+      </span>
+      <span className="hidden md:block">
+        <StatusLabel ticket={ticket} />
+      </span>
+
+      {/* On a phone: how long, and where it is, at the end of the row. */}
+      <span className="shrink-0 md:hidden">
+        <span className={cn('block text-end text-sm', late ? 'font-bold' : 'text-ink-700')} style={late ? { color: LATE } : undefined}>
+          {delivered ? <Ltr>{showDate(deliveredDay(ticket))}</Ltr> : age}
+        </span>
+        <span className="mt-0.5 block">
+          <StatusLabel ticket={ticket} small end />
+        </span>
+      </span>
     </button>
   );
 }
@@ -764,28 +807,21 @@ function CustomerRow({ customer, onOpen }: { customer: RepairCustomer; onOpen: (
   const open = customer.tickets.filter((t) => repairStatus(t) !== 'delivered').length;
   const late = customer.tickets.some((t) => isOverdue(t));
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={cn(
-        'flex w-full items-center gap-3 rounded-2xl border bg-card p-3 text-start shadow-sm transition hover:shadow-md sm:p-4',
-        late ? 'border-[#DC2626]' : 'border-slate-200/80',
-      )}
-    >
-      <span className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-50 text-lg font-bold text-brand-600">
-        {customer.name.trim().charAt(0) || '؟'}
-      </span>
+    <button type="button" onClick={onOpen} className="flex w-full items-center gap-3 px-4 py-3.5 text-start transition-colors hover:bg-slate-50">
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-bold">{customer.name}</span>
-        <span className="block text-sm text-ink-500" dir="ltr" style={{ textAlign: 'right' }}>
-          {formatPhone(customer.phone)}
+        <span className="block truncate font-semibold">{customer.name}</span>
+        <span className="mt-0.5 block text-sm text-ink-500">
+          <Ltr>{formatPhone(customer.phone)}</Ltr>
         </span>
       </span>
-      <span className="shrink-0 text-end text-xs text-ink-500">
-        <span className="block font-semibold text-ink-700">{customer.tickets.length} جار هاتووە</span>
-        {open > 0 && <span className={cn('block', late ? 'font-bold text-[#DC2626]' : '')}>{open} لە دوکانە</span>}
+      <span className="shrink-0 text-end text-sm">
+        <span className="block text-ink-600">{customer.tickets.length} جار هاتووە</span>
+        {open > 0 && (
+          <span className={cn('block', late ? 'font-semibold' : 'text-ink-500')} style={late ? { color: LATE } : undefined}>
+            {open} لە دوکان
+          </span>
+        )}
       </span>
-      <ArrowLeft width={18} height={18} className="shrink-0 text-ink-400" />
     </button>
   );
 }
@@ -818,57 +854,39 @@ function CustomerView({
   );
 
   return (
-    <>
-      <BackButton onClick={onBack} />
-      <section className="rounded-3xl border border-slate-200/80 bg-card p-5 shadow-sm">
-        <div className="flex items-center gap-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-brand-50 text-2xl font-bold text-brand-600">
-            {customer.name.trim().charAt(0) || '؟'}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold">{customer.name}</h1>
-            <a href={`tel:${customer.phone}`} className="mt-0.5 inline-flex items-center gap-1.5 text-ink-600 hover:text-brand-600">
+    <div className="mx-auto max-w-2xl">
+      <BackLink onClick={onBack} />
+      <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-bold">{customer.name}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-600">
+            <a href={`tel:${customer.phone}`} className="inline-flex items-center gap-1.5 hover:text-brand-600">
               <Phone width={15} height={15} />
-              <span dir="ltr">{formatPhone(customer.phone)}</span>
+              <Ltr>{formatPhone(customer.phone)}</Ltr>
             </a>
+            <span className="text-ink-300">·</span>
+            <span>{customer.tickets.length} جار هاتووە</span>
           </div>
-          <span className="shrink-0 rounded-full bg-violet-50 px-3 py-1 text-sm font-semibold text-violet-700">
-            {customer.tickets.length} جار هاتووە
-          </span>
         </div>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand-300 font-semibold text-brand-600 transition hover:bg-brand-50"
-        >
-          <Plus width={20} height={20} />
-          عەتڵێکی تر بۆ ئەم کڕیارە زیاد بکە
+        <button type="button" onClick={onAdd} className={button('secondary', 'h-10 w-full px-4 sm:w-auto')}>
+          <Plus width={18} height={18} />
+          عەتڵێکی تر
         </button>
-      </section>
+      </div>
 
-      <ul className="space-y-3">
+      <div className="mt-6 space-y-3">
         {tickets.map((t) => (
-          <li key={t.id}>
-            <TicketCard
-              ticket={t}
-              busy={busyId === t.id}
-              onEdit={() => onEdit(t)}
-              onPrint={() => onPrint(t)}
-              onDelivered={(on) => onDelivered(t, on)}
-            />
-          </li>
+          <TicketCard
+            key={t.id}
+            ticket={t}
+            busy={busyId === t.id}
+            onEdit={() => onEdit(t)}
+            onPrint={() => onPrint(t)}
+            onDelivered={(on) => onDelivered(t, on)}
+          />
         ))}
-      </ul>
-    </>
-  );
-}
-
-function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="flex h-9 items-center gap-1.5 rounded-xl text-sm font-semibold text-ink-600 hover:text-ink-900">
-      <ArrowRight width={18} height={18} />
-      گەڕانەوە
-    </button>
+      </div>
+    </div>
   );
 }
 
@@ -885,101 +903,92 @@ function TicketCard({
   onPrint: () => void;
   onDelivered: (delivered: boolean) => void;
 }) {
-  const status = repairStatus(ticket);
+  const delivered = repairStatus(ticket) === 'delivered';
   const late = isOverdue(ticket);
   return (
-    <article
-      className={cn(
-        'overflow-hidden rounded-2xl border bg-card shadow-sm',
-        late ? 'border-[#DC2626] ring-1 ring-[#DC2626]/40' : 'border-slate-200/80',
-      )}
-    >
+    <article className={cn(panel, 'overflow-hidden')} style={late ? { borderColor: LATE } : undefined}>
       {late && (
-        <div className={cn('flex items-center gap-2 px-4 py-2 text-sm font-bold', RED)}>
-          <AlertTriangle width={16} height={16} />
+        <div className="px-4 py-2 text-sm font-semibold text-white" style={{ background: LATE }}>
           {daysInShop(ticket)} ڕۆژە لێرەیە و هێشتا چاک نەکراوە
         </div>
       )}
-      <div className="p-4">
+      <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Wrench width={18} height={18} className="shrink-0 text-ink-400" />
-              <h2 className="truncate text-lg font-bold">{ticket.itemType}</h2>
-            </div>
-            <div className="mt-0.5 text-sm text-ink-500">
-              پسوولە <span dir="ltr" className="font-semibold text-ink-700">#{ticket.ticketNo}</span>
+            <h2 className="truncate text-lg font-bold">{ticket.itemType}</h2>
+            <div className="mt-1">
+              <StatusLabel ticket={ticket} />
             </div>
           </div>
-          <StatusChip ticket={ticket} />
+          <span className="shrink-0 text-sm text-ink-400">
+            پسوولە <Ltr>#{ticket.ticketNo}</Ltr>
+          </span>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-slate-50 px-3 py-2">
-            <dt className="text-xs text-ink-500">بەرواری هێنان</dt>
-            <dd className="mt-0.5 font-semibold" dir="ltr" style={{ textAlign: 'right' }}>
-              {showDate(ticket.broughtOn)}
+        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+          <div>
+            <dt className="text-ink-500">بەرواری هێنان</dt>
+            <dd className="mt-0.5 font-medium">
+              <Ltr>{showDate(ticket.broughtOn)}</Ltr>
             </dd>
           </div>
-          <div className="rounded-xl bg-slate-50 px-3 py-2">
-            <dt className="text-xs text-ink-500">بەرواری چاکردن</dt>
-            <dd className="mt-0.5 font-semibold" dir="ltr" style={{ textAlign: 'right' }}>
-              {showDate(ticket.repairedOn)}
+          <div>
+            <dt className="text-ink-500">بەرواری چاکردن</dt>
+            <dd className="mt-0.5 font-medium">
+              <Ltr>{showDate(ticket.repairedOn)}</Ltr>
             </dd>
           </div>
+          {delivered && (
+            <div>
+              <dt className="text-ink-500">دراوەتەوە</dt>
+              <dd className="mt-0.5 font-medium">
+                <Ltr>{showDate(deliveredDay(ticket))}</Ltr>
+              </dd>
+            </div>
+          )}
         </dl>
         {ticket.note && (
-          <p className="mt-2 whitespace-pre-wrap rounded-xl bg-slate-50 px-3 py-2 text-sm text-ink-700">
-            <span className="block text-xs text-ink-500">تێبینی</span>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">
+            <span className="text-ink-500">تێبینی: </span>
             {ticket.note}
           </p>
         )}
 
-        {status === 'delivered' ? (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
-            <CheckCircle width={18} height={18} className="shrink-0" />
-            <span className="flex-1 font-semibold">
-              چاککرا و درایەوە بە کڕیار —{' '}
-              <span dir="ltr">{showDate(ticket.deliveredAt?.slice(0, 10) ?? null)}</span>
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          {delivered ? (
+            <span className="flex items-center gap-1.5 text-sm text-emerald-700">
+              <CheckCircle width={17} height={17} />
+              درایەوە بە کڕیار
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onDelivered(false)}
+                className="ms-1 text-ink-500 underline underline-offset-4 hover:text-ink-800 disabled:opacity-50"
+              >
+                گەڕاندنەوە
+              </button>
             </span>
+          ) : (
             <button
               type="button"
               disabled={busy}
-              onClick={() => onDelivered(false)}
-              className="shrink-0 text-xs font-semibold text-emerald-700 underline disabled:opacity-50"
+              onClick={() => onDelivered(true)}
+              className={button('green', 'h-10 flex-1 px-4 sm:flex-none')}
             >
-              گەڕاندنەوە
+              {busy ? <Spinner /> : <Check width={18} height={18} />}
+              چاککرا و درایەوە
+            </button>
+          )}
+          <div className="ms-auto flex gap-1">
+            <button type="button" onClick={onPrint} className={button('ghost', 'h-10 px-3')}>
+              <Printer width={17} height={17} />
+              چاپ
+            </button>
+            <button type="button" onClick={onEdit} className={button('ghost', 'h-10 px-3')}>
+              <Pencil width={16} height={16} />
+              دەستکاری
             </button>
           </div>
-        ) : (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onDelivered(true)}
-            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
-          >
-            {busy ? <Spinner /> : <Check width={20} height={20} />}
-            چاککرا و درایەوە بە کڕیار
-          </button>
-        )}
-
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onPrint}
-            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-card text-sm font-semibold text-ink-700 transition hover:bg-slate-50"
-          >
-            <Printer width={18} height={18} />
-            چاپکردن
-          </button>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-card text-sm font-semibold text-ink-700 transition hover:bg-slate-50"
-          >
-            <Pencil width={17} height={17} />
-            دەستکاری
-          </button>
         </div>
       </div>
     </article>
@@ -990,16 +999,33 @@ function TicketCard({
 
 const OTHER = '__other__';
 
-function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: ReactNode }) {
+function Field({
+  label,
+  required,
+  hint,
+  aside,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: ReactNode;
+  /** A small link at the end of the label row. */
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold">
-        {label}
-        {required && <span className="ms-0.5 text-rose-500">*</span>}
-      </span>
-      {children}
-      {hint && <span className="mt-1.5 block text-xs text-ink-500">{hint}</span>}
-    </label>
+    <div className="relative">
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-semibold text-ink-800">
+          {label}
+          {required && <span className="ms-0.5 text-rose-500">*</span>}
+        </span>
+        {children}
+        {hint && <span className="mt-1.5 block text-sm text-ink-500">{hint}</span>}
+      </label>
+      {/* Outside the label, so tapping the label never presses it. */}
+      {aside && <span className="absolute end-0 top-0">{aside}</span>}
+    </div>
   );
 }
 
@@ -1075,50 +1101,55 @@ function TicketForm({
     }
   }
 
+  const today = todayKey();
+
   return (
-    <>
-      <BackButton onClick={onCancel} />
-      <form onSubmit={onSubmit} className="space-y-4 rounded-3xl border border-slate-200/80 bg-card p-5 shadow-sm sm:p-6">
-        <h1 className="text-xl font-bold">
-          {editing ? (
-            <>
-              دەستکاری عەتڵ <span dir="ltr">#{editing.ticketNo}</span>
-            </>
-          ) : (
-            'عەتڵی نوێ'
-          )}
-        </h1>
-
-        <Field label="ژمارەی مۆبایل" required>
-          <input
-            className={cn(fieldClass, 'text-left text-lg tracking-wide')}
-            dir="ltr"
-            type="tel"
-            inputMode="tel"
-            required
-            autoFocus={!editing && !initialPhone}
-            placeholder="0750 000 0000"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </Field>
-        {returning && (
-          <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2.5 text-sm text-violet-700">
-            <CheckCircle width={18} height={18} className="shrink-0" />
-            <span>
-              کڕیاری پێشووە — <b>{returning.name}</b>، {returning.tickets.length} جار هاتووە.
-            </span>
-          </div>
+    <div className="mx-auto max-w-2xl">
+      <BackLink onClick={onCancel} />
+      <h1 className="mt-3 text-2xl font-bold">
+        {editing ? (
+          <>
+            دەستکاری پسوولەی <Ltr>#{editing.ticketNo}</Ltr>
+          </>
+        ) : (
+          'عەتڵی نوێ'
         )}
+      </h1>
 
-        <Field label="ناو" required>
-          <input className={fieldClass} required placeholder="ناوی کڕیار" value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
+      <form onSubmit={onSubmit} className={cn(panel, 'mt-5 space-y-5 p-4 sm:p-6')}>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label="ژمارەی مۆبایل"
+            required
+            hint={
+              returning ? (
+                <span className="text-emerald-700">
+                  کڕیاری پێشووە — {returning.tickets.length} جار هاتووە
+                </span>
+              ) : undefined
+            }
+          >
+            <input
+              className={cn(input, 'text-left tracking-wide')}
+              dir="ltr"
+              type="tel"
+              inputMode="tel"
+              required
+              autoFocus={!editing && !initialPhone}
+              placeholder="0750 000 0000"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </Field>
+          <Field label="ناو" required>
+            <input className={input} required value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+        </div>
 
         <Field label="جۆری ئایتم" required>
-          <select className={cn(fieldClass, 'appearance-auto')} required value={item} onChange={(e) => setItem(e.target.value)}>
+          <select className={input} required value={item} onChange={(e) => setItem(e.target.value)}>
             <option value="" disabled>
-              هەڵبژێرە…
+              هەڵبژێرە
             </option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -1127,108 +1158,89 @@ function TicketForm({
             ))}
             <option value={OTHER}>شتی تر…</option>
           </select>
-        </Field>
-        {item === OTHER && (
-          <input
-            className={fieldClass}
-            required
-            autoFocus
-            placeholder="ناوی ئایتمەکە بنووسە"
-            value={otherItem}
-            onChange={(e) => setOtherItem(e.target.value)}
-          />
-        )}
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="بەرواری هێنان" required>
+          {item === OTHER && (
             <input
-              className={cn(fieldClass, 'text-right')}
-              type="date"
+              className={cn(input, 'mt-2')}
               required
-              max={todayKey()}
-              value={broughtOn}
-              onChange={(e) => setBroughtOn(e.target.value)}
+              autoFocus
+              placeholder="ناوی ئایتمەکە"
+              value={otherItem}
+              onChange={(e) => setOtherItem(e.target.value)}
             />
+          )}
+        </Field>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="بەرواری هێنان" required>
+            <input className={input} type="date" required max={today} value={broughtOn} onChange={(e) => setBroughtOn(e.target.value)} />
           </Field>
-          <Field label="بەرواری چاکردن" hint="ئەگەر هێشتا چاک نەکراوە، بەتاڵی بهێڵەوە.">
-            <div className="flex gap-2">
-              <input
-                className={cn(fieldClass, 'min-w-0 text-right')}
-                type="date"
-                min={broughtOn}
-                value={repairedOn}
-                onChange={(e) => setRepairedOn(e.target.value)}
-              />
-              {repairedOn ? (
-                <button
-                  type="button"
-                  onClick={() => setRepairedOn('')}
-                  className="h-12 shrink-0 rounded-xl border border-slate-200 px-3 text-sm text-ink-600 hover:bg-slate-50"
-                >
-                  بەتاڵ
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setRepairedOn(todayKey() < broughtOn ? broughtOn : todayKey())}
-                  className="h-12 shrink-0 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-ink-700 hover:bg-slate-50"
-                >
-                  ئەمڕۆ
-                </button>
-              )}
-            </div>
+          <Field
+            label="بەرواری چاکردن"
+            hint={repairedOn ? undefined : 'بەتاڵ بێت تا چاک دەکرێت.'}
+            aside={
+              <button
+                type="button"
+                onClick={() => setRepairedOn(repairedOn ? '' : today < broughtOn ? broughtOn : today)}
+                className="text-sm leading-5 text-brand-600 hover:underline"
+              >
+                {repairedOn ? 'لابردن' : 'ئەمڕۆ'}
+              </button>
+            }
+          >
+            <input className={input} type="date" min={broughtOn} value={repairedOn} onChange={(e) => setRepairedOn(e.target.value)} />
           </Field>
         </div>
 
         <Field label="تێبینی">
           <textarea
-            className={cn(fieldClass, 'h-auto min-h-24 py-3')}
-            placeholder="چی تێکچووە، چی لەگەڵدایە…"
+            className={cn(inputBase, 'min-h-24 py-2.5 leading-relaxed')}
             maxLength={1000}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
         </Field>
 
-        {error && <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+        {error && <p className="text-sm text-rose-600">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 text-base font-semibold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 disabled:opacity-60"
-        >
-          {saving ? <Spinner /> : <Check width={20} height={20} />}
-          پاشەکەوتکردن
-        </button>
-
-        {editing &&
-          (confirmDelete ? (
-            <div className="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">
-              <span className="flex-1 font-semibold">دڵنیایت لە سڕینەوەی ئەم عەتڵە؟</span>
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center">
+          {editing &&
+            (confirmDelete ? (
+              <span className="flex items-center gap-2 text-sm">
+                <span className="text-rose-700">بیسڕیتەوە؟</span>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void onRemove()}
+                  className={button('danger', 'h-9 px-3')}
+                >
+                  بەڵێ
+                </button>
+                <button type="button" onClick={() => setConfirmDelete(false)} className={button('ghost', 'h-9 px-3')}>
+                  نەخێر
+                </button>
+              </span>
+            ) : (
               <button
                 type="button"
-                disabled={saving}
-                onClick={() => void onRemove()}
-                className="h-9 rounded-lg bg-rose-600 px-3 font-semibold text-white disabled:opacity-60"
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center gap-1.5 self-start text-sm text-rose-600 hover:text-rose-700 sm:self-auto"
               >
-                بەڵێ، بیسڕەوە
+                <Trash width={15} height={15} />
+                سڕینەوە
               </button>
-              <button type="button" onClick={() => setConfirmDelete(false)} className="h-9 rounded-lg px-3 font-semibold">
-                نەخێر
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="mx-auto flex items-center gap-1.5 text-sm font-semibold text-rose-600 hover:text-rose-700"
-            >
-              <Trash width={16} height={16} />
-              سڕینەوەی ئەم عەتڵە
+            ))}
+          <div className="flex gap-2 sm:ms-auto">
+            <button type="button" onClick={onCancel} className={button('secondary', 'h-11 flex-1 px-4 sm:flex-none')}>
+              پاشگەزبوونەوە
             </button>
-          ))}
+            <button type="submit" disabled={saving} className={button('primary', 'h-11 flex-[2] px-4 sm:flex-none sm:px-6')}>
+              {saving && <Spinner />}
+              پاشەکەوتکردن
+            </button>
+          </div>
+        </div>
       </form>
-    </>
+    </div>
   );
 }
 
@@ -1237,6 +1249,7 @@ function TicketForm({
 function PrintSheet({ ticket, onClose }: { ticket: RepairTicket; onClose: () => void }) {
   const [size, setSize] = useState<PrintSize>(readPrintSize);
   const [busy, setBusy] = useState(false);
+  const chosen = PRINT_SIZES.find((s) => s.id === size) ?? PRINT_SIZES[0];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -1260,53 +1273,48 @@ function PrintSheet({ ticket, onClose }: { ticket: RepairTicket; onClose: () => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="چاپکردن">
-      <div className="absolute inset-0 bg-[#0f172a]/45 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-card shadow-xl sm:rounded-3xl">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-5 py-4">
+      <div className="absolute inset-0 bg-[#0f172a]/40" onClick={onClose} />
+      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-card shadow-xl sm:rounded-xl">
+        <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-4">
           <h2 className="text-lg font-bold">
-            چاپکردنی <span dir="ltr">#{ticket.ticketNo}</span>
+            چاپکردنی پسوولەی <Ltr>#{ticket.ticketNo}</Ltr>
           </h2>
-          <button type="button" onClick={onClose} aria-label="داخستن" className="grid size-9 place-items-center rounded-full text-ink-400 hover:bg-slate-100">
+          <button type="button" onClick={onClose} aria-label="داخستن" className={button('ghost', 'h-9 px-2')}>
             <X width={18} height={18} />
           </button>
         </div>
 
-        <div className="min-h-0 overflow-y-auto px-5 py-4">
-          <div className="text-sm font-semibold">قەبارەی چاپ</div>
-          <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="min-h-0 overflow-y-auto px-5 pb-2">
+          <div className="grid grid-cols-3 rounded-lg bg-slate-100 p-1">
             {PRINT_SIZES.map((s) => (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => setSize(s.id)}
+                aria-pressed={size === s.id}
                 className={cn(
-                  'rounded-xl border px-2 py-2.5 text-center transition',
-                  size === s.id ? 'border-brand-600 bg-brand-50 text-brand-700 ring-1 ring-brand-600' : 'border-slate-200 text-ink-700 hover:bg-slate-50',
+                  'h-9 rounded-md text-sm font-semibold transition-colors',
+                  size === s.id ? 'bg-raised text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-800',
                 )}
               >
-                <span className="block text-sm font-bold">{s.label}</span>
-                <span className="block text-xs opacity-75">{s.hint}</span>
+                {s.label}
               </button>
             ))}
           </div>
+          <p className="mt-2 text-sm text-ink-500">{chosen.hint}</p>
 
           <style>{RECEIPT_CSS}</style>
-          <div className="mt-4 flex justify-center overflow-x-auto rounded-2xl bg-slate-100 p-4">
-            <div className="shrink-0 shadow-md" dangerouslySetInnerHTML={{ __html: receiptHtml(ticket, size) }} />
+          <div className="mt-3 flex justify-center overflow-x-auto rounded-lg bg-slate-100 px-4 py-5">
+            <div className="shrink-0 shadow-sm ring-1 ring-black/5" dangerouslySetInnerHTML={{ __html: receiptHtml(ticket, size) }} />
           </div>
-          <p className="mt-2 text-center text-xs text-ink-500">
-            لە پەنجەرەی چاپدا پرینتەرە بچووکەکە هەڵبژێرە — پێویست بە A4 ناکات.
-          </p>
         </div>
 
-        <div className="border-t border-slate-200/80 px-5 py-4">
-          <button
-            type="button"
-            onClick={() => void print()}
-            disabled={busy}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-60"
-          >
-            {busy ? <Spinner /> : <Printer width={20} height={20} />}
+        <div className="flex gap-2 px-5 pb-5 pt-3">
+          <button type="button" onClick={onClose} className={button('secondary', 'h-11 flex-1 px-4')}>
+            داخستن
+          </button>
+          <button type="button" onClick={() => void print()} disabled={busy} className={button('primary', 'h-11 flex-[2] px-4')}>
+            {busy ? <Spinner /> : <Printer width={18} height={18} />}
             چاپکردن
           </button>
         </div>

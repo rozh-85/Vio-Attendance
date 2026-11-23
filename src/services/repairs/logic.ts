@@ -51,9 +51,14 @@ export function isOverdue(ticket: RepairTicket, today = new Date()): boolean {
 
 export const STATUS_TEXT: Record<RepairStatus, string> = {
   waiting: 'لە چاکردندایە',
-  ready: 'چاککراوە، ماوە بدرێتەوە',
-  delivered: 'چاککرا و درایەوە',
+  ready: 'ئامادەیە',
+  delivered: 'دراوەتەوە',
 };
+
+/** The local day it was handed back, `yyyy-MM-dd`. */
+export function deliveredDay(ticket: RepairTicket): string | null {
+  return ticket.deliveredAt ? format(new Date(ticket.deliveredAt), 'yyyy-MM-dd') : null;
+}
 
 /** yyyy-MM-dd → 2026/11/23. */
 export function showDate(day: string | null | undefined): string {
