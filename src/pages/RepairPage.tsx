@@ -283,6 +283,7 @@ function RepairDesk({
   const [printing, setPrinting] = useState<RepairTicket | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('open');
+  const [deleting, setDeleting] = useState<RepairTicket | null>(null);
 
   const customerPhone = params.get('c');
   const editId = params.get('edit');
@@ -452,6 +453,8 @@ function RepairDesk({
         onTab={setTab}
         onOpen={(phone) => go({ c: phone })}
         onNew={(phone) => go({ new: '1', phone })}
+        onEdit={(t) => go({ edit: t.id })}
+        onDelete={setDeleting}
       />
     );
   }
@@ -459,7 +462,7 @@ function RepairDesk({
   return (
     <Rtl>
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-card">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4">
           <button type="button" onClick={() => go({})} className="flex items-center gap-2.5 rounded-lg">
             <Logo size={30} className="rounded-lg" />
             <span className="text-base font-bold">عەتڵ</span>
@@ -492,7 +495,7 @@ function RepairDesk({
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pb-28 pt-5 sm:pt-8">
+      <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:pt-8">
         {error && (
           <div className="mb-4 flex items-center gap-3 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <span className="flex-1">{error}</span>
@@ -532,6 +535,23 @@ function RepairDesk({
       )}
 
       {printing && <PrintSheet ticket={printing} onClose={() => setPrinting(null)} />}
+      {deleting && (
+        <ConfirmDelete
+          ticket={deleting}
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            try {
+              await store.remove(session.token, deleting.id);
+              setTickets((list) => list.filter((t) => t.id !== deleting.id));
+              setToast({ text: `#${deleting.ticketNo} سڕایەوە.` });
+            } catch (err) {
+              fail(err);
+            } finally {
+              setDeleting(null);
+            }
+          }}
+        />
+      )}
     </Rtl>
   );
 }
@@ -576,9 +596,6 @@ function StatusLabel({ ticket, small = false, end = false }: { ticket: RepairTic
 
 // ── List ─────────────────────────────────────────────────────────────────────
 
-/** From a laptop up the list is a table with these columns. */
-const COLUMNS = 'md:grid md:grid-cols-[3.5rem_minmax(0,1.5fr)_minmax(0,1fr)_6.5rem_5.5rem_8rem] md:items-center md:gap-4';
-
 function ListView({
   tickets,
   customers,
@@ -588,6 +605,8 @@ function ListView({
   onTab,
   onOpen,
   onNew,
+  onEdit,
+  onDelete,
 }: {
   tickets: RepairTicket[];
   customers: RepairCustomer[];
@@ -597,6 +616,8 @@ function ListView({
   onTab: (tab: Tab) => void;
   onOpen: (phone: string) => void;
   onNew: (phone: string) => void;
+  onEdit: (ticket: RepairTicket) => void;
+  onDelete: (ticket: RepairTicket) => void;
 }) {
   const [query, setQuery] = useState('');
   const searching = query.trim().length > 0;
@@ -625,6 +646,10 @@ function ListView({
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold sm:text-3xl">عەتڵەکان</h1>
+        <p className="mt-1 text-ink-500">تۆمارکردنی ئامێرە تێکچووەکان، چاکردن و گەڕاندنەوەیان بۆ کڕیار.</p>
+      </div>
       {overdue.length > 0 && tab !== 'late' && !searching && (
         <button
           type="button"
@@ -733,73 +758,147 @@ function ListView({
           }
         />
       ) : (
-        <div className={cn(panel, 'overflow-hidden')}>
-          <div className={cn('hidden border-b border-slate-200 px-4 py-2.5 text-xs font-medium text-ink-500', COLUMNS)}>
-            <span>پسوولە</span>
-            <span>کڕیار</span>
-            <span>ئایتم</span>
-            <span>بەرواری هێنان</span>
-            <span>ماوە</span>
-            <span>دۆخ</span>
-          </div>
-          <ul className="divide-y divide-slate-100">
-            {lists[tab].map((t) => (
-              <li key={t.id}>
-                <TicketRow ticket={t} visits={visits.get(t.phone) ?? 1} onOpen={() => onOpen(t.phone)} />
-              </li>
-            ))}
-          </ul>
-        </div>
+        <RepairTable tickets={lists[tab]} visits={visits} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
       )}
     </div>
   );
 }
 
-function TicketRow({ ticket, visits, onOpen }: { ticket: RepairTicket; visits: number; onOpen: () => void }) {
-  const late = isOverdue(ticket);
-  const delivered = repairStatus(ticket) === 'delivered';
-  const age = delivered ? '—' : daysText(daysInShop(ticket));
+/** The list as a table, like the rest of the Vio system: it scrolls sideways on a phone. */
+function RepairTable({
+  tickets,
+  visits,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  tickets: RepairTicket[];
+  visits: Map<string, number>;
+  onOpen: (phone: string) => void;
+  onEdit: (ticket: RepairTicket) => void;
+  onDelete: (ticket: RepairTicket) => void;
+}) {
+  const th = 'whitespace-nowrap px-3 py-3.5 text-start text-sm font-medium text-ink-500';
+  const td = 'whitespace-nowrap px-3 py-4';
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={cn('relative flex w-full items-center gap-3 px-4 py-3.5 text-start transition-colors hover:bg-slate-50', COLUMNS)}
-    >
-      {late && <span aria-hidden className="absolute inset-y-0 start-0 w-1" style={{ background: LATE }} />}
-      <span className="hidden text-sm text-ink-400 md:block">
-        <Ltr>#{ticket.ticketNo}</Ltr>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-baseline gap-2">
-          <span className="truncate font-semibold">{ticket.customerName}</span>
-          {visits > 1 && <span className="shrink-0 text-xs text-ink-400">{visits} جار</span>}
-        </span>
-        <span className="mt-0.5 block truncate text-sm text-ink-500">
-          <span className="md:hidden">{ticket.itemType} · </span>
-          <Ltr>{formatPhone(ticket.phone)}</Ltr>
-        </span>
-      </span>
-      <span className="hidden truncate md:block">{ticket.itemType}</span>
-      <span className="hidden text-sm text-ink-600 md:block">
-        <Ltr>{showDate(ticket.broughtOn)}</Ltr>
-      </span>
-      <span className={cn('hidden text-sm md:block', late ? 'font-bold' : 'text-ink-600')} style={late ? { color: LATE } : undefined}>
-        {age}
-      </span>
-      <span className="hidden md:block">
-        <StatusLabel ticket={ticket} />
-      </span>
+    <div className="space-y-2">
+      <p className="text-sm text-ink-500">{tickets.length} عەتڵ</p>
+      <div className={cn(panel, 'overflow-hidden')}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] border-collapse text-[15px]">
+            <thead className="border-b border-slate-200 bg-slate-50">
+              <tr>
+                <th className={th}>پسوولە</th>
+                <th className={th}>کڕیار</th>
+                <th className={th}>ژمارەی مۆبایل</th>
+                <th className={th}>جۆری ئایتم</th>
+                <th className={th}>بەرواری هێنان</th>
+                <th className={th}>بەرواری چاکردن</th>
+                <th className={th}>ماوە</th>
+                <th className={th}>دۆخ</th>
+                <th className={cn(th, 'text-end')}>کردار</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {tickets.map((t) => {
+                const late = isOverdue(t);
+                const delivered = repairStatus(t) === 'delivered';
+                const n = visits.get(t.phone) ?? 1;
+                return (
+                  <tr key={t.id} onClick={() => onOpen(t.phone)} className="cursor-pointer transition-colors hover:bg-slate-50">
+                    <td className={cn(td, 'relative ps-4 font-semibold tabular-nums')}>
+                      {late && <span aria-hidden className="absolute inset-y-0 start-0 w-1" style={{ background: LATE }} />}
+                      <Ltr>#{t.ticketNo}</Ltr>
+                    </td>
+                    <td className={td}>
+                      <span className="font-semibold">{t.customerName}</span>
+                      {n > 1 && <span className="ms-2 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs text-ink-600">{n} جار</span>}
+                    </td>
+                    <td className={cn(td, 'tabular-nums text-ink-700')}>
+                      <Ltr>{formatPhone(t.phone)}</Ltr>
+                    </td>
+                    <td className={td}>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-ink-800">{t.itemType}</span>
+                    </td>
+                    <td className={cn(td, 'tabular-nums text-ink-700')}>
+                      <Ltr>{showDate(t.broughtOn)}</Ltr>
+                    </td>
+                    <td className={cn(td, 'tabular-nums text-ink-700')}>
+                      <Ltr>{showDate(t.repairedOn)}</Ltr>
+                    </td>
+                    <td className={cn(td, late ? 'font-bold' : 'text-ink-600')} style={late ? { color: LATE } : undefined}>
+                      {delivered ? '—' : daysText(daysInShop(t))}
+                    </td>
+                    <td className={td}>
+                      <StatusLabel ticket={t} />
+                    </td>
+                    <td className={cn(td, 'py-2.5')}>
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(t);
+                          }}
+                          className={button('secondary', 'h-9 px-2.5')}
+                        >
+                          <Pencil width={15} height={15} />
+                          دەستکاری
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(t);
+                          }}
+                          aria-label={`سڕینەوەی #${t.ticketNo}`}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-card px-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                        >
+                          <Trash width={15} height={15} />
+                          سڕینەوە
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* On a phone: how long, and where it is, at the end of the row. */}
-      <span className="shrink-0 md:hidden">
-        <span className={cn('block text-end text-sm', late ? 'font-bold' : 'text-ink-700')} style={late ? { color: LATE } : undefined}>
-          {delivered ? <Ltr>{showDate(deliveredDay(ticket))}</Ltr> : age}
-        </span>
-        <span className="mt-0.5 block">
-          <StatusLabel ticket={ticket} small end />
-        </span>
-      </span>
-    </button>
+function ConfirmDelete({ ticket, onClose, onConfirm }: { ticket: RepairTicket; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="سڕینەوە">
+      <div className="absolute inset-0 bg-[#0f172a]/40" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-xl">
+        <h2 className="text-lg font-bold">سڕینەوەی پسوولەی <Ltr>#{ticket.ticketNo}</Ltr>؟</h2>
+        <p className="mt-2 text-ink-600">
+          {ticket.itemType}ی {ticket.customerName} بە تەواوی دەسڕێتەوە و ناگەڕێتەوە.
+        </p>
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} className={button('secondary', 'h-11 flex-1 px-4')}>
+            نەخێر
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void onConfirm();
+            }}
+            className={button('danger', 'h-11 flex-1 px-4')}
+          >
+            {busy && <Spinner />}
+            بەڵێ، بیسڕەوە
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
