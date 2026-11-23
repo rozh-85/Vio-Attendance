@@ -785,7 +785,7 @@ function RepairTable({
       <p className="text-sm text-ink-500">{tickets.length} عەتڵ</p>
       <div className={cn(panel, 'overflow-hidden')}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-[15px]">
+          <table className="w-full min-w-[780px] border-collapse text-[15px]">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
                 <th className={th}>پسوولە</th>
@@ -796,7 +796,7 @@ function RepairTable({
                 <th className={th}>بەرواری چاکردن</th>
                 <th className={th}>ماوە</th>
                 <th className={th}>دۆخ</th>
-                <th className={cn(th, 'text-end')}>کردار</th>
+                <th className="whitespace-nowrap px-3 py-3.5 text-end text-sm font-medium text-ink-500">کردار</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -833,17 +833,18 @@ function RepairTable({
                       <StatusLabel ticket={t} />
                     </td>
                     <td className={cn(td, 'py-2.5')}>
-                      <div className="flex justify-end gap-1.5">
+                      <div className="flex justify-end gap-1">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             onEdit(t);
                           }}
-                          className={button('secondary', 'h-9 px-2.5')}
+                          aria-label={`دەستکاری #${t.ticketNo}`}
+                          title="دەستکاری"
+                          className="grid size-9 place-items-center rounded-lg text-ink-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
                         >
-                          <Pencil width={15} height={15} />
-                          دەستکاری
+                          <Pencil width={17} height={17} />
                         </button>
                         <button
                           type="button"
@@ -852,10 +853,10 @@ function RepairTable({
                             onDelete(t);
                           }}
                           aria-label={`سڕینەوەی #${t.ticketNo}`}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-card px-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                          title="سڕینەوە"
+                          className="grid size-9 place-items-center rounded-lg text-ink-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                         >
-                          <Trash width={15} height={15} />
-                          سڕینەوە
+                          <Trash width={17} height={17} />
                         </button>
                       </div>
                     </td>
