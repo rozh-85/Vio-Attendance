@@ -82,7 +82,7 @@ grant select on public.repair_tickets to authenticated;
 --      set password_hash = extensions.crypt('NEW PASSWORD', extensions.gen_salt('bf'))
 --    where lower(email) = 'shalaw@vio.com';
 insert into public.repair_accounts (email, display_name, password_hash)
-select 'shalaw@vio.com', 'Shalaw', '$2a$10$pnHKPYsJaJR.hKdPqDdFH.x2lZhfcbyOOtOypsRwj53D4HwjCzH5u'
+select 'shalaw@vio.com', 'Shalaw', '$2a$10$9BvaYdLPP34KvNKWIF1PG.5Nnp2302vQs5gEjQ.NI9u7AzonG4WFm'
  where not exists (
    select 1 from public.repair_accounts where lower(email) = 'shalaw@vio.com'
  );

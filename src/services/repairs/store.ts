@@ -161,7 +161,7 @@ const KEYS = { tickets: 'vio.repairTickets', sessions: 'vio.repairSessions' } as
 const LOCAL_ACCOUNT = {
   email: 'shalaw@vio.com',
   displayName: 'Shalaw',
-  passwordSha256: '7cf6fc2a5297acf37f89c541f6943b2808f2277d911f70923709c7c985dd57ca',
+  passwordSha256: 'b6654e2701a79f2dbaec99102f0c1c4bd7ff9a5f73ad47b22f48a887d5eca5b3',
 };
 
 function read<T>(key: string): T[] {
