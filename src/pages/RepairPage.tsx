@@ -95,6 +95,13 @@ function Rtl({ children }: { children: ReactNode }) {
   );
 }
 
+/** The Supabase project this site talks to (its id is public in the site's code anyway). */
+function databaseName(): string {
+  const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+  const id = url.match(/https?:\/\/([^.]+)\./)?.[1];
+  return id ? `Supabase: ${id}` : 'No Supabase — this browser only';
+}
+
 function Spinner() {
   return <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />;
 }
@@ -243,7 +250,15 @@ function SignIn({ notice, onSignedIn }: { notice: string | null; onSignedIn: (s:
                 </button>
               </div>
             </Field>
-            {error && <p className="text-sm text-rose-600">{error}</p>}
+            {error && (
+              <div className="text-sm">
+                <p className="text-rose-600">{error}</p>
+                {/* Which database answered, to compare with the Supabase project the SQL ran in. */}
+                <p className="mt-1 text-xs text-ink-400" dir="ltr">
+                  {databaseName()}
+                </p>
+              </div>
+            )}
             <button type="submit" disabled={busy} className={button('primary', 'h-11 w-full px-4')}>
               {busy && <Spinner />}
               چوونەژوورەوە
