@@ -655,8 +655,7 @@ function ListView({
           type="button"
           role="alert"
           onClick={() => onTab('late')}
-          className="flex w-full items-center gap-3 rounded-xl border border-rose-200 border-s-4 bg-rose-50 px-4 py-3 text-start transition-colors hover:bg-rose-100"
-          style={{ borderInlineStartColor: LATE }}
+          className="flex w-full items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-start transition-colors hover:bg-rose-100"
         >
           <AlertTriangle width={20} height={20} className="shrink-0 text-rose-600" />
           <span className="min-w-0 flex-1">
@@ -806,8 +805,7 @@ function RepairTable({
                 const n = visits.get(t.phone) ?? 1;
                 return (
                   <tr key={t.id} onClick={() => onOpen(t.phone)} className="cursor-pointer transition-colors hover:bg-slate-50">
-                    <td className={cn(td, 'relative ps-4 font-semibold tabular-nums')}>
-                      {late && <span aria-hidden className="absolute inset-y-0 start-0 w-1" style={{ background: LATE }} />}
+                    <td className={cn(td, 'ps-4 font-semibold tabular-nums')}>
                       <Ltr>#{t.ticketNo}</Ltr>
                     </td>
                     <td className={td}>
