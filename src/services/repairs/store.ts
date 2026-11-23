@@ -115,7 +115,7 @@ class SupabaseRepairStore implements RepairStore {
   async signIn(email: string, password: string): Promise<RepairSession> {
     const result = await this.call<{ error?: RepairErrorCode; token?: string; displayName?: string }>(
       'repair_sign_in',
-      { p_email: email.trim(), p_password: password },
+      { p_email: email.trim(), p_password: password.trim() },
     );
     if (result.error) throw new RepairError(result.error);
     return { token: result.token ?? '', displayName: result.displayName ?? '' };
@@ -189,7 +189,7 @@ class LocalRepairStore implements RepairStore {
   async signIn(email: string, password: string): Promise<RepairSession> {
     if (
       email.trim().toLowerCase() !== LOCAL_ACCOUNT.email ||
-      (await sha256(password)) !== LOCAL_ACCOUNT.passwordSha256
+      (await sha256(password.trim())) !== LOCAL_ACCOUNT.passwordSha256
     ) {
       throw new RepairError('WRONG_LOGIN');
     }
