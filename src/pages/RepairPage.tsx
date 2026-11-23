@@ -77,6 +77,14 @@ function button(tone: keyof typeof TONES, size = 'h-10 px-4'): string {
 const inputBase =
   'w-full rounded-lg border border-slate-300 bg-card px-3 text-[15px] text-ink-900 placeholder:text-ink-400 transition-colors focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/15';
 const input = cn(inputBase, 'h-11');
+/**
+ * iPhone Safari gives a date box its own width (wider than the form) and
+ * flips the date in a right-to-left page; this keeps it inside and readable.
+ */
+const dateInput = cn(
+  inputBase,
+  'block h-11 min-w-0 max-w-full appearance-none text-left leading-[2.75rem] [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:leading-[2.75rem]',
+);
 
 /** Too long in the shop: the same red in light and dark mode. */
 const LATE = '#DC2626';
@@ -1271,7 +1279,7 @@ function TicketForm({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="بەرواری هێنان" required>
-            <input className={input} type="date" required max={today} value={broughtOn} onChange={(e) => setBroughtOn(e.target.value)} />
+            <input className={dateInput} dir="ltr" type="date" required max={today} value={broughtOn} onChange={(e) => setBroughtOn(e.target.value)} />
           </Field>
           <Field
             label="بەرواری چاکردن"
@@ -1286,7 +1294,7 @@ function TicketForm({
               </button>
             }
           >
-            <input className={input} type="date" min={broughtOn} value={repairedOn} onChange={(e) => setRepairedOn(e.target.value)} />
+            <input className={dateInput} dir="ltr" type="date" min={broughtOn} value={repairedOn} onChange={(e) => setRepairedOn(e.target.value)} />
           </Field>
         </div>
 
