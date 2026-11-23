@@ -328,6 +328,39 @@ safe to run again):
    models, names, types and pictures to suggest — never a cost. The logic lives in
    [`profit.ts`](src/services/orders/profit.ts).
 
+## Repairs (عەتڵ)
+
+The repair desk has its own account, separate from the supervisors:
+**`shalaw@vio.com`**. It signs in at **`/repair`**, or at `/VioAdmin` with the
+same email and password, which sends it on to `/repair`. The page is in
+Kurdish, right to left.
+
+- **عەتڵی نوێ** (new repair): ژمارەی مۆبایل (phone), ناو (name),
+  جۆری ئایتم (item type, picked from the same list as the order form, هیتەر,
+  چوپەر and the rest, or "شتی تر" to write one), بەرواری هێنان (the day it
+  came in), بەرواری چاکردن (the day it was repaired, empty until then) and
+  تێبینی (a note).
+- **Search by phone.** Any spelling finds the customer: `0750 123 4567`,
+  `+964 750…`, Kurdish digits. The customer's profile lists every visit, and
+  **عەتڵێکی تر زیاد بکە** adds another repair with the name and phone already
+  filled in. Typing a known phone on the form says how many times they came.
+- **چاککرا و درایەوە بە کڕیار** (repaired and handed back) closes a repair; it
+  can be undone.
+- **Red alert.** An item still not repaired **2 days** after it came in
+  (`OVERDUE_DAYS` in [`logic.ts`](src/services/repairs/logic.ts)) is red on the
+  list, on the customer's profile and in a red banner at the top. The browser
+  tab shows the count too. The page reads again every minute.
+- **Print, never A4.** A receipt on an **80 mm** or **58 mm** receipt printer,
+  or a **50 × 30 mm** sticker for the item itself. The page is exactly the
+  receipt's size, so a roll printer cuts it under the last line. The last size
+  used is remembered.
+
+**Database: run [`supabase/repairs.sql`](supabase/repairs.sql) once** in the
+Supabase SQL editor (safe to run again). It makes the tables, the functions
+the page calls, and the `shalaw@vio.com` account (only its bcrypt hash is in
+the file; how to change the password is in the file). Until it is run, signing
+in says so. Signed-in supervisors may read `repair_tickets`.
+
 ## Catalog Management
 
 The unlisted `/catalog` route contains a single Master Catalog and a
@@ -380,6 +413,7 @@ src/
 | `/checkin/:sessionId`    | Employee   | Enter code to check in                 |
 | `/checkout/:sessionId`   | Employee   | Enter code to check out                |
 | `/recover`               | Employee   | Look up code by phone number           |
+| `/repair`                | Repair desk | Repairs (عەتڵ): own sign-in, search by phone, small prints |
 
 Anything else — `/login`, `/register`, any unknown URL, and every supervisor
 route while signed out — shows the neutral employee page, so nobody stumbles

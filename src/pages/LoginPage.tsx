@@ -5,6 +5,7 @@ import { AuthField, AuthShell, PasswordField } from '@/components/auth/AuthShell
 import { LockdownGate } from '@/components/LockdownGate';
 import { ArrowRight, FileText, Mail, QrIcon, Users } from '@/components/icons';
 import { useAuth } from '@/services/auth/context';
+import { getRepairStore, saveRepairSession } from '@/services/repairs/store';
 import { paths } from '@/routes';
 
 function rememberedChoice(): boolean {
@@ -42,6 +43,16 @@ export function LoginPage() {
       await signIn(email.trim(), password, remember);
       navigate(from, { replace: true });
     } catch (err) {
+      // Not a supervisor: the repair desk (shalaw@vio.com) has its own
+      // account, so the same email and password open the repair page.
+      const repair = await getRepairStore()
+        .signIn(email.trim(), password)
+        .catch(() => null);
+      if (repair) {
+        saveRepairSession(repair);
+        navigate(paths.repair, { replace: true });
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Unable to sign in.');
     } finally {
       setSubmitting(false);

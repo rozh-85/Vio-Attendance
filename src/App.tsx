@@ -16,6 +16,7 @@ import { ProductsPage } from '@/pages/ProductsPage';
 import { AddProductsPage } from '@/pages/AddProductsPage';
 import { SponsorPage } from '@/pages/SponsorPage';
 import { SellerOrderPage } from '@/pages/SellerOrderPage';
+import { RepairPage } from '@/pages/RepairPage';
 import { OwnerGate } from '@/components/OwnerGate';
 import { SessionView } from '@/pages/SessionView';
 import { CheckInPage } from '@/pages/CheckInPage';
@@ -198,6 +199,8 @@ export default function App() {
             <Route path={routePatterns.sellerOrders} element={<SellerOrderPage />} />
             <Route path={routePatterns.sellerPlaces} element={<SellerOrderPage />} />
             <Route path={routePatterns.sellerPlace} element={<SellerOrderPage />} />
+            {/* The repair desk (عەتڵ): its own sign-in, its own account. */}
+            <Route path={routePatterns.repair} element={<RepairPage />} />
 
             {/* Everything else — /login, /register, and any unknown URL — shows
                 the neutral employee page. It never reveals the admin login. */}
