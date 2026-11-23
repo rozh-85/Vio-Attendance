@@ -655,15 +655,15 @@ function ListView({
           type="button"
           role="alert"
           onClick={() => onTab('late')}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-start text-white transition-opacity hover:opacity-95"
-          style={{ background: LATE }}
+          className="flex w-full items-center gap-3 rounded-xl border border-rose-200 border-s-4 bg-rose-50 px-4 py-3 text-start transition-colors hover:bg-rose-100"
+          style={{ borderInlineStartColor: LATE }}
         >
-          <AlertTriangle width={20} height={20} className="shrink-0" />
+          <AlertTriangle width={20} height={20} className="shrink-0 text-rose-600" />
           <span className="min-w-0 flex-1">
-            <span className="block font-bold">{overdue.length} ئامێر دواکەوتووە</span>
-            <span className="block text-sm text-white/85">{OVERDUE_DAYS} ڕۆژ یان زیاترە هاتووە و هێشتا چاک نەکراوە</span>
+            <span className="block font-bold text-rose-700">{overdue.length} ئامێر دواکەوتووە</span>
+            <span className="block text-sm text-ink-600">{OVERDUE_DAYS} ڕۆژ یان زیاترە هاتووە و هێشتا چاک نەکراوە</span>
           </span>
-          <span className="shrink-0 text-sm font-semibold underline underline-offset-4">بینین</span>
+          <span className="shrink-0 text-sm font-semibold text-rose-700 underline underline-offset-4">بینین</span>
         </button>
       )}
 
@@ -1006,9 +1006,10 @@ function TicketCard({
   const delivered = repairStatus(ticket) === 'delivered';
   const late = isOverdue(ticket);
   return (
-    <article className={cn(panel, 'overflow-hidden')} style={late ? { borderColor: LATE } : undefined}>
+    <article className={cn('overflow-hidden rounded-xl border bg-card', late ? 'border-rose-300' : 'border-slate-200')}>
       {late && (
-        <div className="px-4 py-2 text-sm font-semibold text-white" style={{ background: LATE }}>
+        <div className="flex items-center gap-2 border-b border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">
+          <AlertTriangle width={16} height={16} className="shrink-0" />
           {daysInShop(ticket)} ڕۆژە لێرەیە و هێشتا چاک نەکراوە
         </div>
       )}
