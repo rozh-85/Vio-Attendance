@@ -36,6 +36,9 @@ export const paths = {
   sellerPlace: (id: string) => `/orders/places/${id}`,
   // Public, unlisted: the repair desk (عەتڵ) signs in here with its own account.
   repair: '/repair',
+  // Public: the till, with no sign-in. Its report is the owner's.
+  pos: '/pos',
+  posReport: '/rozhadmin/pos',
   gashbenReport: '/rozhadmin/gashben',
   gashbenPlaceReport: (id: string) => `/rozhadmin/gashben/${id}`,
   session: (id: string) => `/session/${id}`,
@@ -70,6 +73,8 @@ export const routePatterns = {
   sellerPlaces: '/orders/places',
   sellerPlace: '/orders/places/:placeId',
   repair: '/repair',
+  pos: '/pos',
+  posReport: '/rozhadmin/pos',
   gashbenReport: '/rozhadmin/gashben',
   gashbenPlaceReport: '/rozhadmin/gashben/:placeId',
   session: '/session/:sessionId',

@@ -28,6 +28,8 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { LeaveManagementPage } from '@/pages/LeaveManagementPage';
 import { CatalogManagementPage } from '@/pages/CatalogManagementPage';
 import { HrManagementPage } from '@/pages/HrManagementPage';
+import { PosPage } from '@/pages/PosPage';
+import { PosReportPage } from '@/pages/PosReportPage';
 
 export default function App() {
   return (
@@ -122,6 +124,17 @@ export default function App() {
             />
             <Route path={routePatterns.gashbenReport} element={<RequireAuth><OwnerGate title="Gashben places report"><GashbenReportPage /></OwnerGate></RequireAuth>} />
             <Route path={routePatterns.gashbenPlaceReport} element={<RequireAuth><OwnerGate title="Gashben places report"><GashbenReportPage /></OwnerGate></RequireAuth>} />
+            {/* What the till at /pos sold, and its price list: same owner password. */}
+            <Route
+              path={routePatterns.posReport}
+              element={
+                <RequireAuth>
+                  <OwnerGate title="POS report">
+                    <PosReportPage />
+                  </OwnerGate>
+                </RequireAuth>
+              }
+            />
             {/* One order on its own page, opened from the orders report. */}
             <Route
               path={routePatterns.socialOrder}
@@ -201,6 +214,8 @@ export default function App() {
             <Route path={routePatterns.sellerPlace} element={<SellerOrderPage />} />
             {/* The repair desk (عەتڵ): its own sign-in, its own account. */}
             <Route path={routePatterns.repair} element={<RepairPage />} />
+            {/* The till: no sign-in at all. */}
+            <Route path={routePatterns.pos} element={<PosPage />} />
 
             {/* Everything else — /login, /register, and any unknown URL — shows
                 the neutral employee page. It never reveals the admin login. */}

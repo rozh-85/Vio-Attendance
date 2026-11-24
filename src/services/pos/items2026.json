@@ -1,0 +1,1436 @@
+{
+ "source": "black-friday (2).pdf; showroom price list of 1 November 2026 for items without an offer",
+ "note": "Retail (mufrad) prices of one piece in US dollars.",
+ "offer": {
+  "name": "Black Friday",
+  "from": "2026-11-01",
+  "to": "2026-12-01"
+ },
+ "colors": {
+  "Black": {
+   "ku": "ڕەش",
+   "hex": "#2A2B2D"
+  },
+  "White": {
+   "ku": "سپی",
+   "hex": "#F6F5F1"
+  },
+  "Beige": {
+   "ku": "خاکی",
+   "hex": "#CDBFAE"
+  },
+  "Cream": {
+   "ku": "کرێمی",
+   "hex": "#EDE3CC"
+  },
+  "Grey": {
+   "ku": "ڕەساسی",
+   "hex": "#8D9196"
+  },
+  "Light Grey": {
+   "ku": "سلڤەر",
+   "hex": "#C5C8CB"
+  },
+  "Dark Grey": {
+   "ku": "ڕەساسی تۆخ",
+   "hex": "#55595E"
+  },
+  "Purple": {
+   "ku": "مۆر",
+   "hex": "#BFA6CF"
+  },
+  "Pink": {
+   "ku": "پەمەیی",
+   "hex": "#EDB0B0"
+  },
+  "Blue": {
+   "ku": "شین",
+   "hex": "#6F8597"
+  }
+ },
+ "categories": [
+  {
+   "id": "air-fryer",
+   "name": "Air Fryers",
+   "ku": "ئێرفرایەر"
+  },
+  {
+   "id": "grill",
+   "name": "Grill",
+   "ku": "گریل و ستەیک"
+  },
+  {
+   "id": "blender",
+   "name": "Blenders & Juicers",
+   "ku": "عەسارە و بلێندەر"
+  },
+  {
+   "id": "chopper",
+   "name": "Choppers",
+   "ku": "چۆپەر"
+  },
+  {
+   "id": "coffee",
+   "name": "Coffee Makers",
+   "ku": "ئامێری قاوە"
+  },
+  {
+   "id": "cooker",
+   "name": "Cookers",
+   "ku": "مەنجەڵی کارەبایی"
+  },
+  {
+   "id": "hand-blender",
+   "name": "Hand Blenders",
+   "ku": "بلێندەری دەستی"
+  },
+  {
+   "id": "heater",
+   "name": "Heaters",
+   "ku": "سۆبەی کارەبایی"
+  },
+  {
+   "id": "iron",
+   "name": "Irons & Steamers",
+   "ku": "ئوتو و ئامێری هەڵم"
+  },
+  {
+   "id": "steam-cleaner",
+   "name": "Steam Cleaner",
+   "ku": "پاککەرەوەی هەڵمی"
+  },
+  {
+   "id": "meat-grinder",
+   "name": "Meat Grinder",
+   "ku": "مەکینەی قیمە"
+  },
+  {
+   "id": "oven",
+   "name": "Electric Ovens",
+   "ku": "فڕنی کارەبایی"
+  },
+  {
+   "id": "stand-mixer",
+   "name": "Stand Mixers",
+   "ku": "عەجانە"
+  },
+  {
+   "id": "tea",
+   "name": "Tea Makers & Kettles",
+   "ku": "کتری و چایساز"
+  },
+  {
+   "id": "toaster",
+   "name": "Toasters",
+   "ku": "تۆستەر"
+  },
+  {
+   "id": "vacuum",
+   "name": "Vacuum Cleaners",
+   "ku": "گسکی کارەبایی"
+  },
+  {
+   "id": "air-cooler",
+   "name": "Air Coolers & ACs",
+   "ku": "فێنککەرەوە و سپلیت"
+  },
+  {
+   "id": "air-purifier",
+   "name": "Air Purifiers",
+   "ku": "هەوا پاککەرەوە"
+  },
+  {
+   "id": "cooling",
+   "name": "Cooling & Ice",
+   "ku": "ساردکەرەوە و سەهۆڵ"
+  }
+ ],
+ "items": [
+  {
+   "id": "v-400",
+   "model": "V-400",
+   "name": "Air Fryer",
+   "ku": "ئێرفرایەری شوشەدار",
+   "category": "air-fryer",
+   "spec": "10 L · 1800 W",
+   "price": 114,
+   "offer": 80,
+   "percent": 30,
+   "image": "/pos-items/v-400"
+  },
+  {
+   "id": "v-401",
+   "model": "V-401",
+   "name": "Air Fryer",
+   "ku": "ئێرفرایەر",
+   "category": "air-fryer",
+   "spec": "8 L · 2000 W",
+   "price": 99,
+   "offer": 79,
+   "percent": 20,
+   "image": "/pos-items/v-401"
+  },
+  {
+   "id": "v-402",
+   "model": "V-402",
+   "name": "Air Fryer",
+   "ku": "ئێرفرایەر",
+   "category": "air-fryer",
+   "spec": "9 L · 2200 W",
+   "price": 103,
+   "offer": 82,
+   "percent": 20,
+   "image": "/pos-items/v-402"
+  },
+  {
+   "id": "v-403",
+   "model": "V-403",
+   "name": "Dualfry Grill",
+   "ku": "ئێرفرایەری شوشەداری دەبڵ هیتەر",
+   "category": "air-fryer",
+   "spec": "12 L · 2000 W",
+   "price": 133,
+   "image": "/pos-items/v-403"
+  },
+  {
+   "id": "vaf6502a2",
+   "model": "VAF6502A2",
+   "name": "Air Fryer",
+   "ku": "ئێرفرایەری 7 لیتری",
+   "category": "air-fryer",
+   "spec": "7 L · 1700 W",
+   "price": 72,
+   "offer": 61,
+   "percent": 15,
+   "image": "/pos-items/vaf6502a2"
+  },
+  {
+   "id": "vaf810d",
+   "model": "VAF810D",
+   "name": "Air Fryer",
+   "ku": "ئێرفرایەر",
+   "category": "air-fryer",
+   "spec": "8 L · 1800 W",
+   "price": 72,
+   "image": "/pos-items/vaf810d"
+  },
+  {
+   "id": "vaf820d",
+   "model": "VAF820D",
+   "name": "Air Fryer",
+   "ku": "ئێرفرایەر",
+   "category": "air-fryer",
+   "spec": "8 L · 1800 W",
+   "price": 76,
+   "image": "/pos-items/vaf820d"
+  },
+  {
+   "id": "v-450",
+   "model": "V-450",
+   "name": "Steak Machine",
+   "ku": "ئامێری ستەیک",
+   "category": "grill",
+   "spec": "2000 W",
+   "price": 144,
+   "offer": 122,
+   "percent": 15,
+   "image": "/pos-items/v-450"
+  },
+  {
+   "id": "v-225",
+   "model": "V-225",
+   "name": "Juicer And Blender",
+   "ku": "عەسارەی سێتی 5 کارە",
+   "category": "blender",
+   "spec": "2.5 L · 1200 W",
+   "price": 99,
+   "offer": 89,
+   "percent": 10,
+   "image": "/pos-items/v-225"
+  },
+  {
+   "id": "v-226",
+   "model": "V-226",
+   "name": "Blender And Grinder",
+   "ku": "عەسارەی 2 کارە",
+   "category": "blender",
+   "spec": "1.5 L · 1200 W",
+   "price": 76,
+   "image": "/pos-items/v-226"
+  },
+  {
+   "id": "v-228",
+   "model": "V-228",
+   "name": "Juice Extractor",
+   "ku": "عەسارەی تایبەتی میوەی ڕەق",
+   "category": "blender",
+   "spec": "2 L · 1000 W",
+   "price": 82,
+   "offer": 66,
+   "percent": 20,
+   "image": "/pos-items/v-228"
+  },
+  {
+   "id": "v-229",
+   "model": "V-229",
+   "name": "Food Processor",
+   "ku": "فوود پرۆسێسەر",
+   "category": "blender",
+   "spec": "5 L · 1000 W",
+   "price": 76,
+   "offer": 61,
+   "percent": 20,
+   "image": "/pos-items/v-229"
+  },
+  {
+   "id": "v-230",
+   "model": "V-230",
+   "name": "Juice Extractor",
+   "ku": "عەسارەی 4 کارە",
+   "category": "blender",
+   "spec": "2 L · 1000 W",
+   "price": 114,
+   "offer": 97,
+   "percent": 15,
+   "image": "/pos-items/v-230"
+  },
+  {
+   "id": "v-231",
+   "model": "V-231",
+   "name": "Table Blender",
+   "ku": "عەسارەی 2 کارە",
+   "category": "blender",
+   "spec": "1.7 L · 1400 W",
+   "price": 87,
+   "offer": 74,
+   "percent": 15,
+   "image": "/pos-items/v-231"
+  },
+  {
+   "id": "v-232",
+   "model": "V-232",
+   "name": "Slow Juicer & Ice Cream",
+   "ku": "عەسارە",
+   "category": "blender",
+   "spec": "0.45 L · 200 W",
+   "price": 99,
+   "offer": 89,
+   "percent": 10,
+   "image": "/pos-items/v-232"
+  },
+  {
+   "id": "v-806",
+   "model": "V-806",
+   "name": "Blender, Chopper & Grinder",
+   "ku": "سێتی عەسارە و چۆپەر و تاحونە",
+   "category": "blender",
+   "spec": "1.75 L · 800 W",
+   "price": 57,
+   "image": "/pos-items/v-806"
+  },
+  {
+   "id": "v-233",
+   "model": "V-233",
+   "name": "Gym Blender",
+   "ku": "جیم بلێندەری شەحنی",
+   "category": "blender",
+   "spec": "0.5 L · 180 W",
+   "price": 28,
+   "variants": [
+    {
+     "code": "V-233B",
+     "color": "Black",
+     "image": "/pos-items/v-233b"
+    },
+    {
+     "code": "V-233W",
+     "color": "White",
+     "image": "/pos-items/v-233w"
+    },
+    {
+     "code": "V-233P",
+     "color": "Pink",
+     "image": "/pos-items/v-233p"
+    },
+    {
+     "code": "V-233BLUE",
+     "color": "Blue",
+     "image": "/pos-items/v-233blue"
+    }
+   ],
+   "image": "/pos-items/v-233b"
+  },
+  {
+   "id": "v-801",
+   "model": "V-801",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "3 L · 400 W",
+   "price": 34,
+   "offer": 27,
+   "percent": 20,
+   "variants": [
+    {
+     "code": "V-801B",
+     "color": "Black",
+     "image": "/pos-items/v-801b"
+    },
+    {
+     "code": "V-801K",
+     "color": "Beige",
+     "image": "/pos-items/v-801k"
+    },
+    {
+     "code": "V-801W",
+     "color": "White",
+     "image": "/pos-items/v-801w"
+    }
+   ],
+   "image": "/pos-items/v-801b"
+  },
+  {
+   "id": "v-802",
+   "model": "V-802",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "5 L · 600 W",
+   "price": 34,
+   "offer": 27,
+   "percent": 20,
+   "variants": [
+    {
+     "code": "V-802B",
+     "color": "Black",
+     "image": "/pos-items/v-802b"
+    },
+    {
+     "code": "V-802K",
+     "color": "Beige",
+     "image": "/pos-items/v-802k"
+    }
+   ],
+   "image": "/pos-items/v-802b"
+  },
+  {
+   "id": "v-803",
+   "model": "V-803",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "5 L · 600 W",
+   "price": 49,
+   "offer": 39,
+   "percent": 20,
+   "variants": [
+    {
+     "code": "V-803B",
+     "color": "Black",
+     "image": "/pos-items/v-803b"
+    },
+    {
+     "code": "V-803K",
+     "color": "Beige",
+     "image": "/pos-items/v-803k"
+    }
+   ],
+   "image": "/pos-items/v-803b"
+  },
+  {
+   "id": "v-804",
+   "model": "V-804",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "3 L · 400 W",
+   "price": 30,
+   "offer": 24,
+   "percent": 20,
+   "variants": [
+    {
+     "code": "V-804B",
+     "color": "Black",
+     "image": "/pos-items/v-804b"
+    },
+    {
+     "code": "V-804K",
+     "color": "Beige",
+     "image": "/pos-items/v-804k"
+    }
+   ],
+   "image": "/pos-items/v-804b"
+  },
+  {
+   "id": "v-805",
+   "model": "V-805",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "3 L · 400 W",
+   "price": 34,
+   "offer": 27,
+   "percent": 20,
+   "image": "/pos-items/v-805"
+  },
+  {
+   "id": "vmb01",
+   "model": "VMB01",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "3 L · 400 W",
+   "price": 27,
+   "offer": 22,
+   "percent": 20,
+   "image": "/pos-items/vmb01"
+  },
+  {
+   "id": "vmb02w",
+   "model": "VMB02W",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "2 L · 300 W",
+   "price": 23,
+   "offer": 18,
+   "percent": 20,
+   "image": "/pos-items/vmb02w"
+  },
+  {
+   "id": "vmb04-k",
+   "model": "VMB04 K",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "2 L · 300 W",
+   "price": 23,
+   "offer": 18,
+   "percent": 20,
+   "image": "/pos-items/vmb04-k"
+  },
+  {
+   "id": "vmc03",
+   "model": "VMC03",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "6 L · 1000 W",
+   "price": 46,
+   "offer": 37,
+   "percent": 20,
+   "image": "/pos-items/vmc03"
+  },
+  {
+   "id": "vmc04",
+   "model": "VMC04",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "8 L · 1000 W",
+   "price": 57,
+   "offer": 46,
+   "percent": 20,
+   "image": "/pos-items/vmc04"
+  },
+  {
+   "id": "vmh01",
+   "model": "VMH01",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "3 L · 400 W",
+   "price": 27,
+   "offer": 22,
+   "percent": 20,
+   "image": "/pos-items/vmh01"
+  },
+  {
+   "id": "vmh02",
+   "model": "VMH02",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "2 L · 300 W",
+   "price": 23,
+   "offer": 18,
+   "percent": 20,
+   "image": "/pos-items/vmh02"
+  },
+  {
+   "id": "vmh04",
+   "model": "VMH04",
+   "name": "Food Chopper",
+   "ku": "چۆپەر",
+   "category": "chopper",
+   "spec": "2 L · 300 W",
+   "price": 23,
+   "offer": 18,
+   "percent": 20,
+   "image": "/pos-items/vmh04"
+  },
+  {
+   "id": "v-861",
+   "model": "V-861",
+   "name": "Espresso Coffee Maker",
+   "ku": "ئامێری قاوەی ئێسپرێسۆ",
+   "category": "coffee",
+   "spec": "1.8 L · 1350 W · 20 BAR",
+   "price": 266,
+   "offer": 226,
+   "percent": 15,
+   "image": "/pos-items/v-861"
+  },
+  {
+   "id": "v-863",
+   "model": "V-863",
+   "name": "Fully Automatic Espresso",
+   "ku": "ئامێری قاوەی فول ئۆتۆماتیکی",
+   "category": "coffee",
+   "spec": "1.2 L · 1480 W · 19 BAR",
+   "price": 494,
+   "offer": 420,
+   "percent": 15,
+   "variants": [
+    {
+     "code": "V-863B",
+     "color": "Black",
+     "image": "/pos-items/v-863b"
+    },
+    {
+     "code": "V-863W",
+     "color": "White",
+     "image": "/pos-items/v-863w"
+    }
+   ],
+   "image": "/pos-items/v-863b"
+  },
+  {
+   "id": "v-864",
+   "model": "V-864",
+   "name": "Vio Capsule Pro",
+   "ku": "ئامێری قاوەی تایبەتی کەپسول",
+   "category": "coffee",
+   "spec": "0.85 L · 1400 W · 20 BAR",
+   "price": 114,
+   "offer": 97,
+   "percent": 15,
+   "image": "/pos-items/v-864"
+  },
+  {
+   "id": "v-200",
+   "model": "V-200",
+   "name": "Electric Pressure Cooker",
+   "ku": "مەنجەڵی بوخاری",
+   "category": "cooker",
+   "spec": "6 L · 1000 W",
+   "price": 57,
+   "offer": 51,
+   "percent": 10,
+   "image": "/pos-items/v-200"
+  },
+  {
+   "id": "v-807-a",
+   "model": "V-807-A",
+   "name": "Hand Blender Set",
+   "ku": "سێتی ئامێری هاند بلێندەر",
+   "category": "hand-blender",
+   "spec": "2 L · 1000 W",
+   "price": 91,
+   "offer": 77,
+   "percent": 15,
+   "image": "/pos-items/v-807-a"
+  },
+  {
+   "id": "v-1001",
+   "model": "V-1001",
+   "name": "Vio Luxmix",
+   "ku": "ئامێری بلێندەری دەستی",
+   "category": "hand-blender",
+   "spec": "9 speeds · 1000 W",
+   "price": 35,
+   "image": "/pos-items/v-1001"
+  },
+  {
+   "id": "v-1002",
+   "model": "V-1002",
+   "name": "Vio Blend",
+   "ku": "ئامێری بلێندەری دەستی",
+   "category": "hand-blender",
+   "spec": "6 speeds · 1200 W",
+   "price": 28,
+   "image": "/pos-items/v-1002"
+  },
+  {
+   "id": "v-652",
+   "model": "V-652",
+   "name": "Electric Heater",
+   "ku": "سۆبەی کارەبایی",
+   "category": "heater",
+   "spec": "16 inch · 900 W",
+   "price": 53,
+   "image": "/pos-items/v-652"
+  },
+  {
+   "id": "v-653",
+   "model": "V-653",
+   "name": "Crystal Carbon Heater",
+   "ku": "سۆبەی کریستاڵ کاربۆن",
+   "category": "heater",
+   "spec": "15 inch · 800 W",
+   "price": 49,
+   "image": "/pos-items/v-653"
+  },
+  {
+   "id": "v-654",
+   "model": "V-654",
+   "name": "Electric Quartz Heater",
+   "ku": "سۆبەی کارەبایی",
+   "category": "heater",
+   "spec": "10×10×20 inch · 2000 W",
+   "price": 53,
+   "variants": [
+    {
+     "code": "V-654B",
+     "color": "Black",
+     "image": "/pos-items/v-654b"
+    },
+    {
+     "code": "V-654W",
+     "color": "White",
+     "image": "/pos-items/v-654w"
+    }
+   ],
+   "image": "/pos-items/v-654b"
+  },
+  {
+   "id": "v-655",
+   "model": "V-655",
+   "name": "Ceramic Electric Heater",
+   "ku": "سۆبەی سیرامیک کاربۆن",
+   "category": "heater",
+   "spec": "16 inch · 1000 W",
+   "price": 32,
+   "variants": [
+    {
+     "code": "V-655",
+     "color": "White",
+     "image": "/pos-items/v-655-v-655-white"
+    },
+    {
+     "code": "V-655",
+     "color": "Black",
+     "image": "/pos-items/v-655-v-655-black"
+    }
+   ],
+   "image": "/pos-items/v-655-v-655-white"
+  },
+  {
+   "id": "v-656",
+   "model": "V-656",
+   "name": "Ceramic Electric Heater",
+   "ku": "سۆبەی سیرامیک کاربۆن",
+   "category": "heater",
+   "spec": "18 inch · 1100 W",
+   "price": 42,
+   "variants": [
+    {
+     "code": "V-656",
+     "color": "White",
+     "image": "/pos-items/v-656-v-656-white"
+    },
+    {
+     "code": "V-656",
+     "color": "Black",
+     "image": "/pos-items/v-656-v-656-black"
+    }
+   ],
+   "image": "/pos-items/v-656-v-656-white"
+  },
+  {
+   "id": "v-657",
+   "model": "V-657",
+   "name": "Ceramic Electric Heater",
+   "ku": "سۆبەی ستاندی سیرامیک",
+   "category": "heater",
+   "spec": "18 inch · 1100 W",
+   "price": 45,
+   "variants": [
+    {
+     "code": "V-657",
+     "color": "Black",
+     "image": "/pos-items/v-657-v-657-black"
+    },
+    {
+     "code": "V-657",
+     "color": "White",
+     "image": "/pos-items/v-657-v-657-white"
+    }
+   ],
+   "image": "/pos-items/v-657-v-657-black"
+  },
+  {
+   "id": "v-658",
+   "model": "V-658",
+   "name": "Ceramic Electric Heater",
+   "ku": "سۆبەی ستاندی سیرامیک",
+   "category": "heater",
+   "spec": "20 inch · 1100 W",
+   "price": 52,
+   "image": "/pos-items/v-658"
+  },
+  {
+   "id": "v-1101",
+   "model": "V-1101",
+   "name": "Ceramic Electric Heater",
+   "ku": "هیتەری شووڵدار",
+   "category": "heater",
+   "spec": "21×9×14 inch · 2000 W",
+   "price": 32,
+   "variants": [
+    {
+     "code": "V-1101B",
+     "color": "Black",
+     "image": "/pos-items/v-1101b"
+    },
+    {
+     "code": "V-1101W",
+     "color": "White",
+     "image": "/pos-items/v-1101w"
+    }
+   ],
+   "image": "/pos-items/v-1101b"
+  },
+  {
+   "id": "v-305p",
+   "model": "V-305P",
+   "name": "Upright Garment Steamer",
+   "ku": "ئوتوی ستاند (بۆیلەر)",
+   "category": "iron",
+   "spec": "2 L · 2900 W",
+   "price": 190,
+   "image": "/pos-items/v-305p"
+  },
+  {
+   "id": "v-306",
+   "model": "V-306",
+   "name": "Steam Station",
+   "ku": "ئوتوی هەڵمی",
+   "category": "iron",
+   "spec": "1.2 L · 2400 W",
+   "price": 87,
+   "offer": 78,
+   "percent": 10,
+   "variants": [
+    {
+     "code": "V-306G",
+     "color": "Grey",
+     "image": "/pos-items/v-306g"
+    },
+    {
+     "code": "V-306P",
+     "color": "Purple",
+     "image": "/pos-items/v-306p"
+    }
+   ],
+   "image": "/pos-items/v-306g"
+  },
+  {
+   "id": "v-307",
+   "model": "V-307",
+   "name": "Steam Station",
+   "ku": "ئوتوی هەڵمی",
+   "category": "iron",
+   "spec": "1 L · 1400 W",
+   "price": 61,
+   "offer": 55,
+   "percent": 10,
+   "variants": [
+    {
+     "code": "V-307P",
+     "color": "Purple",
+     "image": "/pos-items/v-307p"
+    },
+    {
+     "code": "V-307G",
+     "color": "Cream",
+     "image": "/pos-items/v-307g"
+    }
+   ],
+   "image": "/pos-items/v-307p"
+  },
+  {
+   "id": "v-308",
+   "model": "V-308",
+   "name": "Garment Steamer",
+   "ku": "ئوتوی دەستی (هەڵمی)",
+   "category": "iron",
+   "spec": "0.11 L · 1000 W",
+   "price": 29,
+   "image": "/pos-items/v-308"
+  },
+  {
+   "id": "v-309",
+   "model": "V-309",
+   "name": "Steamepro X90",
+   "ku": "ئامێری پاککردنەوەی هەڵمی",
+   "category": "steam-cleaner",
+   "spec": "0.33 L · 1500 W",
+   "price": 35,
+   "image": "/pos-items/v-309"
+  },
+  {
+   "id": "v-603",
+   "model": "V-603",
+   "name": "Meat Grinder",
+   "ku": "مەکینەی قیمە",
+   "category": "meat-grinder",
+   "spec": "5 speeds · 2500 W",
+   "price": 178,
+   "offer": 151,
+   "percent": 15,
+   "image": "/pos-items/v-603"
+  },
+  {
+   "id": "vtov-56h",
+   "model": "VTOV-56H",
+   "name": "Electric Oven",
+   "ku": "فڕنی کارەبایی",
+   "category": "oven",
+   "spec": "60 L · 2100 W",
+   "price": 133,
+   "variants": [
+    {
+     "code": "VTOV-56H B",
+     "color": "Black",
+     "image": "/pos-items/vtov-56h-b"
+    },
+    {
+     "code": "VTOV-56H G",
+     "color": "Grey",
+     "image": "/pos-items/vtov-56h-g"
+    }
+   ],
+   "image": "/pos-items/vtov-56h-b"
+  },
+  {
+   "id": "v-100",
+   "model": "V-100",
+   "name": "Stand Mixer",
+   "ku": "عەجانە",
+   "category": "stand-mixer",
+   "spec": "10 L · 2200 W",
+   "price": 190,
+   "offer": 171,
+   "percent": 10,
+   "variants": [
+    {
+     "code": "V-100 B PRO",
+     "color": "Black",
+     "image": "/pos-items/v-100-b-pro"
+    },
+    {
+     "code": "V-100 10L W PRO",
+     "color": "White",
+     "image": "/pos-items/v-100-10l-w-pro"
+    },
+    {
+     "code": "V-100 10L LG PRO",
+     "color": "Light Grey",
+     "image": "/pos-items/v-100-10l-lg-pro"
+    },
+    {
+     "code": "V-100 DG PRO",
+     "color": "Dark Grey",
+     "image": "/pos-items/v-100-dg-pro"
+    }
+   ],
+   "image": "/pos-items/v-100-b-pro"
+  },
+  {
+   "id": "v-104",
+   "model": "V-104",
+   "name": "Stand Mixer With Bowl",
+   "ku": "عەجانە",
+   "category": "stand-mixer",
+   "spec": "4 L · 400 W",
+   "price": 49,
+   "offer": 44,
+   "percent": 10,
+   "variants": [
+    {
+     "code": "V-104 B",
+     "color": "Black",
+     "image": "/pos-items/v-104-b"
+    },
+    {
+     "code": "V-104 W",
+     "color": "White",
+     "image": "/pos-items/v-104-w"
+    },
+    {
+     "code": "V-104 G",
+     "color": "Grey",
+     "image": "/pos-items/v-104-g"
+    }
+   ],
+   "image": "/pos-items/v-104-b"
+  },
+  {
+   "id": "v-106",
+   "model": "V-106",
+   "name": "Stand Mixer",
+   "ku": "عەجانە",
+   "category": "stand-mixer",
+   "spec": "5 L · 1500 W",
+   "price": 190,
+   "offer": 171,
+   "percent": 10,
+   "variants": [
+    {
+     "code": "V-106G",
+     "color": "Grey",
+     "image": "/pos-items/v-106g"
+    },
+    {
+     "code": "V-106W",
+     "color": "White",
+     "image": "/pos-items/v-106w"
+    }
+   ],
+   "image": "/pos-items/v-106g"
+  },
+  {
+   "id": "v-501",
+   "model": "V-501",
+   "name": "Tea Maker",
+   "ku": "سەماوەری کارەبایی",
+   "category": "tea",
+   "spec": "",
+   "price": 72,
+   "offer": 64,
+   "percent": 10,
+   "image": "/pos-items/v-501"
+  },
+  {
+   "id": "v-502",
+   "model": "V-502",
+   "name": "Tea Maker",
+   "ku": "سەماوەری کارەبایی",
+   "category": "tea",
+   "spec": "3.5 L · 1800–2200 W",
+   "price": 72,
+   "offer": 64,
+   "percent": 10,
+   "image": "/pos-items/v-502"
+  },
+  {
+   "id": "v-503",
+   "model": "V-503",
+   "name": "Tea Maker",
+   "ku": "سەماوەری شوشەی کارەبایی",
+   "category": "tea",
+   "spec": "3 L · 1500 W",
+   "price": 84,
+   "offer": 76,
+   "percent": 10,
+   "image": "/pos-items/v-503"
+  },
+  {
+   "id": "v-507",
+   "model": "V-507",
+   "name": "Tea Maker",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.5 L · 1500 W",
+   "price": 49,
+   "image": "/pos-items/v-507"
+  },
+  {
+   "id": "v-508",
+   "model": "V-508",
+   "name": "Tea Maker",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.5 L · 1500 W",
+   "price": 49,
+   "image": "/pos-items/v-508"
+  },
+  {
+   "id": "v-510",
+   "model": "V-510",
+   "name": "Cool Touch Kettle",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 34,
+   "image": "/pos-items/v-510"
+  },
+  {
+   "id": "v-511",
+   "model": "V-511",
+   "name": "Cool Touch Kettle",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 34,
+   "image": "/pos-items/v-511"
+  },
+  {
+   "id": "v-512",
+   "model": "V-512",
+   "name": "Cool Touch Kettle",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 34,
+   "image": "/pos-items/v-512"
+  },
+  {
+   "id": "v-513",
+   "model": "V-513",
+   "name": "Cool Touch Kettle",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 34,
+   "image": "/pos-items/v-513"
+  },
+  {
+   "id": "v-514",
+   "model": "V-514",
+   "name": "Cool Touch Kettle",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 34,
+   "image": "/pos-items/v-514"
+  },
+  {
+   "id": "v-515",
+   "model": "V-515",
+   "name": "Cool Touch Kettle",
+   "ku": "کتری و قۆری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 34,
+   "image": "/pos-items/v-515"
+  },
+  {
+   "id": "v-516",
+   "model": "V-516",
+   "name": "Tea Maker",
+   "ku": "سەماوەری کارەبایی",
+   "category": "tea",
+   "spec": "1 L · 1000 W",
+   "price": 91,
+   "offer": 82,
+   "percent": 10,
+   "image": "/pos-items/v-516"
+  },
+  {
+   "id": "v-517a",
+   "model": "V-517A",
+   "name": "Electric Kettle",
+   "ku": "کتری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 38,
+   "offer": 34,
+   "percent": 10,
+   "image": "/pos-items/v-517a"
+  },
+  {
+   "id": "v-518a",
+   "model": "V-518A",
+   "name": "Electric Kettle",
+   "ku": "کتری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 38,
+   "offer": 34,
+   "percent": 10,
+   "image": "/pos-items/v-518a"
+  },
+  {
+   "id": "v-519a",
+   "model": "V-519A",
+   "name": "Electric Kettle",
+   "ku": "کتری کارەبایی",
+   "category": "tea",
+   "spec": "1.7 L · 2200 W",
+   "price": 38,
+   "offer": 34,
+   "percent": 10,
+   "image": "/pos-items/v-519a"
+  },
+  {
+   "id": "v-517b",
+   "model": "V-517B",
+   "name": "2-Slice Toaster",
+   "ku": "تۆستەری کارەبایی",
+   "category": "toaster",
+   "spec": "2 slices · 930 W",
+   "price": 38,
+   "offer": 34,
+   "percent": 10,
+   "image": "/pos-items/v-517b"
+  },
+  {
+   "id": "v-518b",
+   "model": "V-518B",
+   "name": "2-Slice Toaster",
+   "ku": "تۆستەری کارەبایی",
+   "category": "toaster",
+   "spec": "2 slices · 930 W",
+   "price": 38,
+   "offer": 34,
+   "percent": 10,
+   "image": "/pos-items/v-518b"
+  },
+  {
+   "id": "v-519b",
+   "model": "V-519B",
+   "name": "2-Slice Toaster",
+   "ku": "تۆستەری کارەبایی",
+   "category": "toaster",
+   "spec": "2 slices · 930 W",
+   "price": 38,
+   "offer": 34,
+   "percent": 10,
+   "image": "/pos-items/v-519b"
+  },
+  {
+   "id": "v-625",
+   "model": "V-625",
+   "name": "Vacuum Cleaner",
+   "ku": "گسکی قەمەرەی کارەبایی",
+   "category": "vacuum",
+   "spec": "8 L · 2000 W",
+   "price": 133,
+   "image": "/pos-items/v-625"
+  },
+  {
+   "id": "v-627",
+   "model": "V-627",
+   "name": "Vacuum Cleaner",
+   "ku": "گسکی قەمەرەی کارەبایی",
+   "category": "vacuum",
+   "spec": "6 L · 2000 W",
+   "price": 133,
+   "image": "/pos-items/v-627"
+  },
+  {
+   "id": "v-628",
+   "model": "V-628",
+   "name": "Vacuum Cleaner",
+   "ku": "گسکی شەحن",
+   "category": "vacuum",
+   "spec": "90 min",
+   "price": 190,
+   "image": "/pos-items/v-628"
+  },
+  {
+   "id": "v-629",
+   "model": "V-629",
+   "name": "Vacuum Cleaner",
+   "ku": "گسکی شەحن",
+   "category": "vacuum",
+   "spec": "60 min · 400 W",
+   "price": 152,
+   "image": "/pos-items/v-629"
+  },
+  {
+   "id": "v-630",
+   "model": "V-630",
+   "name": "Sweep Vacuum Cleaner",
+   "ku": "گسکی شەحنی سڕینەوە",
+   "category": "vacuum",
+   "spec": "60 min · 230 W",
+   "price": 266,
+   "offer": 226,
+   "percent": 15,
+   "image": "/pos-items/v-630"
+  },
+  {
+   "id": "v-631",
+   "model": "V-631",
+   "name": "Vacuum Cleaner",
+   "ku": "گسکی سەتڵی",
+   "category": "vacuum",
+   "spec": "18 L · 1800 W",
+   "price": 57,
+   "image": "/pos-items/v-631"
+  },
+  {
+   "id": "v-632",
+   "model": "V-632",
+   "name": "Vacuum Cleaner",
+   "ku": "گسکی سەتڵی",
+   "category": "vacuum",
+   "spec": "21 L · 2000 W",
+   "price": 72,
+   "image": "/pos-items/v-632"
+  },
+  {
+   "id": "vk806-s",
+   "model": "VK806 S",
+   "name": "Vacuum Cleaner",
+   "ku": "گسکی قەمەرەی",
+   "category": "vacuum",
+   "spec": "9 L · 2000 W",
+   "price": 76,
+   "image": "/pos-items/vk806-s"
+  },
+  {
+   "id": "v-1201",
+   "model": "V-1201",
+   "name": "Vio Air Conditioner",
+   "ku": "سپلیتی جوڵاو",
+   "category": "air-cooler",
+   "spec": "12000 BTU · 1350 W",
+   "price": 285,
+   "offer": 257,
+   "percent": 10,
+   "image": "/pos-items/v-1201"
+  },
+  {
+   "id": "v-1202",
+   "model": "V-1202",
+   "name": "Vio Air Conditioner",
+   "ku": "سپلیتی جوڵاو",
+   "category": "air-cooler",
+   "spec": "12000 BTU · 1350 W",
+   "price": 285,
+   "offer": 257,
+   "percent": 10,
+   "image": "/pos-items/v-1202"
+  },
+  {
+   "id": "v-1203",
+   "model": "V-1203",
+   "name": "Vio Air Cooler",
+   "ku": "موبەریدەی جوڵاو",
+   "category": "air-cooler",
+   "spec": "5.5 L · 110 W",
+   "price": 92,
+   "variants": [
+    {
+     "code": "V-1203G",
+     "color": "Grey",
+     "image": "/pos-items/v-1203g"
+    },
+    {
+     "code": "V-1203W",
+     "color": "White",
+     "image": "/pos-items/v-1203w"
+    }
+   ],
+   "image": "/pos-items/v-1203g"
+  },
+  {
+   "id": "v-1204",
+   "model": "V-1204",
+   "name": "Vio Air Cooler",
+   "ku": "موبەریدەی جوڵاو",
+   "category": "air-cooler",
+   "spec": "52 L · 250 W",
+   "price": 253,
+   "image": "/pos-items/v-1204"
+  },
+  {
+   "id": "v-1205",
+   "model": "V-1205",
+   "name": "Vio Air Cooler",
+   "ku": "موبەریدەی جوڵاوی دەبڵ پانکە",
+   "category": "air-cooler",
+   "spec": "45 L · 220 W",
+   "price": 158,
+   "image": "/pos-items/v-1205"
+  },
+  {
+   "id": "v-750",
+   "model": "V-750",
+   "name": "Vio Aircleaner Mini",
+   "ku": "هەوا پاککەرەوە",
+   "category": "air-purifier",
+   "spec": "40 m² · 30 W",
+   "price": 95,
+   "offer": 86,
+   "percent": 10,
+   "image": "/pos-items/v-750"
+  },
+  {
+   "id": "v-751",
+   "model": "V-751",
+   "name": "Vio Aircleaner Max",
+   "ku": "هەوا پاککەرەوە",
+   "category": "air-purifier",
+   "spec": "40 m² · 36 W",
+   "price": 158,
+   "offer": 142,
+   "percent": 10,
+   "image": "/pos-items/v-751"
+  },
+  {
+   "id": "v-752",
+   "model": "V-752",
+   "name": "Vio Aircleaner Ultra",
+   "ku": "هەوا پاککەرەوە",
+   "category": "air-purifier",
+   "spec": "120 m² · 1386 W",
+   "price": 285,
+   "offer": 257,
+   "percent": 10,
+   "image": "/pos-items/v-752"
+  },
+  {
+   "id": "v-753",
+   "model": "V-753",
+   "name": "Vio Aircleaner Pro",
+   "ku": "هەوا پاککەرەوە",
+   "category": "air-purifier",
+   "spec": "60 m² · 1355 W",
+   "price": 222,
+   "offer": 200,
+   "percent": 10,
+   "image": "/pos-items/v-753"
+  },
+  {
+   "id": "v-900b",
+   "model": "V-900B",
+   "name": "Icecraft Pro",
+   "ku": "ئامێری سەهۆڵ دروستکردن",
+   "category": "cooling",
+   "spec": "1.3 L · 75 W",
+   "price": 82,
+   "offer": 74,
+   "percent": 10,
+   "image": "/pos-items/v-900b"
+  },
+  {
+   "id": "v-903",
+   "model": "V-903",
+   "name": "Vio Slushie",
+   "ku": "ئامێری دروستکردنی ئەزبەرید",
+   "category": "cooling",
+   "spec": "1.8 L · 200 W",
+   "price": 184,
+   "offer": 166,
+   "percent": 10,
+   "variants": [
+    {
+     "code": "V-903B",
+     "color": "Black",
+     "image": "/pos-items/v-903b"
+    },
+    {
+     "code": "V-903W",
+     "color": "White",
+     "image": "/pos-items/v-903w"
+    }
+   ],
+   "image": "/pos-items/v-903b"
+  }
+ ]
+}

@@ -3,6 +3,7 @@ import {
   Building,
   CalendarDays,
   Clock,
+  DollarSign,
   Download,
   FileText,
   Home,
@@ -108,6 +109,8 @@ export const APPS: AppTile[] = [
   },
   { id: 'products', to: paths.profitModels, label: 'Products', about: 'Models and costs', icon: Tag, color: '#A34D6D', size: 'small', group: 'owner', owner: true },
   { id: 'devices', to: paths.devices, label: 'Shared phones', about: 'One phone, many names', icon: Phone, color: '#4B5563', size: 'small', group: 'owner', owner: true },
+  { id: 'posReport', to: paths.posReport, label: 'POS report', about: 'What the till sold, every filter, and its prices', icon: FileText, color: '#8A3B3D', size: 'wide', group: 'owner', owner: true },
+  { id: 'pos', to: paths.pos, label: 'Point of sale', about: 'The till itself, open to anyone with the link', icon: DollarSign, color: '#8A3B3D', size: 'wide', group: 'owner', owner: true },
   { id: 'gashben', to: paths.gashbenReport, label: 'Gashben places', about: 'Places and their orders', icon: Building, color: '#7D5A9C', size: 'small', group: 'owner', owner: true },
 ];
 

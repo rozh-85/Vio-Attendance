@@ -361,6 +361,45 @@ the page calls, and the `shalaw@vio.com` account (only its bcrypt hash is in
 the file; how to change the password is in the file). Until it is run, signing
 in says so. Signed-in supervisors may read `repair_tickets`.
 
+## Point of sale (the till)
+
+The till is at **`/pos`** and has **no sign-in**: whoever has the link can sell,
+look up past sales, take returns, and edit or delete a sale. It works in
+English and Kurdish, on a computer, a tablet and a phone.
+
+- **Items** are cards with their photo, retail (موفرەد) price in dinars and
+  dollars, and their colours. The 54 Black Friday items carry their offer price
+  from 1 November to 1 December 2026 and go back to the regular price by
+  themselves afterwards.
+- **Dollar today.** One rate for every till and every item, changed from the
+  button at the top. Open invoices follow it; a price the seller typed stays.
+- **Several customers at once.** Each has an own tab, and a save never holds up
+  the next one. Every sale needs the customer's **name and mobile**; a mobile
+  that bought before fills in its name.
+- **Price and discount (داشکاندن)** are fields on every line, in dinars, with
+  the commas put in while typing. A price may go up as well as down; a raised
+  price is never printed as an offer.
+- **A4 invoice** in English and Kurdish: Vio Company, the customer, the items
+  with photos, quantity, price, discount, total, the date and the **2-year
+  guarantee** with its last day. Also an A4 return note.
+- **Past sales**: search by number, customer, mobile or model; print again,
+  return some or all (and undo it), change, delete. A deleted sale is only
+  marked deleted.
+- **No internet:** sales wait on the device and are sent by themselves later,
+  under the same id, so none is saved twice.
+
+The owner's report is at **`/rozhadmin/pos`** (same owner password): items
+sold, invoices, days and hours, with filters for period, item, category,
+seller, state and search, A4 and Excel. Deleted sales can be put back there.
+**Prices and settings** changes the price list, the offer's days, the dollar,
+the rounding, and the phone and address printed on invoices, and adds items.
+
+**Database: run [`supabase/pos.sql`](supabase/pos.sql) once** in the Supabase
+SQL editor (safe to run again). Until it is run, each till keeps its sales on
+its own device. The items and photos come from
+[`scripts/import-pos-2026.py`](scripts/import-pos-2026.py), which checks every
+offer price against its percentage.
+
 ## Catalog Management
 
 The unlisted `/catalog` route contains a single Master Catalog and a
@@ -414,6 +453,8 @@ src/
 | `/checkout/:sessionId`   | Employee   | Enter code to check out                |
 | `/recover`               | Employee   | Look up code by phone number           |
 | `/repair`                | Repair desk | Repairs (عەتڵ): own sign-in, search by phone, small prints |
+| `/pos`                   | Anyone with the link | The till: sell, past sales, returns, A4 invoice — no sign-in |
+| `/rozhadmin/pos`         | Owner      | What the till sold, every filter, and its price list (same password) |
 
 Anything else — `/login`, `/register`, any unknown URL, and every supervisor
 route while signed out — shows the neutral employee page, so nobody stumbles
