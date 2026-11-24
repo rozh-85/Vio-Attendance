@@ -68,7 +68,6 @@ export function SalesList({ sales, items, onOpen, onPrint, marks, t }: {
             <th className={th}>{t.invoice}</th>
             <th className={th}>{t.customer}</th>
             <th className={th}>{t.itemsTitle}</th>
-            <th className={cn(th, 'hidden xl:table-cell')}>{t.seller}</th>
             <th className={th}>{t.status}</th>
             <th className={cn(th, 'text-end!')}>{t.total}</th>
             <th className={cn(th, 'text-end!')}>{t.actions}</th>
@@ -95,7 +94,6 @@ export function SalesList({ sales, items, onOpen, onPrint, marks, t }: {
                     <span className={cn('line-clamp-2 min-w-0 text-sm text-ink-600', ltrText)}>{itemsText(s)}</span>
                   </div>
                 </td>
-                <td className={cn(td, 'hidden text-sm text-ink-600 xl:table-cell')}>{s.seller || '—'}</td>
                 <td className={td}>
                   <StatusBadge status={saleStatus(s)} t={t} />
                   {s.pending && <div className="mt-1 text-xs font-semibold text-amber-700">{t.notSent}</div>}

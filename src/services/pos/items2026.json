@@ -1,5 +1,5 @@
 {
- "source": "black-friday (2).pdf; showroom price list of 1 November 2026 for items without an offer",
+ "source": "black-friday (2).pdf; showroom price list of 1 November 2026 and the showroom catalog 2026 for items without an offer",
  "note": "Retail (mufrad) prices of one piece in US dollars.",
  "offer": {
   "name": "Black Friday",
@@ -46,6 +46,10 @@
   "Blue": {
    "ku": "شین",
    "hex": "#6F8597"
+  },
+  "Silver": {
+   "ku": "سلڤەر",
+   "hex": "#C5C8CB"
   }
  },
  "categories": [
@@ -618,6 +622,26 @@
    "image": "/pos-items/v-864"
   },
   {
+   "id": "v-865",
+   "model": "V-865",
+   "name": "Vio Series 800 Coffee Machine",
+   "ku": "ئامێری قاوە",
+   "category": "coffee",
+   "spec": "1.8 L · 1350 W · 20 BAR",
+   "price": 280,
+   "image": "/pos-items/v-865"
+  },
+  {
+   "id": "v-866",
+   "model": "V-866",
+   "name": "Vio Series 1000 Coffee Machine",
+   "ku": "ئامێری قاوە",
+   "category": "coffee",
+   "spec": "2.6 L · 1350 W · 20 BAR",
+   "price": 340,
+   "image": "/pos-items/v-866"
+  },
+  {
    "id": "v-200",
    "model": "V-200",
    "name": "Electric Pressure Cooker",
@@ -800,6 +824,29 @@
     }
    ],
    "image": "/pos-items/v-1101b"
+  },
+  {
+   "id": "v-302",
+   "model": "V-302",
+   "name": "Vio SteamForce Pro Steam Iron",
+   "ku": "ئوتوی هەڵمی",
+   "category": "iron",
+   "spec": "390 mL · 2600 W",
+   "price": 0,
+   "hidden": true,
+   "variants": [
+    {
+     "code": "V-302",
+     "color": "Black",
+     "image": "/pos-items/v-302-v-302-black"
+    },
+    {
+     "code": "V-302",
+     "color": "Silver",
+     "image": "/pos-items/v-302-v-302-silver"
+    }
+   ],
+   "image": "/pos-items/v-302-v-302-black"
   },
   {
    "id": "v-305p",
@@ -1163,6 +1210,95 @@
    "offer": 34,
    "percent": 10,
    "image": "/pos-items/v-519a"
+  },
+  {
+   "id": "v-520",
+   "model": "V-520",
+   "name": "Vio Levitate Tea Maker",
+   "ku": "چایسازی کارەبایی",
+   "category": "tea",
+   "spec": "3.0 + 1.0 L · 2280 W",
+   "price": 105,
+   "image": "/pos-items/v-520"
+  },
+  {
+   "id": "v-521",
+   "model": "V-521",
+   "name": "Vio Solis Tea Maker",
+   "ku": "چایسازی کارەبایی",
+   "category": "tea",
+   "spec": "3.0 + 1.0 L · 2280 W",
+   "price": 105,
+   "variants": [
+    {
+     "code": "V-521",
+     "color": "Grey",
+     "image": "/pos-items/v-521-v-521-grey"
+    },
+    {
+     "code": "V-521B",
+     "color": "Black",
+     "image": "/pos-items/v-521b"
+    }
+   ],
+   "image": "/pos-items/v-521-v-521-grey"
+  },
+  {
+   "id": "v-522",
+   "model": "V-522",
+   "name": "Vio Umbra Tea Maker",
+   "ku": "چایسازی کارەبایی",
+   "category": "tea",
+   "spec": "1.7 + 1.0 L · 1500 W",
+   "price": 95,
+   "image": "/pos-items/v-522"
+  },
+  {
+   "id": "v-523",
+   "model": "V-523",
+   "name": "Vio Zenith Tea Maker",
+   "ku": "چایسازی کارەبایی",
+   "category": "tea",
+   "spec": "1.7 + 1.0 L · 1500 W",
+   "price": 95,
+   "image": "/pos-items/v-523"
+  },
+  {
+   "id": "v-524",
+   "model": "V-524",
+   "name": "Vio Chrono Tea Maker",
+   "ku": "چایسازی کارەبایی",
+   "category": "tea",
+   "spec": "1.7 + 1.0 L · 1500 W",
+   "price": 100,
+   "image": "/pos-items/v-524"
+  },
+  {
+   "id": "v-525",
+   "model": "V-525",
+   "name": "Vio Novo Tea Maker",
+   "ku": "چایسازی کارەبایی",
+   "category": "tea",
+   "spec": "1.7 + 0.8 L · 1500 W",
+   "price": 80,
+   "variants": [
+    {
+     "code": "V-525",
+     "color": "Grey",
+     "image": "/pos-items/v-525-v-525-grey"
+    },
+    {
+     "code": "V-525B",
+     "color": "Black",
+     "image": "/pos-items/v-525b"
+    },
+    {
+     "code": "V-525W",
+     "color": "White",
+     "image": "/pos-items/v-525w"
+    }
+   ],
+   "image": "/pos-items/v-525-v-525-grey"
   },
   {
    "id": "v-517b",

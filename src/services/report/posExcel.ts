@@ -15,7 +15,7 @@ function summarySheet(report: Report, filters: string): string {
   const add = (cells: Cell[], height?: number) => rows.push({ cells, height });
   add([text('Vio — POS report', S.title), text('', S.title), text('', S.title), text('', S.title)], 30);
   add([text(`Period: ${describeDays(report.days)}`, S.muted)]);
-  add([text(filters || 'All items and sellers', S.muted)]);
+  add([text(filters || 'All items and categories', S.muted)]);
   add([text(`Generated ${format(new Date(), 'd MMM yyyy, HH:mm')}`, S.muted)]);
   add([]);
   add([text('Measure', S.header), text('Value', S.header)]);
@@ -62,7 +62,7 @@ const STATUS = { sold: 'Sold', part: 'Part returned', returned: 'Returned', dele
 
 function invoicesSheet(sales: Sale[]): string {
   const rows: Rows = [
-    head(['Invoice', 'Date', 'Time', 'Customer', 'Mobile', 'Address', 'Seller', 'Pieces', 'Before discount', 'Discount', 'Total', 'Returned', 'Net (IQD)', 'Dollar rate', 'Status', 'Note']),
+    head(['Invoice', 'Date', 'Time', 'Customer', 'Mobile', 'Address', 'Pieces', 'Before discount', 'Discount', 'Total', 'Returned', 'Net (IQD)', 'Dollar rate', 'Status', 'Note']),
   ];
   for (const s of sales)
     rows.push({
@@ -73,7 +73,6 @@ function invoicesSheet(sales: Sale[]): string {
         text(s.customerName),
         text(s.customerPhone),
         text(s.customerAddress),
-        text(s.seller),
         num(piecesOf(s.lines), S.number),
         num(s.subtotal),
         num(s.discount),
@@ -85,7 +84,7 @@ function invoicesSheet(sales: Sale[]): string {
         text([s.note, s.deleteReason].filter(Boolean).join(' · ')),
       ],
     });
-  return sheetXml(rows, [10, 12, 8, 22, 15, 26, 14, 8, 15, 12, 14, 12, 14, 12, 14, 30], { freezeHeader: true, autoFilterColumns: 16 });
+  return sheetXml(rows, [10, 12, 8, 22, 15, 26, 8, 15, 12, 14, 12, 14, 12, 14, 30], { freezeHeader: true, autoFilterColumns: 15 });
 }
 
 function linesSheet(sales: Sale[]): string {

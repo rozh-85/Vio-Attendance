@@ -6,7 +6,8 @@ Prices are the retail (موفرەد) ones, in US dollars:
   * OFFER   — "black-friday (2).pdf", pages 2-55: the regular price, the
               percentage and the Black Friday price printed on each page.
   * REGULAR — items the PDF does not have, from the showroom price list of
-              1 November 2026. They have no Black Friday price.
+              1 November 2026 or the showroom catalog 2026 ("Final_catalog_.pdf").
+              They have no Black Friday price.
 
 The script stops if a Black Friday price does not agree with its page's
 percentage (to the dollar), or if a photo is missing. It writes
@@ -64,6 +65,7 @@ COLORS = {
     "Purple": ("مۆر", "#BFA6CF"),
     "Pink": ("پەمەیی", "#EDB0B0"),
     "Blue": ("شین", "#6F8597"),
+    "Silver": ("سلڤەر", "#C5C8CB"),
 }
 
 CHOP = ("Food Chopper", "چۆپەر")
@@ -121,6 +123,8 @@ ITEMS = [
     item("V-863", ("Fully Automatic Espresso", "ئامێری قاوەی فول ئۆتۆماتیکی"), "coffee", "1.2 L · 1480 W · 19 BAR", 494, [
         ("V-863B", "Black", "V-863B.png"), ("V-863W", "White", "V-863W.png")], 420, 15, 27),
     item("V-864", ("Vio Capsule Pro", "ئامێری قاوەی تایبەتی کەپسول"), "coffee", "0.85 L · 1400 W · 20 BAR", 114, "V-864 right side.png", 97, 15, 28),
+    item("V-865", ("Vio Series 800 Coffee Machine", "ئامێری قاوە"), "coffee", "1.8 L · 1350 W · 20 BAR", 280, "V-865.png"),
+    item("V-866", ("Vio Series 1000 Coffee Machine", "ئامێری قاوە"), "coffee", "2.6 L · 1350 W · 20 BAR", 340, "V-866.png"),
     # ── Cookers ─────────────────────────────────────────────────────────────
     item("V-200", ("Electric Pressure Cooker", "مەنجەڵی بوخاری"), "cooker", "6 L · 1000 W", 57, "V-200.png", 51, 10, 29),
     # ── Hand blenders ───────────────────────────────────────────────────────
@@ -142,6 +146,9 @@ ITEMS = [
     item("V-1101", ("Ceramic Electric Heater", "هیتەری شووڵدار"), "heater", "21×9×14 inch · 2000 W", 32, [
         ("V-1101B", "Black", "Black V-1101B.png"), ("V-1101W", "White", "White V-1101W.png")]),
     # ── Irons & steamers ────────────────────────────────────────────────────
+    # "On request" in the catalog: off the till until the owner sets its price.
+    item("V-302", ("Vio SteamForce Pro Steam Iron", "ئوتوی هەڵمی"), "iron", "390 mL · 2600 W", 0, [
+        ("V-302", "Black", "V-302 black.png"), ("V-302", "Silver", "V-302.png")]),
     item("V-305P", ("Upright Garment Steamer", "ئوتوی ستاند (بۆیلەر)"), "iron", "2 L · 2900 W", 190, "V-305P.png"),
     item("V-306", ("Steam Station", "ئوتوی هەڵمی"), "iron", "1.2 L · 2400 W", 87, [
         ("V-306G", "Grey", "V-306G.png"), ("V-306P", "Purple", "V-306P.png")], 78, 10, 32),
@@ -179,6 +186,14 @@ ITEMS = [
     item("V-517A", ("Electric Kettle", "کتری کارەبایی"), "tea", "1.7 L · 2200 W", 38, "V-517A.png", 34, 10, 43),
     item("V-518A", ("Electric Kettle", "کتری کارەبایی"), "tea", "1.7 L · 2200 W", 38, "V-518A.png", 34, 10, 45),
     item("V-519A", ("Electric Kettle", "کتری کارەبایی"), "tea", "1.7 L · 2200 W", 38, "V-519A.png", 34, 10, 46),
+    item("V-520", ("Vio Levitate Tea Maker", "چایسازی کارەبایی"), "tea", "3.0 + 1.0 L · 2280 W", 105, "V-520.png"),
+    item("V-521", ("Vio Solis Tea Maker", "چایسازی کارەبایی"), "tea", "3.0 + 1.0 L · 2280 W", 105, [
+        ("V-521", "Grey", "V-521.png"), ("V-521B", "Black", "V-521B.png")]),
+    item("V-522", ("Vio Umbra Tea Maker", "چایسازی کارەبایی"), "tea", "1.7 + 1.0 L · 1500 W", 95, "V-522.png"),
+    item("V-523", ("Vio Zenith Tea Maker", "چایسازی کارەبایی"), "tea", "1.7 + 1.0 L · 1500 W", 95, "V-523.png"),
+    item("V-524", ("Vio Chrono Tea Maker", "چایسازی کارەبایی"), "tea", "1.7 + 1.0 L · 1500 W", 100, "V-524.png"),
+    item("V-525", ("Vio Novo Tea Maker", "چایسازی کارەبایی"), "tea", "1.7 + 0.8 L · 1500 W", 80, [
+        ("V-525", "Grey", "V-525.png"), ("V-525B", "Black", "V-525B.png"), ("V-525W", "White", "V-525W.png")]),
     # ── Toasters ────────────────────────────────────────────────────────────
     item("V-517B", ("2-Slice Toaster", "تۆستەری کارەبایی"), "toaster", "2 slices · 930 W", 38, "V-517B.png", 34, 10, 42),
     item("V-518B", ("2-Slice Toaster", "تۆستەری کارەبایی"), "toaster", "2 slices · 930 W", 38, "V-518B.png", 34, 10, 44),
@@ -329,6 +344,8 @@ rows, photos = [], 0
 for it in ITEMS:
     row = {"id": slug(it["model"]), "model": it["model"], "name": it["name"], "ku": it["ku"],
            "category": it["category"], "spec": it["spec"], "price": it["price"]}
+    if not it["price"]:
+        row["hidden"] = True
     if it["offer"] is not None:
         row["offer"] = it["offer"]
         row["percent"] = it["percent"]
@@ -345,7 +362,7 @@ for it in ITEMS:
     rows.append(row)
 
 OUT_JSON.write_text(json.dumps({
-    "source": "black-friday (2).pdf; showroom price list of 1 November 2026 for items without an offer",
+    "source": "black-friday (2).pdf; showroom price list of 1 November 2026 and the showroom catalog 2026 for items without an offer",
     "note": "Retail (mufrad) prices of one piece in US dollars.",
     "offer": OFFER,
     "colors": {name: {"ku": ku, "hex": hex_} for name, (ku, hex_) in COLORS.items()},

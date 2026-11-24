@@ -61,7 +61,7 @@ export function printReport(report: Report, filters: string, items: PosItem[], s
     .map(
       (page, i) =>
         `<section class="pv-page">${headHtml(settings, 'Sales report', 'ڕاپۆرتی فرۆشتن')}` +
-        `<div class="pr-sub"><b>${esc(period)}</b>${esc(filters || 'All items, categories and sellers')}</div>` +
+        `<div class="pr-sub"><b>${esc(period)}</b>${esc(filters || 'All items and categories')}</div>` +
         (i === 0 ? `<div class="pr-figs">${figures.map(([l, v, n]) => `<div><small>${l}</small><b>${v}</b><i>${n}</i></div>`).join('')}</div>` : '') +
         `<table class="pv-table pr-t">${head}<tbody>${page.map((r) => `<tr>${r}</tr>`).join('')}</tbody>${i === pages.length - 1 ? foot : ''}</table>` +
         `<div class="pv-gap"></div><div class="pv-foot"><span>Vio Company</span><span>Printed ${format(new Date(), 'dd/MM/yyyy HH:mm')}</span><span>Page ${i + 1} of ${pages.length}</span></div></section>`,

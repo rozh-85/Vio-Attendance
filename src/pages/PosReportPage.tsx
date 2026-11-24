@@ -15,7 +15,7 @@ import { TEXT, posErrorMessage } from '@/services/pos/i18n';
 import { CATEGORIES, DEFAULT_SETTINGS, categoryName, mergeItems } from '@/services/pos/items';
 import { PosError, num, rateText, usd } from '@/services/pos/logic';
 import { printInvoice } from '@/services/pos/print';
-import { EMPTY_FILTERS, REPORT_PERIODS, REPORT_STATUSES, activeFilters, buildReport, describeDays, describeFilters, reportSales, sellerOf, type ReportFilters, type ReportPeriod, type ReportStatus } from '@/services/pos/report';
+import { EMPTY_FILTERS, REPORT_PERIODS, REPORT_STATUSES, activeFilters, buildReport, describeDays, describeFilters, reportSales, type ReportFilters, type ReportPeriod, type ReportStatus } from '@/services/pos/report';
 import { printReport } from '@/services/pos/reportPrint';
 import { getPosStore, type PosSetup } from '@/services/pos/store';
 import type { Sale } from '@/services/pos/types';
@@ -89,9 +89,7 @@ export function PosReportPage() {
   const options = useMemo(() => {
     const sold = new Map<string, string>();
     const categories = new Set<string>();
-    const sellers = new Set<string>();
     for (const s of sales) {
-      sellers.add(sellerOf(s));
       for (const l of s.lines) {
         categories.add(l.category);
         sold.set(l.itemId, items.find((i) => i.id === l.itemId)?.model ?? l.code);
@@ -100,7 +98,6 @@ export function PosReportPage() {
     return {
       items: [...sold].sort((a, b) => a[1].localeCompare(b[1], 'en', { numeric: true })).map(([value, label]) => ({ value, label })),
       categories: CATEGORIES.filter((c) => categories.has(c.id)).map((c) => ({ value: c.id, label: c.name })),
-      sellers: [...sellers].sort((a, b) => a.localeCompare(b)).map((value) => ({ value, label: value === '—' ? 'None written' : value })),
     };
   }, [sales, items]);
 
@@ -185,10 +182,9 @@ export function PosReportPage() {
                   </Labelled>
                 </div>
               )}
-              <div className={cn('grid grid-cols-2 gap-2 lg:grid-cols-4', activeFilters(filters) > 0 && 'lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]!')}>
+              <div className={cn('grid grid-cols-2 gap-2 lg:grid-cols-3 max-lg:[&>*:nth-child(3)]:col-span-2', activeFilters(filters) > 0 && 'lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]!')}>
                 <MultiSelect label="Item" searchable options={options.items} selected={filters.items} onChange={(v) => set({ items: v })} />
                 <MultiSelect label="Category" options={options.categories} selected={filters.categories} onChange={(v) => set({ categories: v })} />
-                <MultiSelect label="Seller" options={options.sellers} selected={filters.sellers} onChange={(v) => set({ sellers: v })} />
                 <MultiSelect label="Sales" options={STATUS_OPTIONS} selected={filters.statuses} onChange={(v) => set({ statuses: v as ReportStatus[] })} />
                 {activeFilters(filters) > 0 && (
                   <button type="button" onClick={() => setFilters((f) => ({ ...EMPTY_FILTERS, period: f.period, from: f.from, to: f.to }))} className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 max-lg:col-span-2">
@@ -201,7 +197,7 @@ export function PosReportPage() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-xl font-bold text-ink-900">{days}</h2>
-                <p className="text-sm text-ink-500">{words || 'All items, categories and sellers'}</p>
+                <p className="text-sm text-ink-500">{words || 'All items and categories'}</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" disabled={!report.items.length} leftIcon={<Printer width={16} height={16} />} onClick={() => void printReport(report, words, items, setup.settings)}>
