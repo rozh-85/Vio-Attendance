@@ -1,13 +1,14 @@
-import { useEffect, useId, useState } from 'react';
-import { Trash } from '@/components/icons';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Button } from '@/components/ui/Button';
+import { ArrowLeft, CheckCircle, ChevronDown, Plus, Printer, User } from '@/components/icons';
 import { latinDigits, normalizePhone } from '@/services/repairs/logic';
-import { MAX_OPEN, MIN_OPEN, isEmpty, removeLine, setLine, type Cart, type Desk } from '@/services/pos/cart';
+import { MAX_OPEN, MIN_OPEN, changeLine, isEmpty, removeLine, type Cart, type Desk } from '@/services/pos/cart';
 import type { PosLang, PosText } from '@/services/pos/i18n';
-import { colorName } from '@/services/pos/items';
-import { discountOf, iqd, lineGross, lineTotal, num, phoneOk, piecesOf, saleLabel, showDay, subtotalOf, totalOf, usd } from '@/services/pos/logic';
+import { discountOf, num, phoneOk, piecesOf, saleLabel, subtotalOf, totalOf, usd } from '@/services/pos/logic';
 import type { PosItem, Sale } from '@/services/pos/types';
 import { cn } from '@/utils/cn';
-import { IqdInput, Photo, PosDialog, Stepper, lineImage } from './parts';
+import { LineEditor } from './Lines';
+import { Labelled, Notice, PosDialog, field, ltrText } from './ui';
 
 /** Every open invoice: one for each customer being served, and one more when the shop is busy. */
 export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
@@ -19,20 +20,38 @@ export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
   t: PosText;
 }) {
   return (
-    <div className="pos-tabs" role="tablist" aria-label={t.invoice}>
+    <div role="tablist" aria-label={t.invoice} className="@container flex shrink-0 gap-2 overflow-x-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {desk.carts.map((c) => {
+        const on = c.id === desk.active;
         const busy = saving.has(c.id);
         const bad = !busy && !!errors[c.id];
         return (
-          <button key={c.id} type="button" role="tab" aria-selected={c.id === desk.active} className={cn(busy && 'busy', bad && 'bad')} onClick={() => onChoose(c.id)}>
-            <b dir="auto">{c.editing ? `${t.invoice} ${saleLabel(c.editing)}` : c.customerName.trim() || t.customerNo(c.no)}</b>
-            <small className="num">{busy ? t.saving : bad ? t.notSaved : c.lines.length ? num(totalOf(c.lines)) : '—'}</small>
+          <button
+            key={c.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChoose(c.id)}
+            className={cn(
+              'flex min-w-0 flex-1 shrink-0 basis-24 items-center gap-2.5 rounded-xl px-2.5 py-2 text-start transition @[23rem]:basis-32',
+              on ? 'bg-brand-50 ring-1 ring-brand-200' : 'bg-slate-50 hover:bg-slate-100',
+            )}
+          >
+            <span className={cn('hidden size-9 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums @[23rem]:grid', on ? 'bg-brand-600 text-white' : 'bg-slate-200 text-ink-600')}>{c.no}</span>
+            <span className="min-w-0">
+              <span dir="auto" className={cn('block truncate text-sm font-semibold', on ? 'text-brand-700' : 'text-ink-700')}>
+                {c.customerName.trim() || t.customerNo(c.no)}
+              </span>
+              <span className={cn('block truncate text-xs tabular-nums', busy ? 'font-semibold text-amber-700' : bad ? 'font-semibold text-rose-600' : 'text-ink-500')}>
+                {busy ? t.saving : bad ? t.notSaved : c.lines.length ? <span className={ltrText}>{num(totalOf(c.lines))} IQD</span> : t.emptyBill}
+              </span>
+            </span>
           </button>
         );
       })}
       {desk.carts.length < MAX_OPEN && (
-        <button type="button" className="add" title={t.addCustomer} aria-label={t.addCustomer} onClick={onAdd}>
-          +
+        <button type="button" title={t.addCustomer} aria-label={t.addCustomer} onClick={onAdd} className="grid min-h-11 w-12 shrink-0 place-items-center rounded-xl border border-dashed border-slate-300 text-ink-500 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700">
+          <Plus width={19} height={19} />
         </button>
       )}
     </div>
@@ -50,7 +69,7 @@ export function Bill({ cart, change, deskSize, seller, setSeller, sellers, rate,
   rate: number;
   items: PosItem[];
   /** The sale just saved, for printing it again. */
-  last: { sale: Sale; changed: boolean } | null;
+  last: Sale | null;
   saving: boolean;
   error: string;
   /** Saving was tried, so what is missing is pointed out. */
@@ -64,23 +83,20 @@ export function Bill({ cart, change, deskSize, seller, setSeller, sellers, rate,
   /** Who bought with this mobile before. */
   findCustomer: (phone: string) => Promise<{ name: string; address: string } | null>;
   open: boolean;
-  tabs: React.ReactNode;
+  tabs: ReactNode;
   lang: PosLang;
   t: PosText;
 }) {
   const [asking, setAsking] = useState(false);
   const [more, setMore] = useState(false);
   const uid = useId();
-  const ku = lang === 'ku';
-  const editing = cart.editing;
   const subtotal = subtotalOf(cart.lines);
   const discount = discountOf(cart.lines);
   const total = totalOf(cart.lines);
-  const atRate = editing ? editing.rate : rate;
   const nameBad = checked && !cart.customerName.trim();
   const phoneBad = checked && !phoneOk(cart.customerPhone);
-  const details = more || !!(cart.customerAddress || cart.note);
   const closable = !isEmpty(cart) || deskSize > MIN_OPEN;
+  const setLines = (fn: (lines: Cart['lines']) => Cart['lines']) => change((c) => ({ ...c, lines: fn(c.lines) }));
 
   useEffect(() => setMore(false), [cart.id]);
 
@@ -98,201 +114,189 @@ export function Bill({ cart, change, deskSize, seller, setSeller, sellers, rate,
   }
 
   return (
-    <section className={cn('pos-bill', open && 'show')} aria-label={t.invoice}>
-      <button type="button" className="pos-back" onClick={onBack}>
-        {t.backToItems}
+    <section
+      aria-label={t.invoice}
+      className={cn(
+        'min-h-0 min-w-0 flex-col bg-card md:flex md:rounded-2xl md:border md:border-slate-200/80 md:shadow-sm',
+        open ? 'fixed inset-0 z-40 flex md:static md:z-auto' : 'hidden',
+      )}
+    >
+      <button type="button" onClick={onBack} className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-200 px-4 text-sm font-semibold text-ink-600 md:hidden">
+        <ArrowLeft width={17} height={17} className="rtl:rotate-180" /> {t.backToItems}
       </button>
-      {tabs}
+      <div className="border-b border-slate-200">{tabs}</div>
 
-      {last && !editing && (
-        <div className="pos-note" role="status">
-          <span>
-            {last.changed ? t.changed(saleLabel(last.sale)) : t.saved(saleLabel(last.sale))}
-            {last.sale.pending && <small className="st st-part">{t.notSent}</small>}
+      {last && (
+        <div role="status" className="flex shrink-0 items-center gap-2.5 border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">
+          <CheckCircle width={17} height={17} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t.saved(saleLabel(last))}
+            {last.pending && <span className="ms-2 font-medium text-amber-700">{t.notSent}</span>}
           </span>
-          <button type="button" className="pos-link" onClick={() => onPrint(last.sale)}>
+          <button type="button" onClick={() => onPrint(last)} className="shrink-0 rounded-lg px-2.5 py-1.5 transition hover:bg-emerald-100">
             {t.printAgain}
           </button>
         </div>
       )}
 
-      <div className="pos-bill-scroll">
-        <div className="pos-who">
-          <header>
-            <h2>{editing ? t.editing(saleLabel(editing)) : t.newInvoice}</h2>
-            <span className="num">{showDay(editing?.soldAt ?? new Date())}</span>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+        <div className="px-4 pb-4 pt-3.5">
+          <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink-900">
+              <User width={17} height={17} className="text-ink-400" /> {t.customer}
+            </h2>
             {closable && (
-              <button type="button" className="pos-link" disabled={saving} onClick={() => (isEmpty(cart) ? onClose() : setAsking(true))}>
-                {editing ? t.cancelEdit : isEmpty(cart) ? t.closeCustomer : t.clear}
+              <button type="button" disabled={saving} onClick={() => (isEmpty(cart) ? onClose() : setAsking(true))} className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-ink-500 transition hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50">
+                {isEmpty(cart) ? t.closeCustomer : t.clear}
               </button>
             )}
-          </header>
-          <div className="pos-two">
-            <label className={cn('pos-field', nameBad && 'bad')}>
-              <span>{t.name}</span>
-              <input id="pos-name" className="pos-input" dir="auto" autoComplete="off" aria-invalid={nameBad} disabled={saving} value={cart.customerName} onChange={(e) => change((c) => ({ ...c, customerName: e.target.value }))} />
-              {nameBad && <small>{t.nameNeeded}</small>}
-            </label>
-            <label className={cn('pos-field', phoneBad && 'bad')}>
-              <span>{t.phone}</span>
-              <input id="pos-phone" className="pos-input" dir="ltr" inputMode="tel" autoComplete="off" placeholder="0750 000 0000" aria-invalid={phoneBad} disabled={saving} value={cart.customerPhone} onChange={(e) => void phoneTyped(latinDigits(e.target.value))} />
-              {phoneBad && <small>{t.phoneNeeded}</small>}
-            </label>
+          </div>
+          <div className="grid grid-cols-2 items-start gap-2.5">
+            <Labelled label={t.name} error={nameBad ? t.nameNeeded : undefined}>
+              <input id="pos-name" className={cn(field, nameBad && 'border-rose-400')} dir="auto" autoComplete="off" aria-invalid={nameBad} disabled={saving} value={cart.customerName} onChange={(e) => change((c) => ({ ...c, customerName: e.target.value }))} />
+            </Labelled>
+            <Labelled label={t.phone} error={phoneBad ? t.phoneNeeded : undefined}>
+              <input id="pos-phone" className={cn(field, 'max-[22.5rem]:px-2.5!', phoneBad && 'border-rose-400')} dir="ltr" inputMode="tel" autoComplete="off" placeholder="0750 000 0000" aria-invalid={phoneBad} disabled={saving} value={cart.customerPhone} onChange={(e) => void phoneTyped(latinDigits(e.target.value))} />
+            </Labelled>
           </div>
         </div>
 
         {cart.lines.length === 0 ? (
-          <div className="pos-empty">
-            <b>{t.emptyBill}</b>
-            {t.emptyBillHint}
+          <div className="border-t border-slate-100 px-4 py-14 text-center">
+            <div className="font-semibold text-ink-900">{t.emptyBill}</div>
+            <div className="mt-1 text-sm text-ink-500">{t.emptyBillHint}</div>
           </div>
         ) : (
-          <ul className="pos-lines">
-            {cart.lines.map((line) => {
-              const gross = lineGross(line);
-              const raised = line.price > line.list;
-              return (
-                <li key={line.id} className="pos-line">
-                  <span className="pos-line-photo">
-                    <Photo image={lineImage(line, items)} sizes="62px" eager />
-                  </span>
-                  <span className="pos-line-name">
-                    <b>{line.code}</b>
-                    <small>
-                      {ku ? line.ku || line.name : line.name}
-                      {line.color && ` · ${colorName(line.color, ku)}`}
-                    </small>
-                    <small className="num">{usd(line.usd)}{line.price !== line.list && ` · ${t.listPrice(num(line.list))}`}</small>
-                  </span>
-                  <span className="pos-line-sum num">
-                    {num(lineTotal(line))}
-                    {line.discount > 0 && <s>{num(gross)}</s>}
-                    {raised && line.discount === 0 && <i>+{num((line.price - line.list) * line.qty)}</i>}
-                  </span>
-                  <span className="pos-line-do">
-                    <span className="pos-mini">
-                      <span>{t.qty}</span>
-                      <Stepper value={line.qty} min={1} max={999} t={t} onChange={(qty) => change((c) => setLine(c, line.id, { qty }))} />
-                    </span>
-                    <label className="pos-mini">
-                      <span>{t.price}</span>
-                      <IqdInput value={line.price} onChange={(price) => change((c) => setLine(c, line.id, { price }))} />
-                    </label>
-                    <label className="pos-mini">
-                      <span>{t.discount}</span>
-                      <IqdInput value={line.discount} max={gross} emptyIsZero placeholder="0" onChange={(d) => change((c) => setLine(c, line.id, { discount: d }))} />
-                    </label>
-                    <button type="button" className="pos-icon" title={t.remove} aria-label={`${t.remove} ${line.code}`} onClick={() => change((c) => removeLine(c, line.id))}>
-                      <Trash width={18} height={18} />
-                    </button>
-                  </span>
-                </li>
-              );
-            })}
+          <ul className="divide-y divide-slate-100 border-y border-slate-100">
+            {cart.lines.map((line) => (
+              <LineEditor
+                key={line.id}
+                line={line}
+                items={items}
+                disabled={saving}
+                lang={lang}
+                t={t}
+                onChange={(c) => setLines((l) => changeLine(l, line.id, c))}
+                onRemove={() => setLines((l) => removeLine(l, line.id))}
+              />
+            ))}
           </ul>
         )}
 
         {cart.lines.length > 0 && (
-          <div className="pos-form">
-            {details ? (
-              <>
-                <div className="pos-two">
-                  <label className="pos-field">
-                    <span>{t.address}</span>
-                    <input className="pos-input" dir="auto" autoComplete="off" value={cart.customerAddress} onChange={(e) => change((c) => ({ ...c, customerAddress: e.target.value }))} />
-                  </label>
-                  <label className="pos-field">
-                    <span>{t.seller}</span>
-                    <input className="pos-input" dir="auto" autoComplete="off" list={uid} value={seller} onChange={(e) => setSeller(e.target.value)} />
-                    <datalist id={uid}>
-                      {sellers.map((s) => (
-                        <option key={s} value={s} />
-                      ))}
-                    </datalist>
-                  </label>
-                </div>
-                <label className="pos-field">
-                  <span>{t.note}</span>
-                  <textarea className="pos-input" dir="auto" rows={2} value={cart.note} onChange={(e) => change((c) => ({ ...c, note: e.target.value }))} />
-                </label>
-              </>
-            ) : (
-              <button type="button" className="pos-link" onClick={() => setMore(true)}>
-                {t.moreDetails}: {t.address}, {t.seller}, {t.note}
-              </button>
+          <div className="px-4 py-3">
+            <button type="button" aria-expanded={more} onClick={() => setMore((m) => !m)} className="flex w-full items-center justify-between gap-3 rounded-lg py-1.5 text-sm font-semibold text-ink-600 hover:text-ink-900">
+              <span className="min-w-0 truncate">{t.moreDetails}: {t.address}, {t.seller}, {t.note}</span>
+              <ChevronDown width={17} height={17} className={cn('shrink-0 transition', more && 'rotate-180')} />
+            </button>
+            {more && (
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+                <Labelled label={t.address}>
+                  <input className={field} dir="auto" autoComplete="off" value={cart.customerAddress} onChange={(e) => change((c) => ({ ...c, customerAddress: e.target.value }))} />
+                </Labelled>
+                <Labelled label={t.seller}>
+                  <input className={field} dir="auto" autoComplete="off" list={uid} value={seller} onChange={(e) => setSeller(e.target.value)} />
+                  <datalist id={uid}>
+                    {sellers.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                </Labelled>
+                <Labelled label={t.note} className="col-span-2">
+                  <textarea className={cn(field, 'h-auto! min-h-18 resize-y py-2.5')} dir="auto" rows={2} value={cart.note} onChange={(e) => change((c) => ({ ...c, note: e.target.value }))} />
+                </Labelled>
+              </div>
             )}
           </div>
         )}
       </div>
 
-      <footer className="pos-bill-foot">
-        {discount > 0 && (
-          <>
-            <div className="pos-sum">
-              <span>{t.subtotal}</span>
-              <span className="num">{num(subtotal)}</span>
-            </div>
-            <div className="pos-sum red">
-              <span>{t.discount}</span>
-              <span className="num">{num(-discount)}</span>
-            </div>
-          </>
-        )}
-        <div className="pos-total">
-          <span>
-            {t.total}
-            <small>{t.pieces(piecesOf(cart.lines))}</small>
-          </span>
-          <b className="num">
-            {num(total)} <em>IQD</em>
-            {total > 0 && <small>{usd(total / atRate)}</small>}
-          </b>
-        </div>
+      <footer className="shrink-0 border-t border-slate-200 bg-slate-50/70 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3.5 md:rounded-b-2xl">
+        <Totals subtotal={subtotal} discount={discount} total={total} rate={rate} pieces={piecesOf(cart.lines)} t={t} />
         {error && (
-          <div className="pos-error" role="alert">
+          <Notice tone="danger" className="mt-3">
             {error}
-          </div>
+          </Notice>
         )}
         {saving ? (
-          <p className="pos-busy" role="status">
-            <b>{t.saving}</b> {t.savingOthers}
+          <p role="status" className="mt-3 flex items-center gap-3 py-2 text-sm text-ink-500">
+            <span className="size-5 shrink-0 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
+            <span>
+              <b className="text-ink-900">{t.saving}</b> {t.savingOthers}
+            </span>
           </p>
         ) : (
-          <div className="pos-go">
-            <button type="button" className="pos-btn pos-btn-red" disabled={!cart.lines.length} onClick={() => onSave(true)}>
-              {editing ? t.saveChangesPrint : t.savePrint}
-            </button>
-            <button type="button" className="pos-btn" disabled={!cart.lines.length} onClick={() => onSave(false)}>
-              {editing ? t.saveChanges : t.saveOnly}
-            </button>
+          <div className="mt-3 grid grid-cols-[1.7fr_1fr] gap-2.5 md:max-lg:grid-cols-1 md:max-lg:gap-2">
+            <Button size="lg" className="h-[3.25rem]! px-3! max-[22.5rem]:px-2! max-[22.5rem]:text-sm!" disabled={!cart.lines.length} leftIcon={<Printer width={18} height={18} />} onClick={() => onSave(true)}>
+              {t.savePrint}
+            </Button>
+            <Button size="lg" variant="outline" className="h-[3.25rem]! px-2! max-[22.5rem]:text-sm!" disabled={!cart.lines.length} onClick={() => onSave(false)}>
+              {t.saveOnly}
+            </Button>
           </div>
         )}
       </footer>
 
       {asking && (
         <PosDialog
-          title={editing ? `${t.cancelEdit}?` : t.clearTitle}
-          hint={editing ? iqd(editing.total) : t.clearHint}
+          title={t.clearTitle}
+          hint={t.clearHint}
           onClose={() => setAsking(false)}
           actions={
             <>
-              <button type="button" className="pos-btn" onClick={() => setAsking(false)}>
+              <Button variant="outline" onClick={() => setAsking(false)}>
                 {t.cancel}
-              </button>
-              <button
-                type="button"
-                className="pos-btn pos-btn-red"
+              </Button>
+              <Button
                 onClick={() => {
                   setAsking(false);
                   onClose();
                 }}
               >
-                {editing ? t.cancelEdit : t.clearYes}
-              </button>
+                {t.clearYes}
+              </Button>
             </>
           }
         />
       )}
     </section>
+  );
+}
+
+/** What an invoice adds up to. */
+export function Totals({ subtotal, discount, refunded = 0, total, rate, pieces, t }: { subtotal: number; discount: number; refunded?: number; total: number; rate: number; pieces?: number; t: PosText }) {
+  return (
+    <div className="space-y-1.5">
+      {(discount > 0 || refunded > 0) && (
+        <div className="flex justify-between gap-3 text-sm text-ink-500">
+          <span>{t.subtotal}</span>
+          <span className={cn('tabular-nums', ltrText)}>{num(subtotal)}</span>
+        </div>
+      )}
+      {discount > 0 && (
+        <div className="flex justify-between gap-3 text-sm font-medium text-brand-700">
+          <span>{t.discount}</span>
+          <span className={cn('tabular-nums', ltrText)}>{num(-discount)}</span>
+        </div>
+      )}
+      {refunded > 0 && (
+        <div className="flex justify-between gap-3 text-sm font-medium text-brand-700">
+          <span>{t.returned}</span>
+          <span className={cn('tabular-nums', ltrText)}>{num(-refunded)}</span>
+        </div>
+      )}
+      <div>
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="font-bold text-ink-900">{t.total}</span>
+          <span className={cn('whitespace-nowrap text-[28px] font-bold leading-none tabular-nums text-ink-900', ltrText)}>
+            {num(total)} <span className="text-sm font-semibold text-ink-400">IQD</span>
+          </span>
+        </div>
+        <div className="mt-1 flex items-baseline justify-between gap-3 text-[13px] text-ink-500">
+          <span>{pieces !== undefined && t.pieces(pieces)}</span>
+          <span className={cn('font-medium tabular-nums', ltrText)}>{usd(rate > 0 ? total / rate : 0)}</span>
+        </div>
+      </div>
+    </div>
   );
 }

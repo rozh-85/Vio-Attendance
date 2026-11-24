@@ -1,6 +1,6 @@
 import { priceOf } from './items';
 import { lineGross, newId, refOf, toDinars } from './logic';
-import type { PosItem, PosSettings, PosVariant, Sale, SaleDraft, SaleLine } from './types';
+import type { PosItem, PosSettings, PosVariant, SaleDraft, SaleLine } from './types';
 
 /** One open invoice. It is kept on the device, so a refresh never loses it. */
 export interface Cart {
@@ -13,8 +13,6 @@ export interface Cart {
   customerPhone: string;
   customerAddress: string;
   note: string;
-  /** The sale being changed, when it is not a new one. */
-  editing: Sale | null;
 }
 
 /** Every open invoice: while one customer decides, the next one is served. */
@@ -45,11 +43,10 @@ const emptyCart = (others: Pick<Cart, 'no'>[]): Cart => ({
   customerPhone: '',
   customerAddress: '',
   note: '',
-  editing: null,
 });
 
 export const isEmpty = (cart: Cart): boolean =>
-  !cart.editing && !cart.lines.length && !cart.customerName && !cart.customerPhone && !cart.customerAddress && !cart.note;
+  !cart.lines.length && !cart.customerName && !cart.customerPhone && !cart.customerAddress && !cart.note;
 
 const fill = (carts: Cart[]): Cart[] => {
   const next = [...carts];
@@ -74,16 +71,6 @@ export function openCart(desk: Desk): Desk {
   if (desk.carts.length >= MAX_OPEN) return desk;
   const cart = emptyCart(desk.carts);
   return { carts: [...desk.carts, cart], active: cart.id };
-}
-
-/** A past sale to change: it takes an empty place when there is one, else a new one. */
-export function openSale(desk: Desk, sale: Sale, busy: ReadonlySet<string>): Desk {
-  if (desk.carts.some((c) => c.id === sale.id)) return { ...desk, active: sale.id };
-  const empty = desk.carts.find((c) => isEmpty(c) && !busy.has(c.id));
-  const carts = empty
-    ? desk.carts.map((c) => (c.id === empty.id ? cartFromSale(sale, c.no) : c))
-    : [...desk.carts, cartFromSale(sale, freeNo(desk.carts))];
-  return { carts, active: sale.id };
 }
 
 /** Takes an invoice off the counter; two places stay open. */
@@ -176,51 +163,50 @@ export function todayPrice(item: PosItem, settings: PosSettings): { usd: number;
 }
 
 /** One more piece; the same code and colour share a line. */
-export function addItem(cart: Cart, item: PosItem, variant: PosVariant | undefined, settings: PosSettings): Cart {
+export function addItem(lines: SaleLine[], item: PosItem, variant: PosVariant | undefined, settings: PosSettings): SaleLine[] {
   const code = variant?.code ?? item.model;
   const color = variant?.color ?? '';
-  const same = cart.lines.find((l) => l.itemId === item.id && l.code === code && l.color === color);
-  if (same) return setLine(cart, same.id, { qty: Math.min(999, same.qty + 1) });
+  const same = lines.find((l) => l.itemId === item.id && l.code === code && l.color === color);
+  if (same) return changeLine(lines, same.id, { qty: Math.min(999, same.qty + 1) });
   const { usd, iqd, regular } = todayPrice(item, settings);
-  const line: SaleLine = {
-    id: newId(),
-    itemId: item.id,
-    code,
-    name: item.name,
-    ku: item.ku,
-    category: item.category,
-    color,
-    image: variant?.image ?? item.image,
-    qty: 1,
-    price: iqd,
-    discount: 0,
-    list: iqd,
-    regular,
-    usd,
-  };
-  return { ...cart, lines: [...cart.lines, line] };
+  return [
+    ...lines,
+    {
+      id: newId(),
+      itemId: item.id,
+      code,
+      name: item.name,
+      ku: item.ku,
+      category: item.category,
+      color,
+      image: variant?.image ?? item.image,
+      qty: 1,
+      price: iqd,
+      discount: 0,
+      list: iqd,
+      regular,
+      usd,
+    },
+  ];
 }
 
 /** A line changed; its discount never becomes more than the line itself. */
-export const setLine = (cart: Cart, id: string, change: Partial<SaleLine>): Cart => ({
-  ...cart,
-  lines: cart.lines.map((l) => {
+export const changeLine = (lines: SaleLine[], id: string, change: Partial<SaleLine>): SaleLine[] =>
+  lines.map((l) => {
     if (l.id !== id) return l;
     const next = { ...l, ...change };
     return { ...next, discount: Math.min(next.discount, lineGross(next)) };
-  }),
-});
+  });
 
-export const removeLine = (cart: Cart, id: string): Cart => ({ ...cart, lines: cart.lines.filter((l) => l.id !== id) });
+export const removeLine = (lines: SaleLine[], id: string): SaleLine[] => lines.filter((l) => l.id !== id);
 
 /**
  * A new dollar rate (or price list) on open invoices: a price the seller typed
- * stays as typed, the others follow. A past sale keeps the prices of its day.
+ * stays as typed, the others follow.
  */
 export function repriceDesk(desk: Desk, items: PosItem[], settings: PosSettings): Desk {
   let moved = false;
   const carts = desk.carts.map((cart) => {
-    if (cart.editing) return cart;
     const lines = cart.lines.map((line) => {
       const item = items.find((i) => i.id === line.itemId);
       if (!item) return line;
@@ -236,31 +222,18 @@ export function repriceDesk(desk: Desk, items: PosItem[], settings: PosSettings)
   return moved ? { ...desk, carts } : desk;
 }
 
-function cartFromSale(sale: Sale, no: number): Cart {
-  return {
-    id: sale.id,
-    no,
-    lines: sale.lines.map((l) => ({ ...l })),
-    customerName: sale.customerName,
-    customerPhone: sale.customerPhone,
-    customerAddress: sale.customerAddress,
-    note: sale.note,
-    editing: sale,
-  };
-}
-
 export function draftFrom(cart: Cart, seller: string, rate: number): SaleDraft {
   return {
     id: cart.id,
     ref: refOf(cart.id),
-    soldAt: cart.editing?.soldAt ?? new Date().toISOString(),
-    seller: seller || cart.editing?.seller || '',
+    soldAt: new Date().toISOString(),
+    seller,
     customerName: cart.customerName,
     customerPhone: cart.customerPhone,
     customerAddress: cart.customerAddress,
     note: cart.note,
     lines: cart.lines,
-    rate: cart.editing ? cart.editing.rate : rate,
-    device: cart.editing?.device ?? deviceName(),
+    rate,
+    device: deviceName(),
   };
 }

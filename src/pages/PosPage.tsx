@@ -1,25 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import '@/components/pos/pos.css';
 import { Bill, CustomerTabs } from '@/components/pos/Bill';
 import { ItemGrid } from '@/components/pos/ItemGrid';
 import { RateButton } from '@/components/pos/RateButton';
 import { SalesView } from '@/components/pos/SalesView';
-import { VioMark } from '@/components/pos/parts';
-import { activeCart, addItem, changeCart, closeCart, draftFrom, isEmpty, keepDesk, keepSeller, loadDesk, loadSeller, loadSellers, nextCart, openCart, openSale, rememberSeller, repriceDesk, type Cart, type Desk } from '@/services/pos/cart';
+import { Segmented, VioTile, ltrText } from '@/components/pos/ui';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/Button';
+import { activeCart, addItem, changeCart, closeCart, draftFrom, isEmpty, keepDesk, keepSeller, loadDesk, loadSeller, loadSellers, nextCart, openCart, rememberSeller, repriceDesk, type Cart, type Desk } from '@/services/pos/cart';
 import { TEXT, posErrorMessage, readLang, saveLang, type PosLang } from '@/services/pos/i18n';
 import { DEFAULT_SETTINGS, mergeItems } from '@/services/pos/items';
 import { customerOk, num, piecesOf, rateText, totalOf } from '@/services/pos/logic';
 import { printInvoice } from '@/services/pos/print';
 import { getPosStore } from '@/services/pos/store';
 import type { PosItem, PosItemChange, PosSettings, PosVariant, Sale } from '@/services/pos/types';
+import { cn } from '@/utils/cn';
 
 /**
  * The till (/pos): no sign-in. Items as cards on one side, the invoices on the
  * other — several customers at once, each with their own invoice, and a save
- * never holds up the next one. Past sales to print, return, change or delete.
- * In English and Kurdish, on a computer, a tablet and a phone, and with no
- * internet.
+ * never holds up the next one. Past sales to print, return, change or delete,
+ * all on their own page. In English and Kurdish, light and dark, on a computer,
+ * a tablet and a phone, and with no internet.
  */
 export function PosPage() {
   const store = getPosStore();
@@ -35,8 +37,7 @@ export function PosPage() {
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
   const [seller, setSellerState] = useState(loadSeller);
   const [sellers, setSellers] = useState(loadSellers);
-  const [last, setLast] = useState<{ sale: Sale; changed: boolean } | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [last, setLast] = useState<Sale | null>(null);
   const [billOpen, setBillOpen] = useState(false);
   const [today, setToday] = useState(() => new Date());
   const search = useRef<HTMLInputElement>(null);
@@ -115,7 +116,7 @@ export function PosPage() {
   }, [cart.lines]);
 
   const add = useCallback(
-    (item: PosItem, variant?: PosVariant) => change((c) => addItem(c, item, variant, settings)),
+    (item: PosItem, variant?: PosVariant) => change((c) => ({ ...c, lines: addItem(c.lines, item, variant, settings) })),
     [settings, change],
   );
 
@@ -147,13 +148,15 @@ export function PosPage() {
       if (!customerOk(current)) {
         setChecked((c) => new Set(c).add(current.id));
         setErrors((e) => ({ ...e, [current.id]: t.errors.CUSTOMER_REQUIRED }));
-        const field = document.getElementById(current.customerName.trim() ? 'pos-phone' : 'pos-name');
-        field?.scrollIntoView({ block: 'center' });
-        field?.focus();
+        setBillOpen(true);
+        requestAnimationFrame(() => {
+          const box = document.getElementById(current.customerName.trim() ? 'pos-phone' : 'pos-name');
+          box?.scrollIntoView({ block: 'center' });
+          box?.focus();
+        });
         return;
       }
       const draft = draftFrom(current, seller, settings.rate);
-      const changed = !!current.editing;
       markSaving(current.id, true);
       setErrors((e) => ({ ...e, [current.id]: '' }));
       setLast(null);
@@ -161,11 +164,11 @@ export function PosPage() {
       setDesk((d) => nextCart(d, savingRef.current));
       setBillOpen(false);
       try {
-        const sale = changed ? await store.update(current.id, draft) : await store.save(draft);
+        const sale = await store.save(draft);
         markSaving(current.id, false);
         setDesk((d) => closeCart(d, current.id));
         setSellers(rememberSeller(seller));
-        setLast({ sale, changed });
+        setLast(sale);
         if (print) await printInvoice(sale, settings, items);
       } catch (err) {
         markSaving(current.id, false);
@@ -198,24 +201,8 @@ export function PosPage() {
     return () => document.removeEventListener('keydown', onKey);
   }, [view, save]);
 
-  function startEditing(sale: Sale) {
-    setDesk((d) => openSale(d, sale, savingRef.current));
-    setLast(null);
-    setView('sell');
-    setBillOpen(true);
-  }
-
-  function closeActive() {
-    const editing = cart.editing;
-    setDesk((d) => closeCart(d, cart.id));
-    setErrors((e) => ({ ...e, [cart.id]: '' }));
-    if (!editing) return;
-    setOpenId(editing.id);
-    setBillOpen(false);
-    setView('sales');
-  }
-
-  const state = status.state === 'offline' ? t.offline : status.state === 'online' && !status.waiting ? t.online : t.onDevice;
+  const online = status.state === 'online' && !status.waiting;
+  const state = status.state === 'offline' ? t.offline : online ? t.online : t.onDevice;
   const strip =
     status.state === 'setup'
       ? t.setupNote
@@ -227,49 +214,70 @@ export function PosPage() {
             ? t.rateNotSet(rateText(settings.rate))
             : '';
   const tabs = (
-    <CustomerTabs
-      desk={desk}
-      saving={saving}
-      errors={errors}
-      onChoose={(id) => setDesk((d) => ({ ...d, active: id }))}
-      onAdd={() => setDesk((d) => openCart(d))}
-      t={t}
-    />
+    <CustomerTabs desk={desk} saving={saving} errors={errors} onChoose={(id) => setDesk((d) => ({ ...d, active: id }))} onAdd={() => setDesk((d) => openCart(d))} t={t} />
   );
-  const rateButton = <RateButton rate={settings.rate} isSet={settings.rateSet || !ready} onSave={setRate} t={t} />;
+  const rateButton = (className?: string) => <RateButton rate={settings.rate} isSet={settings.rateSet || !ready} onSave={setRate} t={t} className={className} />;
 
   return (
-    <div className="pos" dir={lang === 'ku' ? 'rtl' : 'ltr'} lang={lang === 'ku' ? 'ckb' : 'en'}>
-      <header className="pos-top">
-        <span className="pos-tab">
-          <VioMark />
-        </span>
-        <nav className="pos-nav" aria-label="POS">
-          <button type="button" aria-current={view === 'sell' ? 'page' : undefined} onClick={() => setView('sell')}>
-            {t.sell}
-          </button>
-          <button type="button" aria-current={view === 'sales' ? 'page' : undefined} onClick={() => { setOpenId(null); setView('sales'); }}>
-            {t.sales}
-          </button>
-        </nav>
-        <div className="pos-top-end">
-          <span className="date num">{format(today, 'EEE d MMM yyyy')}</span>
-          <span className="state">{state}</span>
-          <span className="rate">{rateButton}</span>
-          <span className="pos-lang" role="group" aria-label="Language">
-            {(['en', 'ku'] as const).map((l) => (
-              <button key={l} type="button" lang={l === 'ku' ? 'ckb' : 'en'} aria-pressed={lang === l} onClick={() => { setLang(l); saveLang(l); }}>
-                {l === 'en' ? 'English' : 'کوردی'}
-              </button>
-            ))}
+    <div className="flex h-dvh flex-col bg-surface text-ink-900" dir={lang === 'ku' ? 'rtl' : 'ltr'} lang={lang === 'ku' ? 'ckb' : 'en'}>
+      <header className="z-30 flex h-16 shrink-0 items-center gap-2.5 border-b border-slate-200 bg-card px-3 sm:gap-4 sm:px-4 lg:px-6">
+        <VioTile className="size-10" />
+        <span className="hidden text-lg font-bold lg:inline">Vio POS</span>
+        <Segmented<'sell' | 'sales'>
+          label="Vio POS"
+          value={view}
+          options={[
+            { id: 'sell', label: t.sell },
+            { id: 'sales', label: t.sales },
+          ]}
+          onChange={setView}
+          className="lg:ms-3"
+        />
+        <div className="ms-auto flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <span className={cn('hidden whitespace-nowrap text-sm text-ink-500 min-[86rem]:inline', ltrText)}>{format(today, 'EEE d MMM yyyy')}</span>
+          <span className="hidden items-center gap-2 whitespace-nowrap text-sm text-ink-500 min-[76rem]:inline-flex">
+            <span className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-amber-500')} />
+            {state}
           </span>
+          {rateButton('max-md:hidden')}
+          <div className="hidden sm:block">
+            <Segmented<PosLang>
+              small
+              label="Language"
+              value={lang}
+              options={[
+                { id: 'en', label: 'English' },
+                { id: 'ku', label: 'کوردی' },
+              ]}
+              onChange={(l) => {
+                setLang(l);
+                saveLang(l);
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            className="h-10 shrink-0 rounded-xl border border-slate-200 bg-card px-3 text-sm font-semibold text-ink-700 sm:hidden"
+            onClick={() => {
+              const next = lang === 'en' ? 'ku' : 'en';
+              setLang(next);
+              saveLang(next);
+            }}
+          >
+            {lang === 'en' ? 'کوردی' : 'English'}
+          </button>
+          <ThemeToggle variant="icon" className="max-sm:hidden" />
         </div>
       </header>
-      {strip && <div className="pos-strip" role="status">{strip}</div>}
+      {strip && (
+        <div role="status" className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 lg:px-6">
+          {strip}
+        </div>
+      )}
 
       {view === 'sell' ? (
-        <div className="pos-sell">
-          <ItemGrid items={items} settings={settings} counts={counts} onAdd={add} lang={lang} t={t} searchRef={search} rate={<span className="rate-phone">{rateButton}</span>} />
+        <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_340px] md:grid-rows-1 md:gap-3 md:pe-3 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:p-5 min-[90rem]:grid-cols-[216px_minmax(0,1fr)_436px] min-[137rem]:grid-cols-[248px_minmax(0,1fr)_520px] md:max-lg:py-3">
+          <ItemGrid items={items} settings={settings} counts={counts} onAdd={add} lang={lang} t={t} searchRef={search} rate={rateButton('md:hidden [&>span]:hidden')} />
           <Bill
             cart={cart}
             change={change}
@@ -285,7 +293,10 @@ export function PosPage() {
             checked={checked.has(cart.id)}
             onSave={(print) => void save(print)}
             onPrint={(sale) => void printInvoice(sale, settings, items)}
-            onClose={closeActive}
+            onClose={() => {
+              setDesk((d) => closeCart(d, cart.id));
+              setErrors((e) => ({ ...e, [cart.id]: '' }));
+            }}
             onBack={() => setBillOpen(false)}
             findCustomer={findCustomer}
             open={billOpen}
@@ -293,31 +304,30 @@ export function PosPage() {
             lang={lang}
             t={t}
           />
-          <div className="pos-bar">
+          {/* A phone keeps the customers and the total in reach; the invoice opens over the items. */}
+          <div className="border-t border-slate-200 bg-card pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgb(15_23_42/0.06)] md:hidden">
             {tabs}
             {last && (
-              <div className="pos-note" role="status">
-                <span>{last.changed ? t.changed(last.sale.saleNo ? String(last.sale.saleNo) : last.sale.ref) : t.saved(last.sale.saleNo ? String(last.sale.saleNo) : last.sale.ref)}</span>
-                <button type="button" className="pos-link" onClick={() => void printInvoice(last.sale, settings, items)}>
-                  {t.printAgain}
-                </button>
-              </div>
-            )}
-            <div className="pos-bar-go">
-              <span>
-                {t.total} · {t.pieces(piecesOf(cart.lines))}
-                <b className="num">
-                  {num(totalOf(cart.lines))} <em>IQD</em>
-                </b>
-              </span>
-              <button type="button" className="pos-btn pos-btn-red" onClick={() => setBillOpen(true)}>
-                {t.openBill}
+              <button type="button" onClick={() => void printInvoice(last, settings, items)} className="flex w-full items-center justify-between gap-3 border-t border-emerald-100 bg-emerald-50 px-4 py-2 text-start text-sm font-semibold text-emerald-800">
+                <span className="min-w-0 truncate">{t.saved(last.saleNo ? String(last.saleNo) : last.ref)}</span>
+                <span className="shrink-0 underline underline-offset-4">{t.printAgain}</span>
               </button>
+            )}
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
+              <div className="min-w-0">
+                <div className={cn('whitespace-nowrap text-xl font-bold leading-tight tabular-nums', ltrText)}>
+                  {num(totalOf(cart.lines))} <span className="text-xs font-semibold text-ink-400">IQD</span>
+                </div>
+                <div className="text-[13px] text-ink-500">{t.pieces(piecesOf(cart.lines))}</div>
+              </div>
+              <Button size="lg" className="h-12!" onClick={() => setBillOpen(true)}>
+                {t.openBill}
+              </Button>
             </div>
           </div>
-        </div>
+        </main>
       ) : (
-        <SalesView store={store} items={items} settings={settings} seller={seller} openId={openId} onEdit={startEditing} lang={lang} t={t} />
+        <SalesView store={store} items={items} settings={settings} seller={seller} lang={lang} t={t} />
       )}
     </div>
   );

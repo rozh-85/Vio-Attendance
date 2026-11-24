@@ -1,0 +1,7 @@
+/* Montserrat, Vio's own letters, for what the till prints on A4. Only the
+   Latin letters and figures; Kurdish comes from Rabar (src/index.css). The
+   files download the first time something is printed. */
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-400.woff') format('woff'); font-weight: 400; font-display: swap; unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026, U+20AC, U+2122, U+2190, U+2192, U+2212; }
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-500.woff') format('woff'); font-weight: 500; font-display: swap; unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026, U+20AC, U+2122, U+2190, U+2192, U+2212; }
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-600.woff') format('woff'); font-weight: 600; font-display: swap; unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026, U+20AC, U+2122, U+2190, U+2192, U+2212; }
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-700.woff') format('woff'); font-weight: 700; font-display: swap; unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026, U+20AC, U+2122, U+2190, U+2192, U+2212; }

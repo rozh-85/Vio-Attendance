@@ -382,9 +382,10 @@ English and Kurdish, on a computer, a tablet and a phone.
 - **A4 invoice** in English and Kurdish: Vio Company, the customer, the items
   with photos, quantity, price, discount, total, the date and the **2-year
   guarantee** with its last day. Also an A4 return note.
-- **Past sales**: search by number, customer, mobile or model; print again,
-  return some or all (and undo it), change, delete. A deleted sale is only
-  marked deleted.
+- **Past sales**: search by number, customer, mobile or model, with print,
+  return, edit and delete on every row. Each opens in a panel on the same page,
+  so an open sale on the till is left alone. A deleted sale is only marked
+  deleted; a sale with a return is edited once the return is undone.
 - **No internet:** sales wait on the device and are sent by themselves later,
   under the same id, so none is saved twice.
 

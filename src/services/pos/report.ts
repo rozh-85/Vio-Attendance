@@ -17,11 +17,11 @@ export const REPORT_PERIODS: { id: ReportPeriod; label: string }[] = [
   { id: 'month', label: 'This month' },
   { id: 'lastMonth', label: 'Last month' },
   { id: 'all', label: 'All time' },
+  { id: 'days', label: 'Dates' },
 ];
 
-/** Every kind of sale the report can be narrowed to. */
+/** Every kind of sale the report can be narrowed to. Deleted sales show only when they are asked for. */
 export const REPORT_STATUSES = [
-  { id: '', label: 'All sales' },
   { id: 'sold', label: 'Not returned' },
   { id: 'part', label: 'Part returned' },
   { id: 'returned', label: 'Returned' },
@@ -33,16 +33,17 @@ export const REPORT_STATUSES = [
 
 export type ReportStatus = (typeof REPORT_STATUSES)[number]['id'];
 
+/** Each list holds the values to keep; an empty list keeps every value. */
 export interface ReportFilters {
   period: ReportPeriod;
   /** `yyyy-MM-dd`, for `days`. */
   from: string;
   to: string;
   query: string;
-  item: string;
-  category: string;
-  seller: string;
-  status: ReportStatus;
+  items: string[];
+  categories: string[];
+  sellers: string[];
+  statuses: ReportStatus[];
 }
 
 export const EMPTY_FILTERS: ReportFilters = {
@@ -50,11 +51,15 @@ export const EMPTY_FILTERS: ReportFilters = {
   from: '',
   to: '',
   query: '',
-  item: '',
-  category: '',
-  seller: '',
-  status: '',
+  items: [],
+  categories: [],
+  sellers: [],
+  statuses: [],
 };
+
+/** How many lists are narrowed. */
+export const activeFilters = (f: ReportFilters): number =>
+  [f.items, f.categories, f.sellers, f.statuses].filter((l) => l.length).length + (f.query.trim() ? 1 : 0);
 
 const key = (date: Date): string => format(date, 'yyyy-MM-dd');
 
@@ -97,19 +102,13 @@ export const isEdited = (sale: Sale): boolean => sale.history.some((h) => h.acti
 export const isRaised = (line: SaleLine): boolean => line.price > line.list;
 
 const lineMatches = (line: SaleLine, f: ReportFilters): boolean =>
-  (!f.item || line.itemId === f.item) && (!f.category || line.category === f.category);
+  (!f.items.length || f.items.includes(line.itemId)) && (!f.categories.length || f.categories.includes(line.category));
 
-/** Everything but the days. */
-function saleMatches(sale: Sale, f: ReportFilters): boolean {
-  if (f.status === 'deleted' ? !sale.deletedAt : sale.deletedAt) return false;
-  if (f.seller && (sale.seller || '—') !== f.seller) return false;
-  if (!matchesSale(sale, f.query)) return false;
-  if (!sale.lines.some((l) => lineMatches(l, f))) return false;
-  switch (f.status) {
-    case 'sold':
-    case 'part':
-    case 'returned':
-      return saleStatus(sale) === f.status;
+/** The seller as it is listed: a sale with none written has a dash. */
+export const sellerOf = (sale: Sale): string => sale.seller || '—';
+
+function isKind(sale: Sale, kind: ReportStatus): boolean {
+  switch (kind) {
     case 'discount':
       return sale.lines.some((l) => l.discount > 0);
     case 'raised':
@@ -117,8 +116,17 @@ function saleMatches(sale: Sale, f: ReportFilters): boolean {
     case 'edited':
       return isEdited(sale);
     default:
-      return true;
+      return saleStatus(sale) === kind;
   }
+}
+
+/** Everything but the days. */
+function saleMatches(sale: Sale, f: ReportFilters): boolean {
+  if (sale.deletedAt && !f.statuses.includes('deleted')) return false;
+  if (f.sellers.length && !f.sellers.includes(sellerOf(sale))) return false;
+  if (!matchesSale(sale, f.query)) return false;
+  if (!sale.lines.some((l) => lineMatches(l, f))) return false;
+  return !f.statuses.length || f.statuses.some((k) => isKind(sale, k));
 }
 
 /** The invoices of the period, newest first. */
@@ -328,11 +336,12 @@ export function buildReport(sales: Sale[], f: ReportFilters): Report {
 
 /** What the report is narrowed to, in words. */
 export function describeFilters(f: ReportFilters, itemName: (id: string) => string, category: (id: string) => string): string {
+  const list = (label: string, values: string[]) => values.length > 0 && `${label}: ${values.join(', ')}`;
   return [
-    f.item && `Item: ${itemName(f.item)}`,
-    f.category && `Category: ${category(f.category)}`,
-    f.seller && `Seller: ${f.seller}`,
-    f.status && REPORT_STATUSES.find((s) => s.id === f.status)?.label,
+    list('Item', f.items.map(itemName)),
+    list('Category', f.categories.map(category)),
+    list('Seller', f.sellers.map((s) => (s === '—' ? 'none written' : s))),
+    list('Sales', f.statuses.map((k) => REPORT_STATUSES.find((s) => s.id === k)?.label ?? k)),
     f.query.trim() && `Search: ${f.query.trim()}`,
   ]
     .filter(Boolean)
