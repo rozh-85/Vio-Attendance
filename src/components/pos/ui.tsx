@@ -173,13 +173,13 @@ export function StatusBadge({ status, t }: { status: SaleStatus; t: PosText }) {
 }
 
 /** − 2 + : the number can be typed too. */
-export function Stepper({ value, min, max, onChange, t, disabled, wide }: { value: number; min: number; max: number; onChange: (n: number) => void; t: PosText; disabled?: boolean; /** Fills its column. */ wide?: boolean }) {
+export function Stepper({ value, min, max, onChange, t, disabled }: { value: number; min: number; max: number; onChange: (n: number) => void; t: PosText; disabled?: boolean }) {
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
   const set = (n: number) => onChange(Math.max(min, Math.min(max, n)));
-  const step = cn('grid h-full shrink-0 place-items-center text-lg text-ink-500 transition hover:bg-slate-100 hover:text-ink-900 disabled:text-ink-300 disabled:hover:bg-transparent', wide ? 'w-8' : 'w-9');
+  const step = 'grid h-full w-9 shrink-0 place-items-center text-lg text-ink-500 transition hover:bg-slate-100 hover:text-ink-900 disabled:text-ink-300 disabled:hover:bg-transparent';
   return (
-    <div className={cn('flex h-10 overflow-hidden rounded-xl border border-slate-200 bg-card [direction:ltr] focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/30', wide ? 'w-full' : 'w-max')}>
+    <div className="flex h-10 w-max overflow-hidden rounded-xl border border-slate-200 bg-card [direction:ltr] focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/30">
       <button type="button" className={step} aria-label={t.less} disabled={disabled || value <= min} onClick={() => set(value - 1)}>
         −
       </button>
@@ -195,7 +195,7 @@ export function Stepper({ value, min, max, onChange, t, disabled, wide }: { valu
           if (digits && Number(digits) >= min) set(Number(digits));
         }}
         onBlur={() => setText(String(value))}
-        className={cn('h-full bg-transparent text-center text-base font-semibold tabular-nums text-ink-900 focus:outline-none sm:text-sm', wide ? 'w-0 min-w-0 flex-1' : 'w-9')}
+        className="h-full w-9 bg-transparent text-center text-base font-semibold tabular-nums text-ink-900 focus:outline-none sm:text-sm"
       />
       <button type="button" className={step} aria-label={t.more} disabled={disabled || value >= max} onClick={() => set(value + 1)}>
         +
