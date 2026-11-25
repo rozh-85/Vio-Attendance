@@ -1,25 +1,25 @@
 import '@/components/pos/print-fonts.css';
 import { formatPhone } from '@/services/repairs/logic';
 import { colorName, photo } from './items';
-import { guaranteeEnd, lineTotal, netTotal, num, paidFor, piecesOf, rateText, returnedQty, saleLabel, showDay, showTime, usd } from './logic';
+import { guaranteeEnd, lineTotal, netTotal, num, paidFor, piecesOf, returnedQty, saleLabel, showDay, showTime, usd } from './logic';
 import { vioMarkSvg } from './logo';
 import type { PosItem, PosSettings, Sale, SaleLine, SaleReturn } from './types';
 
 /**
- * The A4 invoice and return note, in English and Kurdish, in dinars. One grid
- * runs down the page: the left edge of the logo, the customer, the items and
- * the guarantee is the same line, and so is the right edge of everything in
- * figures. Pages are cut here rather than by the browser, so every page has its
- * own heading and footer and prints the same from a computer, a tablet or a
- * phone; the page margin is zero, which keeps the browser's own address and
- * date off the paper.
+ * The A4 invoice and return note, in Kurdish, right to left, in dinars. A red
+ * band with the company on top; who bought and the invoice's own facts under
+ * it; a red bar over the items, each with its photo; then the guarantee beside
+ * the totals, the total also in words. Pages are cut here rather than by the
+ * browser, so every page has its own band and footer and prints the same from
+ * a computer, a tablet or a phone; the page margin is zero, which keeps the
+ * browser's own address and date off the paper.
  */
 
 export const esc = (value: string) =>
   value.replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c] ?? c);
 
 /** Rows an A4 page holds: with the totals under them (in full or smaller rows), without, and on later pages. */
-const ROWS = { only: 5, compact: 7, first: 11, middle: 11, last: 5 } as const;
+const ROWS = { only: 6, compact: 8, first: 12, middle: 12, last: 6 } as const;
 
 /** The fewest rows left for the page with the totals. */
 const KEEP = 2;
@@ -39,175 +39,220 @@ function pagesOf<T>(rows: T[], less: number): T[][] {
   return pages;
 }
 
+// ── Dinars in Kurdish words ──────────────────────────────────────────────────
+
+const ONES = ['', 'یەک', 'دوو', 'سێ', 'چوار', 'پێنج', 'شەش', 'حەوت', 'هەشت', 'نۆ', 'دە', 'یازدە', 'دوازدە', 'سێزدە', 'چواردە', 'پازدە', 'شازدە', 'حەڤدە', 'هەژدە', 'نۆزدە'];
+const TENS = ['', '', 'بیست', 'سی', 'چل', 'پەنجا', 'شەست', 'حەفتا', 'هەشتا', 'نەوەد'];
+const HUNDREDS = ['', 'سەد', 'دووسەد', 'سێسەد', 'چوارسەد', 'پێنجسەد', 'شەشسەد', 'حەوتسەد', 'هەشتسەد', 'نۆسەد'];
+
+function underThousand(n: number): string {
+  const parts: string[] = [];
+  const rest = n % 100;
+  if (n >= 100) parts.push(HUNDREDS[Math.floor(n / 100)]);
+  if (rest >= 20) parts.push(TENS[Math.floor(rest / 10)], ONES[rest % 10]);
+  else parts.push(ONES[rest]);
+  return parts.filter(Boolean).join(' و ');
+}
+
+/** 135250 → سەد و سی و پێنج هەزار و دووسەد و پەنجا */
+export function kurdishWords(amount: number): string {
+  let n = Math.round(Math.abs(amount));
+  if (!n) return 'سفر';
+  const parts: string[] = [];
+  for (const [size, name] of [[1e9, 'ملیار'], [1e6, 'ملیۆن'], [1e3, 'هەزار']] as const) {
+    const k = Math.floor(n / size);
+    if (k) parts.push(k === 1 && size === 1e3 ? name : `${underThousand(k)} ${name}`);
+    n %= size;
+  }
+  if (n) parts.push(underThousand(n));
+  return parts.join(' و ');
+}
+
+// ── The look ─────────────────────────────────────────────────────────────────
+
 export const INVOICE_CSS = `
 .pv,.pv *{box-sizing:border-box;margin:0;padding:0}
-.pv{--ink:#111827;--mid:#4B5563;--soft:#6B7280;--line:#E5E7EB;--panel:#F6F7F9;--red:#A5292B;font-family:'Montserrat','Rabar 013',Arial,sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;font-variant-numeric:tabular-nums lining-nums}
-.pv-page{width:210mm;height:296.8mm;padding:13mm 14mm 10mm;background:#fff;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page;font-size:9pt;line-height:1.4}
+.pv{--ink:#111827;--mid:#4B5563;--soft:#6B7280;--line:#E2E5EA;--rule:#9CA3AF;--panel:#F5F6F8;--red:#A5292B;font-family:'Montserrat','Rabar 013',Tahoma,sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;font-variant-numeric:tabular-nums lining-nums}
+.pv-page{direction:rtl;width:210mm;height:296.8mm;padding:10mm 12mm 9mm;background:#fff;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page;font-size:9.4pt;line-height:1.45}
 .pv-page:last-child{page-break-after:auto;break-after:auto}
-.pv .ku{font-family:'Rabar 013',Tahoma,sans-serif;direction:rtl;unicode-bidi:isolate}
 .pv .ltr{direction:ltr;unicode-bidi:isolate}
+.pv svg.i{width:3.6mm;height:3.6mm;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-.pv-head{display:flex;align-items:center;justify-content:space-between;gap:8mm;flex:none}
-.pv-brand{display:flex;align-items:center;gap:4.5mm;min-width:0}
-.pv-logo{flex:none;width:21mm;height:21mm;border-radius:4.5mm;background:var(--red);display:flex;align-items:center;justify-content:center}
-.pv-co b{display:block;font-size:13pt;font-weight:700;line-height:1.25}
-.pv-co div{font-size:8.2pt;color:var(--soft);line-height:1.5}
-.pv-title{text-align:right;flex:none}
-.pv-title b{display:block;font-size:25pt;font-weight:700;line-height:1.05;letter-spacing:-.02em}
-.pv-title span{display:block;margin-top:1mm;font-size:11.5pt;color:var(--soft);line-height:1.4}
+.pv-band{flex:none;background:var(--red);color:#fff;border-radius:2.6mm;padding:5.4mm 6mm 3.8mm}
+.pv-band-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4mm}
+.pv-band-top .s{font-size:12.5pt;font-weight:500;white-space:nowrap}
+.pv-band-top .e{text-align:left;font-size:9.6pt;font-weight:500;color:rgba(255,255,255,.88);white-space:nowrap}
+.pv-mark{display:flex;align-items:center;gap:3.6mm;direction:ltr}
+.pv-mark b{font-size:21pt;font-weight:700;letter-spacing:.06em;line-height:1}
+.pv-contacts{display:flex;justify-content:space-between;gap:6mm;margin-top:4.6mm;font-size:8.6pt;color:rgba(255,255,255,.92)}
+.pv-contacts span{display:flex;align-items:center;gap:1.6mm;white-space:nowrap;min-width:0}
 
-.pv-info{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:8mm;flex:none}
-.pv-card{border-radius:3.5mm;background:var(--panel);padding:4.6mm 5mm}
-.pv-cap{display:flex;justify-content:space-between;align-items:baseline;gap:3mm;font-size:7.6pt;font-weight:500;color:var(--soft);line-height:1.3;white-space:nowrap}
-.pv-cap .ku{font-size:8.6pt}
-.pv-who{display:flex;flex-direction:column}
-.pv-name{margin-top:1.6mm;font-size:14pt;font-weight:700;line-height:1.3;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.pv-who p{margin-top:1.4mm;font-size:9.6pt;font-weight:500;color:var(--mid);text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.pv-facts{display:grid;grid-template-columns:1fr 1fr;gap:3.6mm 4mm;align-content:space-between}
-.pv-facts b{display:block;margin-top:.6mm;font-size:9.6pt;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.pv-meta{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:8mm;margin-top:6.4mm;padding:0 2mm}
+.pv-meta p{display:flex;align-items:center;gap:1.8mm;line-height:1.5}
+.pv-meta svg.i{color:var(--soft)}
+.pv-who .n{font-size:12.5pt;font-weight:700}
+.pv-who .t{margin-top:.6mm;font-size:10.4pt;font-weight:600}
+.pv-who .a{margin-top:.4mm;font-size:9pt;color:var(--mid);max-width:95mm}
+.pv-ref{text-align:left}
+.pv-ref b{display:block;font-size:12.5pt;font-weight:700;line-height:1.4}
+.pv-ref span{display:block;margin-top:.6mm;font-size:9.4pt;font-weight:500;color:var(--mid)}
 
-.pv-table{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm;table-layout:fixed;flex:none}
-.pv-table th{background:var(--panel);color:var(--ink);font-size:8.2pt;font-weight:600;text-align:left;line-height:1.25;padding:2.5mm 2.4mm 2.4mm;white-space:nowrap;vertical-align:middle}
-.pv-table th .ku{display:block;font-size:8.4pt;font-weight:400;color:var(--soft);line-height:1.3}
-.pv-table th:not(.r):not(.c) .ku{text-align:left}
-.pv-table th:first-child{border-radius:2.6mm 0 0 2.6mm;padding-left:4mm}
-.pv-table th:last-child{border-radius:0 2.6mm 2.6mm 0;padding-right:4mm}
-.pv-table td{height:16.4mm;padding:0 2.4mm;border-bottom:.35pt solid var(--line);vertical-align:middle;overflow:hidden}
-.pv-table td:first-child{padding-left:4mm}.pv-table td:last-child{padding-right:4mm}
-.pv-table tr:last-child td{border-bottom:0}
-.pv-table .r{text-align:right}.pv-table .c{text-align:center}
-.pv-pic{display:flex;align-items:center;justify-content:center;width:13mm;height:13mm;border-radius:2.4mm;background:var(--panel)}
-.pv-pic img{width:11mm;height:11mm;object-fit:contain;display:block}
-.pv-table.compact td{height:14mm}.pv-table.compact .pv-pic{width:11.2mm;height:11.2mm}.pv-table.compact .pv-pic img{width:9.4mm;height:9.4mm}
-.pv-it b{display:block;font-size:10pt;font-weight:700;line-height:1.3;white-space:nowrap}
-.pv-it small{display:block;font-size:8pt;color:var(--mid);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pv-it small .ku{font-size:8.8pt;margin-left:1.6mm;color:var(--soft)}
-.pv-table.compact .pv-it b{font-size:9.4pt;line-height:1.22}.pv-table.compact .pv-it small{font-size:7.5pt;line-height:1.28}.pv-table.compact .pv-it small .ku{font-size:8pt}
-.pv-table td.q{font-size:10pt;font-weight:600}
-.pv-table td.p{font-size:9.4pt;font-weight:500;color:var(--mid)}
-.pv-table td s{display:block;font-size:7.6pt;font-weight:400;color:#9CA3AF;line-height:1.25}
-.pv-table td.d{font-size:9.4pt;color:var(--red);font-weight:600}
-.pv-table td.a{font-weight:700;font-size:10.4pt}
-.pv-back{display:block;font-size:7pt;font-weight:600;color:var(--red);line-height:1.25;white-space:nowrap}
+.pv-bar{flex:none;display:flex;justify-content:space-between;align-items:center;gap:6mm;margin-top:5.4mm;background:var(--red);color:#fff;border-radius:2.2mm;padding:2.4mm 5mm;font-size:11pt;font-weight:600}
+.pv-bar span:last-child{font-size:9.6pt;font-weight:500;color:rgba(255,255,255,.88)}
 
-.pv-end{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:5mm;align-items:stretch;flex:none}
-.pv-g{border-radius:3.5mm;border:.5pt solid var(--line);padding:4.6mm 5mm;display:flex;flex-direction:column}
-.pv-g h3{display:flex;justify-content:space-between;align-items:baseline;gap:3mm;font-size:11.5pt;font-weight:700;color:var(--red);line-height:1.3;white-space:nowrap}
-.pv-g h3 .ku{font-size:12.5pt;font-weight:400}
-.pv-g dl{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-top:2.8mm}
-.pv-g dl>div{border-radius:2.4mm;background:var(--panel);padding:2.2mm 3mm}
-.pv-g dd{margin-top:.4mm;font-size:10pt;font-weight:600}
-.pv-g p{margin-top:2.8mm;font-size:7.6pt;line-height:1.5;color:var(--mid)}
-.pv-g p.ku{font-size:8.8pt;margin-top:1mm;line-height:1.6}
-.pv-sum{display:flex;flex-direction:column;border-radius:3.5mm;border:.5pt solid var(--line);overflow:hidden}
-.pv-rows{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;padding:2.2mm 0}
-.pv-sum .l{display:flex;justify-content:space-between;align-items:baseline;gap:3mm;padding:1.2mm 4mm 1.2mm 5mm;font-size:9.4pt}
-.pv-sum .l span:first-child{color:var(--soft);white-space:nowrap}
-.pv-sum .l .ku{font-size:9pt;margin-left:1.6mm}
-.pv-sum .l b{font-weight:600;white-space:nowrap}
-.pv-sum .l.red b{color:var(--red)}
-.pv-total{flex:none;background:var(--red);color:#fff;padding:4.2mm 4mm 4.4mm 5mm}
-.pv-total .pv-cap{color:rgba(255,255,255,.82);font-size:8.6pt}
-.pv-total .pv-cap .ku{font-size:9.4pt}
-.pv-total .v{display:flex;justify-content:space-between;align-items:baseline;gap:3mm;margin-top:1.2mm}
-.pv-total b{font-size:21pt;font-weight:700;line-height:1.1;letter-spacing:-.01em;white-space:nowrap}
-.pv-total b em{font-style:normal;font-size:9.5pt;font-weight:600;letter-spacing:0}
-.pv-total i{font-style:normal;font-size:10pt;font-weight:600;color:rgba(255,255,255,.88);white-space:nowrap}
-.pv-note{margin-top:4mm;border-radius:3.5mm;background:var(--panel);padding:3.2mm 5mm;font-size:8.6pt;color:var(--mid);flex:none}
-.pv-note b{font-weight:600;color:var(--ink);margin-right:2mm}
+.pv-table{flex:none;width:100%;border-collapse:collapse;table-layout:fixed;margin-top:2.4mm}
+.pv-table th{color:var(--red);font-size:9.2pt;font-weight:600;text-align:right;line-height:1.3;padding:2mm 2.4mm 1.8mm;border-bottom:.9pt solid var(--rule);white-space:nowrap}
+.pv-table td{height:15.4mm;padding:1.2mm 2.4mm;border-bottom:.5pt solid var(--line);vertical-align:middle;overflow:hidden}
+.pv-table th+th,.pv-table td+td{border-right:.5pt solid var(--line)}
+.pv-table .c{text-align:center}
+.pv-table td.v{font-size:9.6pt;font-weight:500;white-space:nowrap}
+.pv-table td.q{font-size:10.4pt;font-weight:700}
+.pv-table td.d{color:var(--red);font-weight:600}
+.pv-table td.a{font-size:10pt;font-weight:700}
+.pv-table td s{display:block;font-size:7.6pt;font-weight:400;color:#9CA3AF;line-height:1.2}
+.pv-table td.k{font-size:9.6pt;font-weight:700;white-space:nowrap}
+.pv-cur{font-size:7.6pt;font-weight:500;color:var(--soft);margin-right:.8mm}
+.pv-pic{display:flex;align-items:center;justify-content:center;width:12.4mm;height:12.4mm;border-radius:2.2mm;background:var(--panel)}
+.pv-pic img{width:10.6mm;height:10.6mm;object-fit:contain;display:block}
+.pv-table.compact td{height:13.2mm}.pv-table.compact .pv-pic{width:10.6mm;height:10.6mm}.pv-table.compact .pv-pic img{width:9mm;height:9mm}
+.pv-it b{display:block;font-size:9.6pt;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:right}
+.pv-it small{display:block;font-size:8.8pt;color:var(--mid);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pv-back{display:block;font-size:7.4pt;font-weight:600;color:var(--red);line-height:1.2;white-space:nowrap}
 
-.pv-sign{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:auto;flex:none}
-.pv-sign>div{margin-top:16mm;border-top:.5pt solid #9CA3AF;padding-top:1.8mm}
-.pv-foot{display:flex;justify-content:space-between;gap:6mm;margin-top:6mm;padding-top:2.6mm;border-top:.35pt solid var(--line);font-size:7.4pt;color:var(--soft);flex:none}
+.pv-end{flex:none;display:grid;grid-template-columns:1fr 1fr;gap:9mm;margin-top:6mm;align-items:start}
+.pv-g{border-radius:3mm;border:.5pt solid var(--line);padding:4.2mm 5mm}
+.pv-g h3{font-size:11.5pt;font-weight:700;color:var(--red);line-height:1.3}
+.pv-g dl{display:grid;grid-template-columns:1fr 1fr;gap:2.6mm;margin-top:2.6mm}
+.pv-g dl>div{border-radius:2.2mm;background:var(--panel);padding:2mm 3mm}
+.pv-g dt{font-size:8.4pt;color:var(--soft)}
+.pv-g dd{font-size:10pt;font-weight:600}
+.pv-g p{margin-top:2.6mm;font-size:8.8pt;line-height:1.6;color:var(--mid)}
+.pv-sum .r{display:flex;justify-content:space-between;align-items:baseline;gap:4mm;padding:2.3mm 1mm;border-bottom:.8pt solid var(--rule);font-size:10pt}
+.pv-sum .r>span:first-child{font-weight:600;white-space:nowrap}
+.pv-sum .r b{font-weight:600;white-space:nowrap}
+.pv-sum .r.red b{color:var(--red)}
+.pv-sum .r i{font-style:normal;font-size:8.8pt;color:var(--red);margin-left:1.4mm}
+.pv-sum .t{padding:3mm 1mm 2.6mm;border-bottom:.8pt solid var(--rule)}
+.pv-sum .t .r{padding:0;border:0;align-items:center}
+.pv-sum .t b{font-size:21pt;font-weight:700;color:var(--red);line-height:1.1;letter-spacing:-.01em}
+.pv-sum .t b .pv-cur{font-size:11pt;color:var(--red);font-weight:600}
+.pv-sum .t i{font-size:9.6pt;font-weight:600}
+.pv-sum .w{margin-top:1.4mm;font-size:9.4pt;font-weight:500;color:var(--mid);text-align:left}
+.pv-note{flex:none;margin-top:4mm;border-radius:2.6mm;background:var(--panel);padding:3mm 5mm;font-size:9pt;color:var(--mid)}
+.pv-note b{font-weight:600;color:var(--ink);margin-left:2mm}
+
+.pv-sign{display:grid;grid-template-columns:1fr 1fr;gap:9mm;margin-top:auto;flex:none}
+.pv-sign>div{margin-top:14mm;border-top:.5pt solid var(--rule);padding-top:1.6mm;font-size:8.8pt;color:var(--soft)}
+.pv-foot{display:flex;justify-content:space-between;gap:6mm;margin-top:5mm;padding-top:2.4mm;border-top:.35pt solid var(--line);font-size:7.8pt;color:var(--soft);flex:none}
 .pv-gap{margin-top:auto}
 `;
 
-type Fact = [label: string, ku: string, value: string];
+// ── Pieces of a page ─────────────────────────────────────────────────────────
 
-const cap = (label: string, ku: string) => `<div class="pv-cap"><span>${label}</span><span class="ku">${ku}</span></div>`;
+const ICONS = {
+  phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/>',
+  pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  web: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/>',
+  user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+} as const;
+const icon = (name: keyof typeof ICONS) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
 
-/** The company on the left, what the paper is on the right. */
-export function headHtml(settings: PosSettings, title: string, titleKu: string): string {
-  const contact = ['www.vioappliance.com', ...settings.phone.split('\n'), ...settings.address.split('\n')].filter((l) => l.trim());
+/** A dinar amount, its figures left to right inside the Kurdish line. */
+export const dinars = (n: number): string => `<bdi class="ltr">${num(n)}</bdi><span class="pv-cur">د.ع</span>`;
+
+/** The red band: what the paper is, the company in the middle, and how to reach it. */
+export function bandHtml(settings: PosSettings, what: string, aside = ''): string {
+  const first = (text: string) => text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+  const phone = first(settings.phone);
+  const address = first(settings.address);
+  const contacts = [
+    phone && `<span>${icon('phone')}<bdi class="ltr">${esc(phone)}</bdi></span>`,
+    address && `<span>${icon('pin')}<bdi>${esc(address)}</bdi></span>`,
+    `<span>${icon('web')}<bdi class="ltr">www.vioappliance.com</bdi></span>`,
+  ].filter(Boolean);
   return (
-    `<div class="pv-head"><div class="pv-brand"><div class="pv-logo">${vioMarkSvg('#fff', '15mm')}</div>` +
-    `<div class="pv-co"><b>Vio Company</b>${contact.slice(0, 3).map((l) => `<div dir="auto">${esc(l.trim())}</div>`).join('')}</div></div>` +
-    `<div class="pv-title"><b>${title}</b><span class="ku">${titleKu}</span></div></div>`
+    `<header class="pv-band"><div class="pv-band-top"><span class="s">${what}</span>` +
+    `<div class="pv-mark">${vioMarkSvg('#fff', '15mm')}<b>VIO COMPANY</b></div>` +
+    `<span class="e">${aside}</span></div>` +
+    `<div class="pv-contacts">${contacts.join('')}</div></header>`
   );
 }
 
-/** Who bought, beside the paper's own facts. */
-function infoHtml(sale: Sale, facts: Fact[]): string {
-  const shown = facts.filter((f) => f[2]);
+/** Who bought on one side; the paper's number, day and dollar on the other. */
+function metaHtml(sale: Sale, title: string, line: string): string {
   return (
-    `<div class="pv-info"><div class="pv-card pv-who">${cap('Customer', 'کڕیار')}` +
-    `<div class="pv-name"><bdi>${esc(sale.customerName)}</bdi></div>` +
-    `<p><span class="ltr">${esc(formatPhone(sale.customerPhone))}</span></p>` +
-    (sale.customerAddress ? `<p><bdi>${esc(sale.customerAddress)}</bdi></p>` : '') +
-    `</div><div class="pv-card pv-facts">` +
-    shown.map(([l, k, v]) => `<div>${cap(l, k)}<b><bdi>${esc(v)}</bdi></b></div>`).join('') +
-    `</div></div>`
+    `<div class="pv-meta"><div class="pv-who">` +
+    `<p class="n">${icon('user')}<bdi>${esc(sale.customerName)}</bdi></p>` +
+    `<p class="t">${icon('phone')}<bdi class="ltr">${esc(formatPhone(sale.customerPhone))}</bdi></p>` +
+    (sale.customerAddress ? `<p class="a">${icon('pin')}<bdi>${esc(sale.customerAddress)}</bdi></p>` : '') +
+    `</div><div class="pv-ref"><b>${title}</b><span>${line}</span></div></div>`
   );
 }
+
+const barHtml = (title: string, aside: string) => `<div class="pv-bar"><span>${title}</span><span>${aside}</span></div>`;
 
 const col = (widths: number[]) => `<colgroup>${widths.map((w) => `<col${w ? ` style="width:${w}mm"` : ''}>`).join('')}</colgroup>`;
 
-const tableHead = (discounts: boolean) =>
-  col(discounts ? [20, 0, 14, 28, 27, 32] : [20, 0, 18, 34, 38]) +
-  `<thead><tr><th colspan="2">Item<span class="ku">کاڵا</span></th>` +
-  `<th class="c">Qty<span class="ku">دانە</span></th>` +
-  `<th class="r">Price<span class="ku">نرخ</span></th>` +
-  (discounts ? `<th class="r">Discount<span class="ku">داشکاندن</span></th>` : '') +
-  `<th class="r">Amount<span class="ku">کۆ</span></th></tr></thead>`;
+const tableHead = (discounts: boolean, priceLabel = 'نرخی دانە') =>
+  col(discounts ? [17, 23, 0, 13, 27, 23, 29] : [17, 25, 0, 15, 30, 32]) +
+  `<thead><tr><th>وێنە</th><th>کۆد</th><th>کاڵا</th><th class="c">دانە</th><th>${priceLabel}</th>` +
+  (discounts ? `<th>داشکاندن</th>` : '') +
+  `<th>گشتی</th></tr></thead>`;
 
 /** Photos of items the owner added are kept with the item, not in each sale. */
 const imageOf = (line: SaleLine, items: PosItem[]): string => photo(line.image || items.find((i) => i.id === line.itemId)?.image || '');
 
 function itemCells(line: SaleLine, items: PosItem[]): string {
   const image = imageOf(line, items);
-  const en = [line.name, line.color].filter(Boolean).join(' · ');
   const ku = [line.ku, line.color ? colorName(line.color, true) : ''].filter(Boolean).join('، ');
+  const en = [line.name, line.color].filter(Boolean).join(' · ');
   return (
     `<td><div class="pv-pic">${image ? `<img src="${esc(image)}" alt="">` : ''}</div></td>` +
-    `<td><div class="pv-it"><b>${esc(line.code)}</b><small>${esc(en)}</small>${ku ? `<small><span class="ku" style="margin-left:0">${esc(ku)}</span></small>` : ''}</div></td>`
+    `<td class="k"><bdi class="ltr">${esc(line.code)}</bdi></td>` +
+    `<td><div class="pv-it"><b>${esc(en)}</b>${ku ? `<small>${esc(ku)}</small>` : ''}</div></td>`
   );
 }
 
-const sumRow = (label: string, ku: string, value: string, cls = '') =>
-  `<div class="l ${cls}"><span>${label}<span class="ku">${ku}</span></span><b>${value}</b></div>`;
+const sumRow = (label: string, value: string, cls = '') => `<div class="r ${cls}"><span>${label}</span><b>${value}</b></div>`;
 
-const totalBox = (label: string, ku: string, amount: number, rate: number) =>
-  `<div class="pv-total">${cap(label, ku)}<div class="v"><b>${num(amount)} <em>IQD</em></b><i>${usd(rate > 0 ? amount / rate : 0)}</i></div></div>`;
+/** The big total in red, its dollars, and the dinars in words. */
+const totalHtml = (label: string, amount: number, rate: number) =>
+  `<div class="t"><div class="r"><span>${label}</span><span><i class="ltr">(${usd(rate > 0 ? amount / rate : 0)})</i><b>${dinars(amount)}</b></span></div>` +
+  `<div class="w">${kurdishWords(amount)} دینار</div></div>`;
 
-const signatures =
-  `<div class="pv-sign"><div>${cap('Customer', 'واژووی کڕیار')}</div><div>${cap('Company stamp', 'مۆری کۆمپانیا')}</div></div>`;
+const signatures = `<div class="pv-sign"><div>واژووی کڕیار</div><div>مۆری کۆمپانیا</div></div>`;
 
 interface Doc {
+  band: string;
+  meta: string;
+  bar: string;
   head: string;
-  info: string;
   rows: string[];
-  discounts: boolean;
   end: string;
   footer: string;
   /** Rows the page gives up to a note or a long address. */
   less: number;
 }
 
-function documentHtml({ head, info, rows, discounts, end, footer, less }: Doc): string {
+function documentHtml({ band, meta, bar, head, rows, end, footer, less }: Doc): string {
   const pages = pagesOf(rows, less);
   return `<div class="pv">${pages
     .map((page, i) => {
       const last = i === pages.length - 1;
       const compact = pages.length === 1 && page.length > ROWS.only - less;
       return (
-        `<section class="pv-page">${head}${info}` +
-        `<table class="pv-table${compact ? ' compact' : ''}">${tableHead(discounts)}<tbody>${page.map((r) => `<tr>${r}</tr>`).join('')}</tbody></table>` +
+        `<section class="pv-page">${band}${meta}${bar}` +
+        `<table class="pv-table${compact ? ' compact' : ''}">${head}<tbody>${page.map((r) => `<tr>${r}</tr>`).join('')}</tbody></table>` +
         (last ? end + signatures : '<div class="pv-gap"></div>') +
-        `<div class="pv-foot"><span>Vio Company</span><span>${esc(footer)}</span><span>Page ${i + 1} of ${pages.length}</span></div></section>`
+        `<div class="pv-foot"><span class="ltr">Vio Company · www.vioappliance.com</span><span>${footer}</span><span>پەڕەی <bdi class="ltr">${i + 1} / ${pages.length}</bdi></span></div></section>`
       );
     })
     .join('')}</div>`;
 }
+
+const saleNo = (sale: Sale) => `<bdi class="ltr">#${esc(saleLabel(sale))}</bdi>`;
+const when = (iso: string, rate: number) =>
+  `<bdi class="ltr">${showDay(iso)} · ${showTime(iso)}</bdi> · <bdi class="ltr">$1 = ${num(rate)}</bdi> د.ع`;
 
 /** The invoice, as HTML (every value escaped). */
 export function invoiceHtml(sale: Sale, settings: PosSettings, items: PosItem[]): string {
@@ -216,44 +261,39 @@ export function invoiceHtml(sale: Sale, settings: PosSettings, items: PosItem[])
     const back = returnedQty(sale, line.id);
     return (
       itemCells(line, items) +
-      `<td class="c q">${line.qty}${back ? `<span class="pv-back">Returned ${back}</span>` : ''}</td>` +
+      `<td class="c q">${line.qty}${back ? `<span class="pv-back">${back} گەڕاوە</span>` : ''}</td>` +
       // A price the seller raised is never printed as if it were an offer.
-      `<td class="r p">${line.price <= line.list && line.price < line.regular ? `<s>${num(line.regular)}</s>` : ''}${num(line.price)}</td>` +
-      (discounts ? `<td class="r d">${line.discount ? num(-line.discount) : ''}</td>` : '') +
-      `<td class="r a">${num(lineTotal(line))}</td>`
+      `<td class="v">${line.price <= line.list && line.price < line.regular ? `<s class="ltr">${num(line.regular)}</s>` : ''}${dinars(line.price)}</td>` +
+      (discounts ? `<td class="v d">${line.discount ? dinars(line.discount) : ''}</td>` : '') +
+      `<td class="v a">${dinars(lineTotal(line))}</td>`
     );
   });
 
   const net = netTotal(sale);
+  const percent = sale.subtotal > 0 ? `(${((sale.discount / sale.subtotal) * 100).toFixed(2)}%)` : '';
   const guarantee =
-    `<div class="pv-g"><h3><span>2-Year Guarantee</span><span class="ku">زەمانی دوو ساڵ</span></h3>` +
-    `<dl><div>${cap('From', 'لە')}<dd>${showDay(sale.soldAt)}</dd></div><div>${cap('Until', 'تا')}<dd>${showDay(guaranteeEnd(sale.soldAt))}</dd></div></dl>` +
-    `<p>Every item on this invoice has a 2-year electrical guarantee. Keep this invoice: it is your guarantee.</p>` +
-    `<p class="ku">هەموو کاڵاکانی سەر ئەم پسوولەیە زەمانی کارەبایی دوو ساڵیان هەیە. تکایە پسوولەکە بپارێزە، ئەمە زەمانەکەتە.</p></div>`;
+    `<div class="pv-g"><h3>زەمانی دوو ساڵ</h3>` +
+    `<dl><div><dt>لە</dt><dd class="ltr">${showDay(sale.soldAt)}</dd></div><div><dt>تا</dt><dd class="ltr">${showDay(guaranteeEnd(sale.soldAt))}</dd></div></dl>` +
+    `<p>هەموو کاڵاکانی سەر ئەم پسوولەیە زەمانی کارەبایی دوو ساڵیان هەیە. تکایە پسوولەکە بپارێزە، ئەمە زەمانەکەتە.</p></div>`;
   const sum =
-    `<div class="pv-sum"><div class="pv-rows">` +
-    sumRow('Pieces', 'ژمارەی دانە', num(piecesOf(sale.lines))) +
-    sumRow('Subtotal', 'کۆی نرخ', num(sale.subtotal)) +
-    (sale.discount ? sumRow('Discount', 'داشکاندن', num(-sale.discount), 'red') : '') +
-    (sale.refunded ? sumRow('Returned', 'گەڕاوە', num(-sale.refunded), 'red') : '') +
-    `</div>` +
-    totalBox('Total', 'کۆی گشتی', net, sale.rate) +
+    `<div class="pv-sum">` +
+    sumRow('ژمارەی دانە', `<bdi class="ltr">${num(piecesOf(sale.lines))}</bdi>`) +
+    sumRow(discounts ? 'کۆی گشتی پێش داشکاندن' : 'کۆی نرخ', dinars(sale.subtotal)) +
+    (discounts ? sumRow('داشکاندن', `<i class="ltr">${percent}</i>${dinars(sale.discount)}`, 'red') : '') +
+    (sale.refunded ? sumRow('گەڕاوە', dinars(sale.refunded), 'red') : '') +
+    totalHtml('گشتی', net, sale.rate) +
     `</div>`;
 
   return documentHtml({
-    head: headHtml(settings, 'Invoice', 'پسوولەی فرۆشتن'),
-    info: infoHtml(sale, [
-      ['Invoice no.', 'ژمارەی پسوولە', saleLabel(sale)],
-      ['Dollar', 'دۆلار', rateText(sale.rate)],
-      ['Date', 'بەروار', showDay(sale.soldAt)],
-      ['Time', 'کات', showTime(sale.soldAt)],
-    ]),
+    band: bandHtml(settings, `فرۆشتن ${saleNo(sale)}`),
+    meta: metaHtml(sale, `پسوولەی فرۆشتن ${saleNo(sale)}`, when(sale.soldAt, sale.rate)),
+    bar: barHtml('پسوولەی فرۆشتن', `<bdi class="ltr">${num(piecesOf(sale.lines))}</bdi> دانە`),
+    head: tableHead(discounts),
     rows,
-    discounts,
     end:
       `<div class="pv-end">${guarantee}${sum}</div>` +
-      (sale.note ? `<div class="pv-note"><b>Note</b><bdi>${esc(sale.note)}</bdi></div>` : ''),
-    footer: `Invoice ${saleLabel(sale)} · ${showDay(sale.soldAt)}`,
+      (sale.note ? `<div class="pv-note"><b>تێبینی</b><bdi>${esc(sale.note)}</bdi></div>` : ''),
+    footer: `پسوولەی ${saleNo(sale)} · <bdi class="ltr">${showDay(sale.soldAt)}</bdi>`,
     less: (sale.note ? 1 : 0) + (sale.customerAddress.length > 42 ? 1 : 0),
   });
 }
@@ -264,29 +304,28 @@ export function returnHtml(sale: Sale, ret: SaleReturn, settings: PosSettings, i
     const line = sale.lines.find((l) => l.id === b.id);
     return line ? [{ line, qty: b.qty }] : [];
   });
+  const pieces = back.reduce((n, b) => n + b.qty, 0);
   const rows = back.map(({ line, qty }) => {
     const paid = paidFor(line, qty);
-    return itemCells(line, items) + `<td class="c q">${qty}</td><td class="r p">${num(paid / qty)}</td><td class="r a">${num(paid)}</td>`;
+    return itemCells(line, items) + `<td class="c q">${qty}</td><td class="v">${dinars(paid / qty)}</td><td class="v a">${dinars(paid)}</td>`;
   });
-  const reason =
-    `<div class="pv-g" style="min-height:38mm">${cap('Reason', 'هۆکار')}<p style="margin-top:1.8mm;font-size:10pt;font-weight:500;color:var(--ink)"><bdi>${esc(ret.reason) || '—'}</bdi></p></div>`;
+  const reason = `<div class="pv-g"><h3>هۆکار</h3><p style="font-size:10pt;color:var(--ink)"><bdi>${esc(ret.reason) || '—'}</bdi></p></div>`;
   return documentHtml({
-    head: headHtml(settings, 'Return', 'پسوولەی گەڕاندنەوە'),
-    info: infoHtml(sale, [
-      ['Invoice no.', 'ژمارەی پسوولە', saleLabel(sale)],
-      ['Sold on', 'فرۆشراوە لە', showDay(sale.soldAt)],
-      ['Returned on', 'گەڕاوەتەوە لە', showDay(ret.at)],
-      ['Time', 'کات', showTime(ret.at)],
-    ]),
+    band: bandHtml(settings, `گەڕاندنەوە ${saleNo(sale)}`),
+    meta: metaHtml(
+      sale,
+      `گەڕاندنەوە لە پسوولەی ${saleNo(sale)}`,
+      `فرۆشراوە <bdi class="ltr">${showDay(sale.soldAt)}</bdi> · گەڕاوە <bdi class="ltr">${showDay(ret.at)} · ${showTime(ret.at)}</bdi>`,
+    ),
+    bar: barHtml('پسوولەی گەڕاندنەوە', `<bdi class="ltr">${num(pieces)}</bdi> دانە`),
+    head: tableHead(false, 'پارەی دانە'),
     rows,
-    discounts: false,
     end:
-      `<div class="pv-end">${reason}<div class="pv-sum"><div class="pv-rows">` +
-      sumRow('Pieces', 'ژمارەی دانە', num(back.reduce((n, b) => n + b.qty, 0))) +
-      `</div>` +
-      totalBox('Money back', 'پارەی گەڕاوە', ret.refund, sale.rate) +
+      `<div class="pv-end">${reason}<div class="pv-sum">` +
+      sumRow('ژمارەی دانە', `<bdi class="ltr">${num(pieces)}</bdi>`) +
+      totalHtml('پارەی گەڕاوە', ret.refund, sale.rate) +
       `</div></div>`,
-    footer: `Return from invoice ${saleLabel(sale)} · ${showDay(ret.at)}`,
+    footer: `گەڕاندنەوە لە پسوولەی ${saleNo(sale)} · <bdi class="ltr">${showDay(ret.at)}</bdi>`,
     less: 0,
   });
 }
