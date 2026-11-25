@@ -142,7 +142,6 @@ ITEMS = [
         ("V-656", "White", "V-656.png"), ("V-656", "Black", "white:V-655 656 black.png")]),
     item("V-657", ("Ceramic Electric Heater", "سۆبەی ستاندی سیرامیک"), "heater", "18 inch · 1100 W", 45, [
         ("V-657", "Black", "V-657 black-Photoroom.png"), ("V-657", "White", "V-657 white-Photoroom.png")]),
-    item("V-658", ("Ceramic Electric Heater", "سۆبەی ستاندی سیرامیک"), "heater", "20 inch · 1100 W", 52, "white:658.jpg"),
     item("V-1101", ("Ceramic Electric Heater", "هیتەری شووڵدار"), "heater", "21×9×14 inch · 2000 W", 32, [
         ("V-1101B", "Black", "Black V-1101B.png"), ("V-1101W", "White", "White V-1101W.png")]),
     # ── Irons & steamers ────────────────────────────────────────────────────

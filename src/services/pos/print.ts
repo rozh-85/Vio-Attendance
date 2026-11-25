@@ -116,7 +116,7 @@ export const INVOICE_CSS = `
 .pv-note{margin-top:4mm;border-radius:3.5mm;background:var(--panel);padding:3.2mm 5mm;font-size:8.6pt;color:var(--mid);flex:none}
 .pv-note b{font-weight:600;color:var(--ink);margin-right:2mm}
 
-.pv-sign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9mm;margin-top:auto;flex:none}
+.pv-sign{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:auto;flex:none}
 .pv-sign>div{margin-top:16mm;border-top:.5pt solid #9CA3AF;padding-top:1.8mm}
 .pv-foot{display:flex;justify-content:space-between;gap:6mm;margin-top:6mm;padding-top:2.6mm;border-top:.35pt solid var(--line);font-size:7.4pt;color:var(--soft);flex:none}
 .pv-gap{margin-top:auto}
@@ -180,7 +180,7 @@ const totalBox = (label: string, ku: string, amount: number, rate: number) =>
   `<div class="pv-total">${cap(label, ku)}<div class="v"><b>${num(amount)} <em>IQD</em></b><i>${usd(rate > 0 ? amount / rate : 0)}</i></div></div>`;
 
 const signatures =
-  `<div class="pv-sign"><div>${cap('Seller', 'واژووی فرۆشیار')}</div><div>${cap('Customer', 'واژووی کڕیار')}</div><div>${cap('Company stamp', 'مۆری کۆمپانیا')}</div></div>`;
+  `<div class="pv-sign"><div>${cap('Customer', 'واژووی کڕیار')}</div><div>${cap('Company stamp', 'مۆری کۆمپانیا')}</div></div>`;
 
 interface Doc {
   head: string;
@@ -244,9 +244,9 @@ export function invoiceHtml(sale: Sale, settings: PosSettings, items: PosItem[])
     head: headHtml(settings, 'Invoice', 'پسوولەی فرۆشتن'),
     info: infoHtml(sale, [
       ['Invoice no.', 'ژمارەی پسوولە', saleLabel(sale)],
-      ['Date', 'بەروار', `${showDay(sale.soldAt)}  ${showTime(sale.soldAt)}`],
       ['Dollar', 'دۆلار', rateText(sale.rate)],
-      ['Seller', 'فرۆشیار', sale.seller || '—'],
+      ['Date', 'بەروار', showDay(sale.soldAt)],
+      ['Time', 'کات', showTime(sale.soldAt)],
     ]),
     rows,
     discounts,
@@ -275,8 +275,8 @@ export function returnHtml(sale: Sale, ret: SaleReturn, settings: PosSettings, i
     info: infoHtml(sale, [
       ['Invoice no.', 'ژمارەی پسوولە', saleLabel(sale)],
       ['Sold on', 'فرۆشراوە لە', showDay(sale.soldAt)],
-      ['Returned on', 'گەڕاوەتەوە لە', `${showDay(ret.at)}  ${showTime(ret.at)}`],
-      ['Seller', 'فرۆشیار', ret.by || '—'],
+      ['Returned on', 'گەڕاوەتەوە لە', showDay(ret.at)],
+      ['Time', 'کات', showTime(ret.at)],
     ]),
     rows,
     discounts: false,

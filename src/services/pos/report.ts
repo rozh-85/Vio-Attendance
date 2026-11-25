@@ -42,7 +42,6 @@ export interface ReportFilters {
   query: string;
   items: string[];
   categories: string[];
-  sellers: string[];
   statuses: ReportStatus[];
 }
 
@@ -53,13 +52,12 @@ export const EMPTY_FILTERS: ReportFilters = {
   query: '',
   items: [],
   categories: [],
-  sellers: [],
   statuses: [],
 };
 
 /** How many lists are narrowed. */
 export const activeFilters = (f: ReportFilters): number =>
-  [f.items, f.categories, f.sellers, f.statuses].filter((l) => l.length).length + (f.query.trim() ? 1 : 0);
+  [f.items, f.categories, f.statuses].filter((l) => l.length).length + (f.query.trim() ? 1 : 0);
 
 const key = (date: Date): string => format(date, 'yyyy-MM-dd');
 
@@ -104,9 +102,6 @@ export const isRaised = (line: SaleLine): boolean => line.price > line.list;
 const lineMatches = (line: SaleLine, f: ReportFilters): boolean =>
   (!f.items.length || f.items.includes(line.itemId)) && (!f.categories.length || f.categories.includes(line.category));
 
-/** The seller as it is listed: a sale with none written has a dash. */
-export const sellerOf = (sale: Sale): string => sale.seller || '—';
-
 function isKind(sale: Sale, kind: ReportStatus): boolean {
   switch (kind) {
     case 'discount':
@@ -123,7 +118,6 @@ function isKind(sale: Sale, kind: ReportStatus): boolean {
 /** Everything but the days. */
 function saleMatches(sale: Sale, f: ReportFilters): boolean {
   if (sale.deletedAt && !f.statuses.includes('deleted')) return false;
-  if (f.sellers.length && !f.sellers.includes(sellerOf(sale))) return false;
   if (!matchesSale(sale, f.query)) return false;
   if (!sale.lines.some((l) => lineMatches(l, f))) return false;
   return !f.statuses.length || f.statuses.some((k) => isKind(sale, k));
@@ -340,7 +334,6 @@ export function describeFilters(f: ReportFilters, itemName: (id: string) => stri
   return [
     list('Item', f.items.map(itemName)),
     list('Category', f.categories.map(category)),
-    list('Seller', f.sellers.map((s) => (s === '—' ? 'none written' : s))),
     list('Sales', f.statuses.map((k) => REPORT_STATUSES.find((s) => s.id === k)?.label ?? k)),
     f.query.trim() && `Search: ${f.query.trim()}`,
   ]

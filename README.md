@@ -391,7 +391,7 @@ English and Kurdish, on a computer, a tablet and a phone.
 
 The owner's report is at **`/rozhadmin/pos`** (same owner password): items
 sold, invoices, days and hours, with filters for period, item, category,
-seller, state and search, A4 and Excel. Deleted sales can be put back there.
+state and search, A4 and Excel. Deleted sales can be put back there.
 **Prices and settings** changes the price list, the offer's days, the dollar,
 the rounding, and the phone and address printed on invoices, and adds items.
 

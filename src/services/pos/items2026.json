@@ -794,16 +794,6 @@
    "image": "/pos-items/v-657-v-657-black"
   },
   {
-   "id": "v-658",
-   "model": "V-658",
-   "name": "Ceramic Electric Heater",
-   "ku": "سۆبەی ستاندی سیرامیک",
-   "category": "heater",
-   "spec": "20 inch · 1100 W",
-   "price": 52,
-   "image": "/pos-items/v-658"
-  },
-  {
    "id": "v-1101",
    "model": "V-1101",
    "name": "Ceramic Electric Heater",

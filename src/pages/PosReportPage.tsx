@@ -249,7 +249,6 @@ export function PosReportPage() {
           store={store}
           items={items}
           settings={setup.settings}
-          seller=""
           owner
           onChanged={changed}
           onClose={() => setOpen(null)}

@@ -1,8 +1,8 @@
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Pencil, Printer, Trash, Undo } from '@/components/icons';
 import { formatPhone, latinDigits } from '@/services/repairs/logic';
-import { addItem, changeLine, loadSellers, removeLine } from '@/services/pos/cart';
+import { addItem, changeLine, removeLine } from '@/services/pos/cart';
 import { posErrorMessage, type PosLang, type PosText } from '@/services/pos/i18n';
 import { discountOf, guaranteeEnd, lineTotal, netTotal, newId, num, paidFor, phoneOk, piecesOf, rateText, returnedQty, saleLabel, saleStatus, showDay, showTime, subtotalOf, totalOf } from '@/services/pos/logic';
 import { printInvoice, printReturn } from '@/services/pos/print';
@@ -22,7 +22,6 @@ interface Props {
   store: PosStore;
   items: PosItem[];
   settings: PosSettings;
-  seller: string;
   onChanged: (sale: Sale) => void;
   onClose: () => void;
   /** The owner may put a deleted sale back. */
@@ -101,7 +100,7 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ViewPanel({ sale, store, items, settings, seller, onClose, owner, lang, t, busy, error, done, run, go }: PanelProps & { done: string }) {
+function ViewPanel({ sale, store, items, settings, onClose, owner, lang, t, busy, error, done, run, go }: PanelProps & { done: string }) {
   const status = saleStatus(sale);
   const label = saleLabel(sale);
   return (
@@ -160,10 +159,9 @@ function ViewPanel({ sale, store, items, settings, seller, onClose, owner, lang,
         <div className="grid grid-cols-2 gap-x-4 gap-y-4 rounded-2xl bg-slate-50 p-4 sm:p-5">
           <Fact label={t.customer}>{sale.customerName}</Fact>
           <Fact label={t.phone} ltr>{formatPhone(sale.customerPhone)}</Fact>
-          <Fact label={t.seller}>{sale.seller || '—'}</Fact>
           <Fact label={t.dollarThen} ltr>{rateText(sale.rate)}</Fact>
-          <Fact label={t.guarantee} ltr wide={!sale.customerAddress}>{showDay(guaranteeEnd(sale.soldAt))}</Fact>
-          {sale.customerAddress && <Fact label={t.address}>{sale.customerAddress}</Fact>}
+          <Fact label={t.guarantee} ltr>{showDay(guaranteeEnd(sale.soldAt))}</Fact>
+          {sale.customerAddress && <Fact label={t.address} wide>{sale.customerAddress}</Fact>}
           {sale.note && <Fact label={t.note} wide>{sale.note}</Fact>}
         </div>
       </div>
@@ -210,7 +208,7 @@ function ViewPanel({ sale, store, items, settings, seller, onClose, owner, lang,
                 <div className="mt-2 flex flex-wrap gap-x-1 gap-y-1 text-sm font-semibold">
                   <button type="button" className="-ms-2 rounded-lg px-2 py-1 text-ink-600 transition hover:bg-slate-100" onClick={() => void printReturn(sale, r, settings, items)}>{t.printReturn}</button>
                   {!sale.deletedAt && (
-                    <button type="button" disabled={busy} className="rounded-lg px-2 py-1 text-ink-600 transition hover:bg-slate-100" onClick={() => void run(() => store.undoReturn(sale.id, r.id, seller), t.eventName.undo_return)}>{t.undoReturn}</button>
+                    <button type="button" disabled={busy} className="rounded-lg px-2 py-1 text-ink-600 transition hover:bg-slate-100" onClick={() => void run(() => store.undoReturn(sale.id, r.id, ''), t.eventName.undo_return)}>{t.undoReturn}</button>
                   )}
                 </div>
               </li>
@@ -241,17 +239,16 @@ function ViewPanel({ sale, store, items, settings, seller, onClose, owner, lang,
 
 // ── Changing it ──────────────────────────────────────────────────────────────
 
-function EditPanel({ sale, store, items, settings, seller, onClose, lang, t, busy, error, run, go, onDone }: PanelProps & { onDone: () => void }) {
+function EditPanel({ sale, store, items, settings, onClose, lang, t, busy, error, run, go, onDone }: PanelProps & { onDone: () => void }) {
   const [form, setForm] = useState(() => ({
     customerName: sale.customerName,
     customerPhone: formatPhone(sale.customerPhone),
     customerAddress: sale.customerAddress,
-    seller: sale.seller || seller,
+    seller: sale.seller,
     note: sale.note,
     lines: sale.lines.map((l) => ({ ...l })),
   }));
   const [checked, setChecked] = useState(false);
-  const uid = useId();
   const set = (change: Partial<typeof form>) => setForm((f) => ({ ...f, ...change }));
   const setLines = (fn: (lines: typeof form.lines) => typeof form.lines) => setForm((f) => ({ ...f, lines: fn(f.lines) }));
   const nameBad = checked && !form.customerName.trim();
@@ -296,16 +293,8 @@ function EditPanel({ sale, store, items, settings, seller, onClose, lang, t, bus
         <Labelled label={t.phone} error={phoneBad ? t.phoneNeeded : undefined}>
           <input className={cn(field, 'max-[22.5rem]:px-2.5!', phoneBad && 'border-rose-400')} dir="ltr" inputMode="tel" value={form.customerPhone} disabled={busy} onChange={(e) => set({ customerPhone: latinDigits(e.target.value) })} />
         </Labelled>
-        <Labelled label={t.address}>
+        <Labelled label={t.address} className="col-span-2">
           <input className={field} dir="auto" value={form.customerAddress} disabled={busy} onChange={(e) => set({ customerAddress: e.target.value })} />
-        </Labelled>
-        <Labelled label={t.seller}>
-          <input className={field} dir="auto" list={uid} value={form.seller} disabled={busy} onChange={(e) => set({ seller: e.target.value })} />
-          <datalist id={uid}>
-            {loadSellers().map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
         </Labelled>
         <Labelled label={t.note} className="col-span-2">
           <input className={field} dir="auto" value={form.note} disabled={busy} onChange={(e) => set({ note: e.target.value })} />
@@ -333,7 +322,7 @@ function EditPanel({ sale, store, items, settings, seller, onClose, lang, t, bus
 
 // ── Returning some or all of it ──────────────────────────────────────────────
 
-function ReturnPanel({ sale, store, items, settings, seller, onClose, lang, t, busy, error, run, go }: PanelProps) {
+function ReturnPanel({ sale, store, items, settings, onClose, lang, t, busy, error, run, go }: PanelProps) {
   const [qty, setQty] = useState<Record<string, number>>({});
   const [typed, setTyped] = useState<number | null>(null);
   const [reason, setReason] = useState('');
@@ -354,7 +343,7 @@ function ReturnPanel({ sale, store, items, settings, seller, onClose, lang, t, b
       id,
       at: new Date().toISOString(),
       reason: reason.trim(),
-      by: seller,
+      by: '',
       refund,
       lines: Object.entries(qty).filter(([, n]) => n > 0).map(([line, n]) => ({ id: line, qty: n })),
     };
@@ -414,7 +403,7 @@ function ReturnPanel({ sale, store, items, settings, seller, onClose, lang, t, b
 
 // ── Deleting it ──────────────────────────────────────────────────────────────
 
-function DeletePanel({ sale, store, items, seller, onClose, lang, t, busy, error, run, go, onDeleted }: PanelProps & { onDeleted: () => void }) {
+function DeletePanel({ sale, store, items, onClose, lang, t, busy, error, run, go, onDeleted }: PanelProps & { onDeleted: () => void }) {
   const [reason, setReason] = useState('');
   const label = saleLabel(sale);
   return (
@@ -436,7 +425,7 @@ function DeletePanel({ sale, store, items, seller, onClose, lang, t, busy, error
               loading={busy}
               leftIcon={<Trash width={17} height={17} />}
               onClick={async () => {
-                if (await run(() => store.remove(sale.id, reason, seller))) onDeleted();
+                if (await run(() => store.remove(sale.id, reason, ''))) onDeleted();
               }}
             >
               {t.deleteYes}

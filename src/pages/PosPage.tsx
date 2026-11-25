@@ -7,7 +7,7 @@ import { SalesView } from '@/components/pos/SalesView';
 import { Segmented, VioTile, ltrText } from '@/components/pos/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/Button';
-import { activeCart, addItem, changeCart, closeCart, draftFrom, isEmpty, keepDesk, keepSeller, loadDesk, loadSeller, loadSellers, nextCart, openCart, rememberSeller, repriceDesk, type Cart, type Desk } from '@/services/pos/cart';
+import { activeCart, addItem, changeCart, closeCart, draftFrom, isEmpty, keepDesk, loadDesk, nextCart, openCart, repriceDesk, type Cart, type Desk } from '@/services/pos/cart';
 import { TEXT, posErrorMessage, readLang, saveLang, type PosLang } from '@/services/pos/i18n';
 import { DEFAULT_SETTINGS, mergeItems } from '@/services/pos/items';
 import { customerOk, num, piecesOf, rateText, totalOf } from '@/services/pos/logic';
@@ -35,8 +35,6 @@ export function PosPage() {
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
-  const [seller, setSellerState] = useState(loadSeller);
-  const [sellers, setSellers] = useState(loadSellers);
   const [last, setLast] = useState<Sale | null>(null);
   const [billOpen, setBillOpen] = useState(false);
   const [today, setToday] = useState(() => new Date());
@@ -69,11 +67,6 @@ export function PosPage() {
     savingRef.current = next;
     setSaving(next);
   };
-
-  const setSeller = useCallback((next: string) => {
-    setSellerState(next);
-    keepSeller(next);
-  }, []);
 
   // Prices, the dollar and settings for every till, and what is waiting to be sent.
   const refresh = useCallback(async () => {
@@ -156,7 +149,7 @@ export function PosPage() {
         });
         return;
       }
-      const draft = draftFrom(current, seller, settings.rate);
+      const draft = draftFrom(current, settings.rate);
       markSaving(current.id, true);
       setErrors((e) => ({ ...e, [current.id]: '' }));
       setLast(null);
@@ -167,7 +160,6 @@ export function PosPage() {
         const sale = await store.save(draft);
         markSaving(current.id, false);
         setDesk((d) => closeCart(d, current.id));
-        setSellers(rememberSeller(seller));
         setLast(sale);
         if (print) await printInvoice(sale, settings, items);
       } catch (err) {
@@ -180,7 +172,7 @@ export function PosPage() {
         }
       }
     },
-    [seller, settings, store, items, setDesk, t],
+    [settings, store, items, setDesk, t],
   );
 
   // "/" to search, F9 to save and print.
@@ -282,9 +274,6 @@ export function PosPage() {
             cart={cart}
             change={change}
             deskSize={desk.carts.length}
-            seller={seller}
-            setSeller={setSeller}
-            sellers={sellers}
             rate={settings.rate}
             items={items}
             last={last}
@@ -327,7 +316,7 @@ export function PosPage() {
           </div>
         </main>
       ) : (
-        <SalesView store={store} items={items} settings={settings} seller={seller} lang={lang} t={t} />
+        <SalesView store={store} items={items} settings={settings} lang={lang} t={t} />
       )}
     </div>
   );

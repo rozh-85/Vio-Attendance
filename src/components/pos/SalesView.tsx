@@ -28,7 +28,7 @@ function rangeOf(period: Period, from: string, to: string, now = new Date()): { 
 }
 
 /** Past sales: found by day, number, customer, mobile or model; every action opens over this same page. */
-export function SalesView({ store, items, settings, seller, lang, t }: { store: PosStore; items: PosItem[]; settings: PosSettings; seller: string; lang: PosLang; t: PosText }) {
+export function SalesView({ store, items, settings, lang, t }: { store: PosStore; items: PosItem[]; settings: PosSettings; lang: PosLang; t: PosText }) {
   const [period, setPeriod] = useState<Period>('today');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -204,7 +204,6 @@ export function SalesView({ store, items, settings, seller, lang, t }: { store: 
           store={store}
           items={items}
           settings={settings}
-          seller={seller}
           onChanged={changed}
           onClose={() => setOpen(null)}
           lang={lang}

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ArrowLeft, CheckCircle, ChevronDown, Plus, Printer, User } from '@/components/icons';
 import { latinDigits, normalizePhone } from '@/services/repairs/logic';
@@ -59,13 +59,10 @@ export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
 }
 
 /** The invoice beside the items: the customer, the lines, the total, and saving it. */
-export function Bill({ cart, change, deskSize, seller, setSeller, sellers, rate, items, last, saving, error, checked, onSave, onPrint, onClose, onBack, findCustomer, open, tabs, lang, t }: {
+export function Bill({ cart, change, deskSize, rate, items, last, saving, error, checked, onSave, onPrint, onClose, onBack, findCustomer, open, tabs, lang, t }: {
   cart: Cart;
   change: (fn: (cart: Cart) => Cart) => void;
   deskSize: number;
-  seller: string;
-  setSeller: (seller: string) => void;
-  sellers: string[];
   rate: number;
   items: PosItem[];
   /** The sale just saved, for printing it again. */
@@ -89,7 +86,6 @@ export function Bill({ cart, change, deskSize, seller, setSeller, sellers, rate,
 }) {
   const [asking, setAsking] = useState(false);
   const [more, setMore] = useState(false);
-  const uid = useId();
   const subtotal = subtotalOf(cart.lines);
   const discount = discountOf(cart.lines);
   const total = totalOf(cart.lines);
@@ -186,21 +182,13 @@ export function Bill({ cart, change, deskSize, seller, setSeller, sellers, rate,
         {cart.lines.length > 0 && (
           <div className="px-4 py-3">
             <button type="button" aria-expanded={more} onClick={() => setMore((m) => !m)} className="flex w-full items-center justify-between gap-3 rounded-lg py-1.5 text-sm font-semibold text-ink-600 hover:text-ink-900">
-              <span className="min-w-0 truncate">{t.moreDetails}: {t.address}, {t.seller}, {t.note}</span>
+              <span className="min-w-0 truncate">{t.moreDetails}: {t.address}, {t.note}</span>
               <ChevronDown width={17} height={17} className={cn('shrink-0 transition', more && 'rotate-180')} />
             </button>
             {more && (
               <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-                <Labelled label={t.address}>
+                <Labelled label={t.address} className="col-span-2">
                   <input className={field} dir="auto" autoComplete="off" value={cart.customerAddress} onChange={(e) => change((c) => ({ ...c, customerAddress: e.target.value }))} />
-                </Labelled>
-                <Labelled label={t.seller}>
-                  <input className={field} dir="auto" autoComplete="off" list={uid} value={seller} onChange={(e) => setSeller(e.target.value)} />
-                  <datalist id={uid}>
-                    {sellers.map((s) => (
-                      <option key={s} value={s} />
-                    ))}
-                  </datalist>
                 </Labelled>
                 <Labelled label={t.note} className="col-span-2">
                   <textarea className={cn(field, 'h-auto! min-h-18 resize-y py-2.5')} dir="auto" rows={2} value={cart.note} onChange={(e) => change((c) => ({ ...c, note: e.target.value }))} />

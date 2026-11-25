@@ -26,8 +26,6 @@ export const MIN_OPEN = 2;
 export const MAX_OPEN = 8;
 
 const DESK_KEY = 'vio.pos.desk';
-const SELLER_KEY = 'vio.pos.seller';
-const SELLERS_KEY = 'vio.pos.sellers';
 const DEVICE_KEY = 'vio.pos.device';
 
 /** The lowest customer number not on the counter. */
@@ -123,28 +121,6 @@ export function loadDesk(): Desk {
 
 export const keepDesk = (desk: Desk): void => put(DESK_KEY, JSON.stringify(desk));
 
-export const loadSeller = (): string => pick(SELLER_KEY);
-export const keepSeller = (seller: string): void => put(SELLER_KEY, seller);
-
-/** Sellers typed on this device before, to choose from. */
-export function loadSellers(): string[] {
-  try {
-    const list = JSON.parse(pick(SELLERS_KEY) || '[]') as unknown;
-    return Array.isArray(list) ? list.filter((s): s is string => typeof s === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
-export function rememberSeller(seller: string): string[] {
-  const name = seller.trim();
-  const list = loadSellers();
-  if (!name || list.includes(name)) return list;
-  const next = [name, ...list].slice(0, 20);
-  put(SELLERS_KEY, JSON.stringify(next));
-  return next;
-}
-
 /** A short name for this till, made once. */
 export function deviceName(): string {
   let name = pick(DEVICE_KEY);
@@ -222,12 +198,13 @@ export function repriceDesk(desk: Desk, items: PosItem[], settings: PosSettings)
   return moved ? { ...desk, carts } : desk;
 }
 
-export function draftFrom(cart: Cart, seller: string, rate: number): SaleDraft {
+export function draftFrom(cart: Cart, rate: number): SaleDraft {
   return {
     id: cart.id,
     ref: refOf(cart.id),
     soldAt: new Date().toISOString(),
-    seller,
+    // Waits for staff accounts.
+    seller: '',
     customerName: cart.customerName,
     customerPhone: cart.customerPhone,
     customerAddress: cart.customerAddress,
