@@ -8,8 +8,8 @@ import type { PosItem, PosSettings, Sale, SaleLine, SaleReturn } from './types';
 /**
  * The A4 invoice and return note, in Kurdish, right to left, in dinars. A red
  * band with the company on top; who bought and the invoice's own facts under
- * it; a red bar over the items, each with its photo; then the guarantee beside
- * the totals, the total also in words. Pages are cut here rather than by the
+ * it; a red bar over the items, each with its photo; then the totals, the
+ * total also in words, and one quiet line for the guarantee at the foot. Pages are cut here rather than by the
  * browser, so every page has its own band and footer and prints the same from
  * a computer, a tablet or a phone; the page margin is zero, which keeps the
  * browser's own address and date off the paper.
@@ -19,12 +19,12 @@ export const esc = (value: string) =>
   value.replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c] ?? c);
 
 /** Rows an A4 page holds: with the totals under them (in full or smaller rows), without, and on later pages. */
-const ROWS = { only: 6, compact: 8, first: 12, middle: 12, last: 6 } as const;
+const ROWS = { only: 7, compact: 9, first: 12, middle: 12, last: 7 } as const;
 
 /** The fewest rows left for the page with the totals. */
 const KEEP = 2;
 
-/** `less`: rows taken up by a note or a long address. */
+/** `less`: rows taken up by a long address. */
 function pagesOf<T>(rows: T[], less: number): T[][] {
   if (rows.length <= ROWS.compact - less) return [rows];
   const pages: T[][] = [];
@@ -120,13 +120,9 @@ export const INVOICE_CSS = `
 .pv-back{display:block;font-size:7.4pt;font-weight:600;color:var(--red);line-height:1.2;white-space:nowrap}
 
 .pv-end{flex:none;display:grid;grid-template-columns:1fr 1fr;gap:9mm;margin-top:6mm;align-items:start}
-.pv-g{border-radius:3mm;border:.5pt solid var(--line);padding:4.2mm 5mm}
-.pv-g h3{font-size:11.5pt;font-weight:700;color:var(--red);line-height:1.3}
-.pv-g dl{display:grid;grid-template-columns:1fr 1fr;gap:2.6mm;margin-top:2.6mm}
-.pv-g dl>div{border-radius:2.2mm;background:var(--panel);padding:2mm 3mm}
-.pv-g dt{font-size:8.4pt;color:var(--soft)}
-.pv-g dd{font-size:10pt;font-weight:600}
-.pv-g p{margin-top:2.6mm;font-size:8.8pt;line-height:1.6;color:var(--mid)}
+.pv-box{border-radius:2.6mm;background:var(--panel);padding:3.4mm 4.4mm}
+.pv-box h3{font-size:9.6pt;font-weight:700;color:var(--ink);line-height:1.3}
+.pv-box p{margin-top:1mm;font-size:9.4pt;line-height:1.6;color:var(--mid)}
 .pv-sum .r{display:flex;justify-content:space-between;align-items:baseline;gap:4mm;padding:2.3mm 1mm;border-bottom:.8pt solid var(--rule);font-size:10pt}
 .pv-sum .r>span:first-child{font-weight:600;white-space:nowrap}
 .pv-sum .r b{font-weight:600;white-space:nowrap}
@@ -138,11 +134,11 @@ export const INVOICE_CSS = `
 .pv-sum .t b .pv-cur{font-size:11pt;color:var(--red);font-weight:600}
 .pv-sum .t i{font-size:9.6pt;font-weight:600}
 .pv-sum .w{margin-top:1.4mm;font-size:9.4pt;font-weight:500;color:var(--mid);text-align:left}
-.pv-note{flex:none;margin-top:4mm;border-radius:2.6mm;background:var(--panel);padding:3mm 5mm;font-size:9pt;color:var(--mid)}
-.pv-note b{font-weight:600;color:var(--ink);margin-left:2mm}
-
-.pv-sign{display:grid;grid-template-columns:1fr 1fr;gap:9mm;margin-top:auto;flex:none}
-.pv-sign>div{margin-top:14mm;border-top:.5pt solid var(--rule);padding-top:1.6mm;font-size:8.8pt;color:var(--soft)}
+.pv-guar{flex:none;margin-top:auto;display:flex;align-items:center;gap:2.2mm;border:.5pt solid var(--line);border-radius:2.2mm;padding:2.2mm 4mm;font-size:8.2pt;line-height:1.4;color:var(--mid)}
+.pv-guar svg.i{width:3.8mm;height:3.8mm;color:var(--red)}
+.pv-guar b{font-weight:700;color:var(--red);white-space:nowrap}
+.pv-guar .d{font-weight:600;color:var(--ink);white-space:nowrap}
+.pv-guar .x{margin-right:auto;color:var(--soft)}
 .pv-foot{display:flex;justify-content:space-between;gap:6mm;margin-top:5mm;padding-top:2.4mm;border-top:.35pt solid var(--line);font-size:7.8pt;color:var(--soft);flex:none}
 .pv-gap{margin-top:auto}
 `;
@@ -154,6 +150,7 @@ const ICONS = {
   pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
   web: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/>',
   user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
 } as const;
 const icon = (name: keyof typeof ICONS) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -220,7 +217,6 @@ const totalHtml = (label: string, amount: number, rate: number) =>
   `<div class="t"><div class="r"><span>${label}</span><span><i class="ltr">(${usd(rate > 0 ? amount / rate : 0)})</i><b>${dinars(amount)}</b></span></div>` +
   `<div class="w">${kurdishWords(amount)} دینار</div></div>`;
 
-const signatures = `<div class="pv-sign"><div>واژووی کڕیار</div><div>مۆری کۆمپانیا</div></div>`;
 
 interface Doc {
   band: string;
@@ -229,12 +225,14 @@ interface Doc {
   head: string;
   rows: string[];
   end: string;
+  /** At the foot of the last page, over the footer. */
+  bottom?: string;
   footer: string;
-  /** Rows the page gives up to a note or a long address. */
+  /** Rows the page gives up to a long address. */
   less: number;
 }
 
-function documentHtml({ band, meta, bar, head, rows, end, footer, less }: Doc): string {
+function documentHtml({ band, meta, bar, head, rows, end, bottom = '<div class="pv-gap"></div>', footer, less }: Doc): string {
   const pages = pagesOf(rows, less);
   return `<div class="pv">${pages
     .map((page, i) => {
@@ -243,7 +241,7 @@ function documentHtml({ band, meta, bar, head, rows, end, footer, less }: Doc): 
       return (
         `<section class="pv-page">${band}${meta}${bar}` +
         `<table class="pv-table${compact ? ' compact' : ''}">${head}<tbody>${page.map((r) => `<tr>${r}</tr>`).join('')}</tbody></table>` +
-        (last ? end + signatures : '<div class="pv-gap"></div>') +
+        (last ? end + bottom : '<div class="pv-gap"></div>') +
         `<div class="pv-foot"><span class="ltr">Vio Company · www.vioappliance.com</span><span>${footer}</span><span>پەڕەی <bdi class="ltr">${i + 1} / ${pages.length}</bdi></span></div></section>`
       );
     })
@@ -272,9 +270,9 @@ export function invoiceHtml(sale: Sale, settings: PosSettings, items: PosItem[])
   const net = netTotal(sale);
   const percent = sale.subtotal > 0 ? `(${((sale.discount / sale.subtotal) * 100).toFixed(2)}%)` : '';
   const guarantee =
-    `<div class="pv-g"><h3>زەمانی دوو ساڵ</h3>` +
-    `<dl><div><dt>لە</dt><dd class="ltr">${showDay(sale.soldAt)}</dd></div><div><dt>تا</dt><dd class="ltr">${showDay(guaranteeEnd(sale.soldAt))}</dd></div></dl>` +
-    `<p>هەموو کاڵاکانی سەر ئەم پسوولەیە زەمانی کارەبایی دوو ساڵیان هەیە. تکایە پسوولەکە بپارێزە، ئەمە زەمانەکەتە.</p></div>`;
+    `<div class="pv-guar">${icon('shield')}<b>زەمانی دوو ساڵ</b>` +
+    `<span class="d">لە <bdi class="ltr">${showDay(sale.soldAt)}</bdi> تا <bdi class="ltr">${showDay(guaranteeEnd(sale.soldAt))}</bdi></span>` +
+    `<span class="x">زەمانی کارەبایی بۆ هەموو کاڵاکان. پسوولەکە بپارێزە، ئەمە زەمانەکەتە.</span></div>`;
   const sum =
     `<div class="pv-sum">` +
     sumRow('ژمارەی دانە', `<bdi class="ltr">${num(piecesOf(sale.lines))}</bdi>`) +
@@ -291,10 +289,11 @@ export function invoiceHtml(sale: Sale, settings: PosSettings, items: PosItem[])
     head: tableHead(discounts),
     rows,
     end:
-      `<div class="pv-end">${guarantee}${sum}</div>` +
-      (sale.note ? `<div class="pv-note"><b>تێبینی</b><bdi>${esc(sale.note)}</bdi></div>` : ''),
+      // The note, when there is one, stands beside the totals.
+      `<div class="pv-end"><div>${sale.note ? `<div class="pv-box"><h3>تێبینی</h3><p><bdi>${esc(sale.note)}</bdi></p></div>` : ''}</div>${sum}</div>`,
+    bottom: guarantee,
     footer: `پسوولەی ${saleNo(sale)} · <bdi class="ltr">${showDay(sale.soldAt)}</bdi>`,
-    less: (sale.note ? 1 : 0) + (sale.customerAddress.length > 42 ? 1 : 0),
+    less: sale.customerAddress.length > 42 ? 1 : 0,
   });
 }
 
@@ -309,7 +308,7 @@ export function returnHtml(sale: Sale, ret: SaleReturn, settings: PosSettings, i
     const paid = paidFor(line, qty);
     return itemCells(line, items) + `<td class="c q">${qty}</td><td class="v">${dinars(paid / qty)}</td><td class="v a">${dinars(paid)}</td>`;
   });
-  const reason = `<div class="pv-g"><h3>هۆکار</h3><p style="font-size:10pt;color:var(--ink)"><bdi>${esc(ret.reason) || '—'}</bdi></p></div>`;
+  const reason = `<div class="pv-box"><h3>هۆکار</h3><p><bdi>${esc(ret.reason) || '—'}</bdi></p></div>`;
   return documentHtml({
     band: bandHtml(settings, `گەڕاندنەوە ${saleNo(sale)}`),
     meta: metaHtml(
