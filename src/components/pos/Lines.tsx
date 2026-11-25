@@ -33,8 +33,8 @@ export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, l
   const [editing, setEditing] = useState(changed);
   return (
     <li className={cn('px-4 py-3.5', roomy && 'sm:px-6')}>
-      <div className="flex gap-3">
-        <Photo image={lineImage(line, items)} className="size-14 rounded-xl" pad="p-1" eager />
+      <div className="flex items-center gap-3">
+        <Photo image={lineImage(line, items)} className="size-12 rounded-xl" pad="p-1" eager />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
             <span className={cn('min-w-0 truncate font-semibold text-ink-900', ltrText)}>{line.code}</span>
@@ -50,48 +50,49 @@ export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, l
               <span className={cn('shrink-0 font-semibold tabular-nums text-emerald-700', ltrText)}>+{num(raised)}</span>
             ) : null}
           </div>
-
-          <div className="mt-2.5 flex items-center gap-2">
-            <Stepper wide value={line.qty} min={1} max={999} t={t} disabled={disabled} onChange={(qty) => onChange({ qty })} />
-            <button
-              type="button"
-              title={t.editPrice}
-              aria-label={t.editPrice}
-              aria-expanded={editing}
-              disabled={disabled}
-              onClick={() => setEditing((e) => !e)}
-              className={cn(
-                'grid size-10 shrink-0 place-items-center rounded-xl border transition disabled:opacity-50',
-                editing || changed ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-slate-200 text-ink-400 hover:bg-slate-100 hover:text-ink-900',
-              )}
-            >
-              <Pencil width={17} height={17} />
-            </button>
-            <IconButton icon={Trash} label={`${t.remove} ${line.code}`} tone="red" disabled={disabled} onClick={onRemove} className="size-10! rounded-xl! border border-slate-200" />
-          </div>
-
-          {editing && (
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <IqdInput value={line.price} label={t.price} placeholder={t.price} disabled={disabled} className="h-10!" onChange={(price) => onChange({ price })} />
-              {/* A discount reads as a minus, so neither box needs a name over it. */}
-              <span className="relative block min-w-0" dir="ltr">
-                {line.discount > 0 && <span className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 font-semibold text-brand-700">−</span>}
-                <IqdInput
-                  value={line.discount}
-                  max={gross}
-                  emptyIsZero
-                  label={t.discount}
-                  placeholder={t.discount}
-                  disabled={disabled}
-                  className={cn('h-10! placeholder:font-medium', line.discount > 0 && 'ps-7! text-brand-700')}
-                  onChange={(discount) => onChange({ discount })}
-                />
-              </span>
-              {line.price !== line.list && <p className="col-span-2 text-xs text-ink-400">{t.listPrice(num(line.list))}</p>}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* The keys run the full width under the item, so nothing hangs under the photo. */}
+      <div className="mt-3 flex items-center gap-2">
+        <Stepper wide value={line.qty} min={1} max={999} t={t} disabled={disabled} onChange={(qty) => onChange({ qty })} />
+        <button
+          type="button"
+          title={t.editPrice}
+          aria-label={t.editPrice}
+          aria-expanded={editing}
+          disabled={disabled}
+          onClick={() => setEditing((e) => !e)}
+          className={cn(
+            'grid size-10 shrink-0 place-items-center rounded-xl border transition disabled:opacity-50',
+            editing || changed ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-slate-200 text-ink-400 hover:bg-slate-100 hover:text-ink-900',
+          )}
+        >
+          <Pencil width={17} height={17} />
+        </button>
+        <IconButton icon={Trash} label={`${t.remove} ${line.code}`} tone="red" disabled={disabled} onClick={onRemove} className="size-10! rounded-xl! border border-slate-200" />
+      </div>
+
+      {editing && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <IqdInput value={line.price} label={t.price} placeholder={t.price} disabled={disabled} className="h-10!" onChange={(price) => onChange({ price })} />
+          {/* A discount reads as a minus, so neither box needs a name over it. */}
+          <span className="relative block min-w-0" dir="ltr">
+            {line.discount > 0 && <span className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 font-semibold text-brand-700">−</span>}
+            <IqdInput
+              value={line.discount}
+              max={gross}
+              emptyIsZero
+              label={t.discount}
+              placeholder={t.discount}
+              disabled={disabled}
+              className={cn('h-10! placeholder:font-medium', line.discount > 0 && 'ps-7! text-brand-700')}
+              onChange={(discount) => onChange({ discount })}
+            />
+          </span>
+          {line.price !== line.list && <p className="col-span-2 text-xs text-ink-400">{t.listPrice(num(line.list))}</p>}
+        </div>
+      )}
     </li>
   );
 }
