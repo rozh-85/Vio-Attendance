@@ -82,8 +82,7 @@ export const INVOICE_CSS = `
 .pv-band-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4mm}
 .pv-band-top .s{font-size:12.5pt;font-weight:500;white-space:nowrap}
 .pv-band-top .e{text-align:left;font-size:9.6pt;font-weight:500;color:rgba(255,255,255,.88);white-space:nowrap}
-.pv-mark{display:flex;align-items:center;gap:3.6mm;direction:ltr}
-.pv-mark b{font-size:21pt;font-weight:700;letter-spacing:.06em;line-height:1}
+.pv-mark{display:flex;align-items:center;justify-content:center}
 .pv-contacts{display:flex;justify-content:space-between;gap:6mm;margin-top:4.6mm;font-size:8.6pt;color:rgba(255,255,255,.92)}
 .pv-contacts span{display:flex;align-items:center;gap:1.6mm;white-space:nowrap;min-width:0}
 
@@ -157,7 +156,7 @@ const icon = (name: keyof typeof ICONS) => `<svg class="i" viewBox="0 0 24 24" a
 /** A dinar amount, its figures left to right inside the Kurdish line. */
 export const dinars = (n: number): string => `<bdi class="ltr">${num(n)}</bdi><span class="pv-cur">د.ع</span>`;
 
-/** The red band: what the paper is, the company in the middle, and how to reach it. */
+/** The red band: what the paper is, the Vio mark in the middle, and how to reach it. */
 export function bandHtml(settings: PosSettings, what: string, aside = ''): string {
   const first = (text: string) => text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
   const phone = first(settings.phone);
@@ -169,7 +168,7 @@ export function bandHtml(settings: PosSettings, what: string, aside = ''): strin
   ].filter(Boolean);
   return (
     `<header class="pv-band"><div class="pv-band-top"><span class="s">${what}</span>` +
-    `<div class="pv-mark">${vioMarkSvg('#fff', '15mm')}<b>VIO COMPANY</b></div>` +
+    `<div class="pv-mark">${vioMarkSvg('#fff', '20mm')}</div>` +
     `<span class="e">${aside}</span></div>` +
     `<div class="pv-contacts">${contacts.join('')}</div></header>`
   );
