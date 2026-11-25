@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, CheckCircle, ChevronDown, Phone, Plus, Printer, User } from '@/components/icons';
+import { ArrowLeft, CheckCircle, ChevronDown, Phone, Plus, Printer, User, X } from '@/components/icons';
 import { latinDigits, normalizePhone } from '@/services/repairs/logic';
 import { MAX_OPEN, MIN_OPEN, changeLine, isEmpty, removeLine, type Cart, type Desk } from '@/services/pos/cart';
 import type { PosLang, PosText } from '@/services/pos/i18n';
@@ -10,19 +10,22 @@ import { cn } from '@/utils/cn';
 import { LineEditor } from './Lines';
 import { Labelled, Notice, PosDialog, field, ltrText } from './ui';
 
-/** Every open invoice, one quiet tab each: the customer, and the total once there is one. */
-export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
+/** Every open invoice, one quiet tab each: the customer, and the total once there is one. The open one has an × to remove it. */
+export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, onRemove, t }: {
   desk: Desk;
   saving: ReadonlySet<string>;
   errors: Record<string, string>;
   onChoose: (id: string) => void;
   onAdd: () => void;
+  /** Takes the customer away; an empty place is kept when only two are left. */
+  onRemove: (id: string) => void;
   t: PosText;
 }) {
   const list = useRef<HTMLDivElement>(null);
+  const [asking, setAsking] = useState<string | null>(null);
   // The open invoice stays in sight when there are more than fit.
   useEffect(() => {
-    list.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    list.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.parentElement?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [desk.active, desk.carts.length]);
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
@@ -33,29 +36,49 @@ export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
           const bad = !busy && !!errors[c.id];
           const name = c.customerName.trim() || t.customerNo(c.no);
           const total = c.lines.length ? num(totalOf(c.lines)) : '';
+          const removable = on && !busy && (desk.carts.length > MIN_OPEN || !isEmpty(c));
           return (
-            <button
+            <div
               key={c.id}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              title={total ? `${name} · ${total} IQD` : name}
-              onClick={() => onChoose(c.id)}
               className={cn(
-                'flex h-9 min-w-0 shrink-0 grow basis-auto items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition',
-                on ? 'bg-raised text-ink-900 shadow-sm ring-1 ring-slate-200/80' : 'text-ink-500 hover:text-ink-900',
+                'flex h-9 min-w-0 shrink-0 grow basis-auto items-center rounded-lg transition',
+                on ? 'bg-raised shadow-sm ring-1 ring-slate-200/80' : 'hover:bg-white/50',
               )}
             >
-              {(busy || bad) && (
-                <span className={cn('size-2 shrink-0 rounded-full', busy ? 'animate-pulse bg-amber-500' : 'bg-rose-500')}>
-                  <span className="sr-only">{busy ? t.saving : t.notSaved}</span>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={on}
+                title={total ? `${name} · ${total} IQD` : name}
+                onClick={() => onChoose(c.id)}
+                className={cn(
+                  'flex h-full min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold',
+                  removable ? 'ps-3 pe-1' : 'px-3',
+                  on ? 'text-ink-900' : 'text-ink-500 hover:text-ink-900',
+                )}
+              >
+                {(busy || bad) && (
+                  <span className={cn('size-2 shrink-0 rounded-full', busy ? 'animate-pulse bg-amber-500' : 'bg-rose-500')}>
+                    <span className="sr-only">{busy ? t.saving : t.notSaved}</span>
+                  </span>
+                )}
+                <span dir="auto" className="max-w-36 truncate">
+                  {name}
                 </span>
+                {total && <span className={cn('text-xs font-semibold tabular-nums', ltrText, on ? 'text-brand-600' : 'text-ink-400')}>{total}</span>}
+              </button>
+              {removable && (
+                <button
+                  type="button"
+                  title={t.removeCustomer}
+                  aria-label={`${t.removeCustomer}: ${name}`}
+                  onClick={() => (isEmpty(c) ? onRemove(c.id) : setAsking(c.id))}
+                  className="me-1 grid size-7 shrink-0 place-items-center rounded-md text-ink-400 transition hover:bg-brand-50 hover:text-brand-700"
+                >
+                  <X width={15} height={15} />
+                </button>
               )}
-              <span dir="auto" className="max-w-36 truncate">
-                {name}
-              </span>
-              {total && <span className={cn('text-xs font-semibold tabular-nums', ltrText, on ? 'text-brand-600' : 'text-ink-400')}>{total}</span>}
-            </button>
+            </div>
           );
         })}
       </div>
@@ -69,6 +92,28 @@ export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
         >
           <Plus width={18} height={18} />
         </button>
+      )}
+      {asking && (
+        <PosDialog
+          title={t.removeTitle}
+          hint={t.clearHint}
+          onClose={() => setAsking(null)}
+          actions={
+            <>
+              <Button variant="outline" onClick={() => setAsking(null)}>
+                {t.cancel}
+              </Button>
+              <Button
+                onClick={() => {
+                  onRemove(asking);
+                  setAsking(null);
+                }}
+              >
+                {t.removeYes}
+              </Button>
+            </>
+          }
+        />
       )}
     </div>
   );

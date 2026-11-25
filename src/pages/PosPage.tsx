@@ -210,7 +210,13 @@ export function PosPage() {
             ? t.rateNotSet(rateText(settings.rate))
             : '';
   const tabs = (
-    <CustomerTabs desk={desk} saving={saving} errors={errors} onChoose={(id) => setDesk((d) => ({ ...d, active: id }))} onAdd={() => setDesk((d) => openCart(d))} t={t} />
+    <CustomerTabs desk={desk} saving={saving} errors={errors} onChoose={(id) => setDesk((d) => ({ ...d, active: id }))} onAdd={() => setDesk((d) => openCart(d))}
+      onRemove={(id) => {
+        setDesk((d) => closeCart(d, id));
+        setErrors((e) => ({ ...e, [id]: '' }));
+      }}
+      t={t}
+    />
   );
 
   return (
