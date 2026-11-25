@@ -12,8 +12,9 @@ import { Photo, field, ltrText } from './ui';
 const ALL = 'all';
 const OFFER = 'offer';
 
+/** Pieces of each colour, and last the pieces whose colour is not chosen yet. */
 const countsOf = (item: PosItem, counts: Map<string, number>): string =>
-  (item.variants ?? [{ code: item.model, color: '' }]).map((v) => counts.get(countKey(item.id, v.code, v.color)) ?? 0).join(',');
+  [...(item.variants ?? []), { code: item.model, color: '' }].map((v) => counts.get(countKey(item.id, v.code, v.color)) ?? 0).join(',');
 
 /** Every item as a card: its photo, model, name, price in dinars and dollars — and its colours. */
 export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, searchRef }: {
@@ -63,15 +64,16 @@ export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, sear
     if (!query.trim() || !list.length) return;
     const key = modelKey(query);
     for (const item of list) {
+      // A colour's own code chooses that colour; the model leaves it to be chosen on the invoice.
       const variant = item.variants?.find((v) => modelKey(v.code) === key);
       if (variant || modelKey(item.model) === key) {
-        onAdd(item, variant ?? item.variants?.[0]);
+        onAdd(item, variant);
         setQuery('');
         return;
       }
     }
     if (list.length === 1) {
-      onAdd(list[0], list[0].variants?.[0]);
+      onAdd(list[0]);
       setQuery('');
     }
   }
@@ -179,16 +181,17 @@ const ItemCard = memo(function ItemCard({ item, settings, counts, onAdd, onTake,
   t: PosText;
   eager: boolean;
 }) {
-  const [index, setIndex] = useState(0);
+  // No colour until one is pressed: the invoice then asks for it.
+  const [index, setIndex] = useState<number | null>(null);
   const ku = lang === 'ku';
-  const variant = item.variants?.[index];
+  const variant = index === null ? undefined : item.variants?.[index];
   const price = todayPrice(item, settings);
   const off = percentOff(item, price.usd);
   const name = ku ? item.ku || item.name : item.name;
   // A colour with its own code shows it; one code for all colours shows the model.
   const code = variant?.code ?? item.model;
   const each = counts.split(',').map(Number);
-  const count = each[index] ?? 0;
+  const count = each[index ?? each.length - 1] ?? 0;
   const chosen = each.some((n) => n > 0);
   // Models, specs and prices read left to right, and stand on the side the language starts from.
   const side = cn(ltrText, ku ? 'text-end' : 'text-start');
@@ -257,7 +260,7 @@ const ItemCard = memo(function ItemCard({ item, settings, counts, onAdd, onTake,
                 title={colorName(v.color, ku)}
                 aria-label={`${item.model} ${colorName(v.color, ku)}${each[i] ? ` ${t.inInvoice(each[i])}` : ''}`}
                 aria-pressed={i === index}
-                onClick={() => setIndex(i)}
+                onClick={() => setIndex(i === index ? null : i)}
                 className="relative grid size-7 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
               >
                 <span className={cn('size-4 rounded-full border border-black/15', i === index && 'ring-2 ring-[#475569] ring-offset-2 ring-offset-[#fff]')} style={{ background: COLORS[v.color]?.hex }} />

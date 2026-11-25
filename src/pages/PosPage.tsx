@@ -7,7 +7,7 @@ import { SalesView } from '@/components/pos/SalesView';
 import { Segmented, VioTile, ltrText } from '@/components/pos/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/Button';
-import { activeCart, addItem, changeCart, closeCart, countKey, draftFrom, isEmpty, keepDesk, loadDesk, nextCart, openCart, repriceDesk, takeItem, type Cart, type Desk } from '@/services/pos/cart';
+import { activeCart, addItem, changeCart, closeCart, countKey, draftFrom, isEmpty, keepDesk, loadDesk, needsColor, nextCart, openCart, repriceDesk, takeItem, type Cart, type Desk } from '@/services/pos/cart';
 import { TEXT, posErrorMessage, readLang, saveLang, type PosLang } from '@/services/pos/i18n';
 import { DEFAULT_SETTINGS, mergeItems } from '@/services/pos/items';
 import { customerOk, num, piecesOf, rateText, totalOf } from '@/services/pos/logic';
@@ -142,6 +142,14 @@ export function PosPage() {
     async (print: boolean) => {
       const current = activeCart(deskRef.current);
       if (!current.lines.length || savingRef.current.has(current.id)) return;
+      // Every item that comes in colours needs its colour chosen.
+      const noColor = current.lines.find((l) => needsColor(l, items));
+      if (noColor) {
+        setErrors((e) => ({ ...e, [current.id]: t.colorNeeded(noColor.code) }));
+        setBillOpen(true);
+        requestAnimationFrame(() => document.getElementById(`pos-line-${noColor.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+        return;
+      }
       if (!customerOk(current)) {
         setChecked((c) => new Set(c).add(current.id));
         setErrors((e) => ({ ...e, [current.id]: t.errors.CUSTOMER_REQUIRED }));

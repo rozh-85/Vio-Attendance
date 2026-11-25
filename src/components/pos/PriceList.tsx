@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
 import { Check, Plus, Search, Trash, Undo } from '@/components/icons';
 import { posErrorMessage } from '@/services/pos/i18n';
-import { BASE_ITEMS, CATEGORIES, categoryName, modelKey, searchItems } from '@/services/pos/items';
+import { BASE_ITEMS, CATEGORIES, SHOP, categoryName, modelKey, searchItems } from '@/services/pos/items';
 import { num, toDinars } from '@/services/pos/logic';
 import type { PosSetup, PosStore } from '@/services/pos/store';
 import type { PosItem, PosItemChange, PosSettings } from '@/services/pos/types';
@@ -239,10 +239,10 @@ function SettingsForm({ settings, onSave }: { settings: PosSettings; onSave: (s:
             <input className={field} type="date" value={s.offer.to} min={s.offer.from} onChange={(e) => set({ offer: { ...s.offer, to: e.target.value } })} />
           </Labelled>
           <Labelled label="Phone on the invoice" className="col-span-2">
-            <input className={field} value={s.phone} maxLength={80} placeholder="Not printed when empty" onChange={(e) => set({ phone: e.target.value })} />
+            <input className={field} value={s.phone} maxLength={80} placeholder={`Empty: ${SHOP.phones.join(' · ')}`} onChange={(e) => set({ phone: e.target.value })} />
           </Labelled>
           <Labelled label="Address on the invoice" className="col-span-2 lg:col-span-3">
-            <input className={field} dir="auto" value={s.address} maxLength={120} placeholder="Not printed when empty" onChange={(e) => set({ address: e.target.value })} />
+            <input className={field} dir="auto" value={s.address} maxLength={120} placeholder={`Empty: ${SHOP.address}`} onChange={(e) => set({ address: e.target.value })} />
           </Labelled>
         </div>
       </form>

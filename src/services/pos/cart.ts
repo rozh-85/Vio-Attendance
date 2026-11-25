@@ -182,6 +182,10 @@ export function takeItem(lines: SaleLine[], item: PosItem, variant: PosVariant |
   return line.qty > 1 ? changeLine(lines, line.id, { qty: line.qty - 1 }) : removeLine(lines, line.id);
 }
 
+/** A line of an item that comes in colours, with none chosen yet: it cannot be saved like that. */
+export const needsColor = (line: SaleLine, items: PosItem[]): boolean =>
+  !line.color && !!items.find((i) => i.id === line.itemId)?.variants?.length;
+
 /** One colour of an item on an invoice. */
 export const countKey = (itemId: string, code: string, color: string): string => `${itemId}|${code}|${color}`;
 

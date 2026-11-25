@@ -1,6 +1,6 @@
 import '@/components/pos/print-fonts.css';
 import { formatPhone } from '@/services/repairs/logic';
-import { colorName, photo } from './items';
+import { SHOP, colorName, photo } from './items';
 import { guaranteeEnd, lineTotal, netTotal, num, paidFor, piecesOf, returnedQty, saleLabel, showDay, showTime, usd } from './logic';
 import { vioMarkSvg } from './logo';
 import type { PosItem, PosSettings, Sale, SaleLine, SaleReturn } from './types';
@@ -158,11 +158,12 @@ export const dinars = (n: number): string => `<bdi class="ltr">${num(n)}</bdi><s
 
 /** The red band: what the paper is, the Vio mark in the middle, and how to reach it. */
 export function bandHtml(settings: PosSettings, what: string, aside = ''): string {
-  const first = (text: string) => text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
-  const phone = first(settings.phone);
-  const address = first(settings.address);
+  const lines = (text: string) => text.split(/\n|\s+[·/|,]\s+/).map((l) => l.trim()).filter(Boolean);
+  // What the owner typed in the settings, else the showroom's own.
+  const phones = lines(settings.phone).length ? lines(settings.phone) : SHOP.phones;
+  const address = lines(settings.address)[0] ?? SHOP.address;
   const contacts = [
-    phone && `<span>${icon('phone')}<bdi class="ltr">${esc(phone)}</bdi></span>`,
+    `<span>${icon('phone')}<bdi class="ltr">${phones.map(esc).join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</bdi></span>`,
     address && `<span>${icon('pin')}<bdi>${esc(address)}</bdi></span>`,
     `<span>${icon('web')}<bdi class="ltr">www.vioappliance.com</bdi></span>`,
   ].filter(Boolean);

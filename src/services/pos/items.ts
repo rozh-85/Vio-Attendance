@@ -19,6 +19,9 @@ export const DEFAULT_SETTINGS: PosSettings = {
   address: '',
 };
 
+/** The showroom, printed on the invoice and the report when nothing else is set in the settings. */
+export const SHOP: { phones: readonly string[]; address: string } = { phones: ['0770 953 5959', '0770 953 5858'], address: 'سلێمانی، ژاڵە' };
+
 /** The guarantee on every item, in years. */
 export const GUARANTEE_YEARS = 2;
 

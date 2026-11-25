@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pencil, Plus, Search, Trash } from '@/components/icons';
 import { todayPrice } from '@/services/pos/cart';
 import type { PosLang, PosText } from '@/services/pos/i18n';
-import { colorName, searchItems } from '@/services/pos/items';
+import { COLORS, colorName, searchItems } from '@/services/pos/items';
 import { lineGross, lineTotal, num, usd } from '@/services/pos/logic';
 import type { PosItem, PosSettings, PosVariant, SaleLine } from '@/services/pos/types';
 import { cn } from '@/utils/cn';
@@ -31,8 +31,13 @@ export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, l
   const raised = (line.price - line.list) * line.qty;
   const changed = line.discount > 0 || line.price !== line.list;
   const [editing, setEditing] = useState(changed);
+  const ku = lang === 'ku';
+  const variants = items.find((i) => i.id === line.itemId)?.variants ?? [];
+  const missing = variants.length > 0 && !line.color;
+  // The colour has its own row of circles, so the name goes without it.
+  const title = variants.length ? (ku ? line.ku || line.name : line.name) : lineName(line, lang);
   return (
-    <li className={cn('px-4 py-3.5', roomy && 'sm:px-6')}>
+    <li id={`pos-line-${line.id}`} className={cn('px-4 py-3.5', roomy && 'sm:px-6')}>
       <div className="flex items-center gap-3">
         <Photo image={lineImage(line, items)} className="size-12 rounded-xl" pad="p-1" eager />
         <div className="min-w-0 flex-1">
@@ -42,7 +47,7 @@ export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, l
           </div>
           <div className="flex items-baseline justify-between gap-3 text-[13px]">
             <span className="min-w-0 truncate text-ink-500">
-              {lineName(line, lang)} · <span className={ltrText}>{usd(line.usd)}</span>
+              {title} · <span className={ltrText}>{usd(line.usd)}</span>
             </span>
             {line.discount > 0 ? (
               <s className={cn('shrink-0 tabular-nums text-ink-400', ltrText)}>{num(gross)}</s>
@@ -52,6 +57,37 @@ export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, l
           </div>
         </div>
       </div>
+
+      {variants.length > 0 && (
+        <div className={cn('mt-3 flex items-center gap-2 rounded-xl p-1', missing && 'bg-brand-50 ring-1 ring-brand-200')}>
+          <div role="radiogroup" aria-label={t.color} className="flex flex-wrap gap-1">
+            {variants.map((v) => {
+              const on = v.code === line.code && v.color === line.color;
+              return (
+                <button
+                  key={`${v.code}${v.color}`}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  aria-label={colorName(v.color, ku)}
+                  title={colorName(v.color, ku)}
+                  disabled={disabled}
+                  onClick={() => onChange({ code: v.code, color: v.color, image: v.image })}
+                  className="grid size-9 place-items-center rounded-full transition hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <span
+                    className={cn('size-6 rounded-full border border-black/15', on && 'ring-2 ring-ink-800 ring-offset-2 ring-offset-card')}
+                    style={{ background: COLORS[v.color]?.hex }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+          <span className={cn('min-w-0 truncate text-[13px] font-semibold', missing ? 'text-brand-700' : 'text-ink-500')}>
+            {missing ? t.chooseColor : colorName(line.color, ku)}
+          </span>
+        </div>
+      )}
 
       {/* The keys run the full width under the item, so nothing hangs under the photo. */}
       <div className="mt-3 flex items-center gap-2">
