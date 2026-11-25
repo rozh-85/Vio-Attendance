@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Pencil, Plus, Search, Trash } from '@/components/icons';
 import { todayPrice } from '@/services/pos/cart';
 import type { PosLang, PosText } from '@/services/pos/i18n';
@@ -10,16 +10,6 @@ import { IconButton, IqdInput, Photo, Stepper, field, lineImage, ltrText } from 
 
 export const lineName = (line: Pick<SaleLine, 'name' | 'ku' | 'color'>, lang: PosLang): string =>
   [lang === 'ku' ? line.ku || line.name : line.name, line.color && colorName(line.color, lang === 'ku')].filter(Boolean).join(' · ');
-
-/** A small name over a box in a line. */
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block min-w-0">
-      <span className="mb-1 block truncate text-xs font-medium text-ink-500">{label}</span>
-      {children}
-    </label>
-  );
-}
 
 /**
  * One line of an invoice: the item and its total, then the pieces and the
@@ -62,36 +52,46 @@ export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, l
           </div>
 
           <div className="mt-2.5 flex items-center gap-2">
-            <Stepper value={line.qty} min={1} max={999} t={t} disabled={disabled} onChange={(qty) => onChange({ qty })} />
+            <Stepper wide value={line.qty} min={1} max={999} t={t} disabled={disabled} onChange={(qty) => onChange({ qty })} />
             <button
               type="button"
+              title={t.editPrice}
+              aria-label={t.editPrice}
               aria-expanded={editing}
               disabled={disabled}
               onClick={() => setEditing((e) => !e)}
               className={cn(
-                'inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[13px] font-semibold transition disabled:opacity-50',
-                editing || changed ? 'bg-brand-50 text-brand-700' : 'text-ink-500 hover:bg-slate-100 hover:text-ink-900',
+                'grid size-10 shrink-0 place-items-center rounded-xl border transition disabled:opacity-50',
+                editing || changed ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-slate-200 text-ink-400 hover:bg-slate-100 hover:text-ink-900',
               )}
             >
-              <Pencil width={15} height={15} className="shrink-0" />
-              <span className="truncate">{line.discount > 0 ? <span className={ltrText}>−{num(line.discount)}</span> : t.price}</span>
+              <Pencil width={17} height={17} />
             </button>
-            <IconButton icon={Trash} label={`${t.remove} ${line.code}`} tone="red" disabled={disabled} onClick={onRemove} className="ms-auto size-10! rounded-xl!" />
+            <IconButton icon={Trash} label={`${t.remove} ${line.code}`} tone="red" disabled={disabled} onClick={onRemove} className="size-10! rounded-xl! border border-slate-200" />
           </div>
+
+          {editing && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <IqdInput value={line.price} label={t.price} placeholder={t.price} disabled={disabled} className="h-10!" onChange={(price) => onChange({ price })} />
+              {/* A discount reads as a minus, so neither box needs a name over it. */}
+              <span className="relative block min-w-0" dir="ltr">
+                {line.discount > 0 && <span className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 font-semibold text-brand-700">−</span>}
+                <IqdInput
+                  value={line.discount}
+                  max={gross}
+                  emptyIsZero
+                  label={t.discount}
+                  placeholder={t.discount}
+                  disabled={disabled}
+                  className={cn('h-10! placeholder:font-medium', line.discount > 0 && 'ps-7! text-brand-700')}
+                  onChange={(discount) => onChange({ discount })}
+                />
+              </span>
+              {line.price !== line.list && <p className="col-span-2 text-xs text-ink-400">{t.listPrice(num(line.list))}</p>}
+            </div>
+          )}
         </div>
       </div>
-
-      {editing && (
-        <div className="mt-3 grid grid-cols-2 gap-2.5 rounded-xl bg-slate-50 p-3">
-          <Field label={t.price}>
-            <IqdInput value={line.price} disabled={disabled} className="h-10!" onChange={(price) => onChange({ price })} />
-          </Field>
-          <Field label={t.discount}>
-            <IqdInput value={line.discount} max={gross} emptyIsZero placeholder="0" disabled={disabled} className="h-10!" onChange={(discount) => onChange({ discount })} />
-          </Field>
-          {line.price !== line.list && <p className={cn('col-span-2 -mt-1 text-xs text-ink-400')}>{t.listPrice(num(line.list))}</p>}
-        </div>
-      )}
     </li>
   );
 }
