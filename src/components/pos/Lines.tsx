@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Plus, Search, Trash } from '@/components/icons';
 import { todayPrice } from '@/services/pos/cart';
 import type { PosLang, PosText } from '@/services/pos/i18n';
@@ -6,12 +6,23 @@ import { colorName, searchItems } from '@/services/pos/items';
 import { lineGross, lineTotal, num, usd } from '@/services/pos/logic';
 import type { PosItem, PosSettings, PosVariant, SaleLine } from '@/services/pos/types';
 import { cn } from '@/utils/cn';
-import { IconButton, IqdInput, Labelled, Photo, Stepper, field, lineImage, ltrText } from './ui';
+import { IconButton, IqdInput, Photo, Stepper, field, lineImage, ltrText } from './ui';
 
 export const lineName = (line: Pick<SaleLine, 'name' | 'ku' | 'color'>, lang: PosLang): string =>
   [lang === 'ku' ? line.ku || line.name : line.name, line.color && colorName(line.color, lang === 'ku')].filter(Boolean).join(' · ');
 
-/** One line of an invoice being made or changed: pieces, price, discount. */
+/** A small name over a box in a line. */
+function Field({ label, group, children }: { label: string; group?: boolean; children: ReactNode }) {
+  const Tag = group ? 'div' : 'label';
+  return (
+    <Tag className="block min-w-0">
+      <span className="mb-1 block truncate text-xs font-medium text-ink-500">{label}</span>
+      {children}
+    </Tag>
+  );
+}
+
+/** One line of an invoice being made or changed: the item and its total, then pieces, price, discount — one even row. */
 export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, lang, t }: {
   line: SaleLine;
   items: PosItem[];
@@ -26,44 +37,38 @@ export function LineEditor({ line, items, onChange, onRemove, disabled, roomy, l
   const gross = lineGross(line);
   const raised = (line.price - line.list) * line.qty;
   return (
-    <li className={cn('@container px-4 py-4', roomy && 'sm:px-6')}>
-      <div className="flex items-start gap-3">
-        <Photo image={lineImage(line, items)} className="size-14 rounded-xl" eager />
+    <li className={cn('px-4 py-3.5', roomy && 'sm:px-6')}>
+      <div className="flex items-center gap-3">
+        <Photo image={lineImage(line, items)} className="size-12 rounded-xl" pad="p-1" eager />
         <div className="min-w-0 flex-1">
-          <div className={cn('truncate font-semibold text-ink-900', ltrText, lang === 'ku' ? 'text-end' : 'text-start')}>{line.code}</div>
-          <div className="truncate text-sm text-ink-500">{lineName(line, lang)}</div>
-          <div className="mt-0.5 text-[13px] text-ink-400">
-            <span className={ltrText}>{usd(line.usd)}</span>
-            {line.price !== line.list && <> · {t.listPrice(num(line.list))}</>}
+          <div className="flex items-baseline justify-between gap-3">
+            <span className={cn('min-w-0 truncate font-semibold text-ink-900', ltrText)}>{line.code}</span>
+            <span className={cn('shrink-0 text-base font-bold tabular-nums text-ink-900', ltrText)}>{num(lineTotal(line))}</span>
           </div>
-        </div>
-        <div className="shrink-0 text-end">
-          <div className="text-[17px] font-bold tabular-nums text-ink-900">
-            <span className={ltrText}>{num(lineTotal(line))}</span>
+          <div className="mt-0.5 flex items-baseline justify-between gap-3 text-[13px]">
+            <span className="min-w-0 truncate text-ink-500">
+              {lineName(line, lang)} · <span className={ltrText}>{usd(line.usd)}</span>
+            </span>
+            {line.discount > 0 ? (
+              <s className={cn('shrink-0 tabular-nums text-ink-400', ltrText)}>{num(gross)}</s>
+            ) : raised > 0 ? (
+              <span className={cn('shrink-0 font-semibold tabular-nums text-emerald-700', ltrText)}>+{num(raised)}</span>
+            ) : null}
           </div>
-          {line.discount > 0 && (
-            <div className="text-[13px] tabular-nums text-ink-400">
-              <s className={ltrText}>{num(gross)}</s>
-            </div>
-          )}
-          {line.discount === 0 && raised > 0 && (
-            <div className="text-[13px] font-semibold tabular-nums text-emerald-700">
-              <span className={ltrText}>+{num(raised)}</span>
-            </div>
-          )}
+          {line.price !== line.list && <div className="mt-0.5 truncate text-xs text-ink-400">{t.listPrice(num(line.list))}</div>}
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-end gap-x-2.5 gap-y-3 @[25rem]:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <Labelled label={t.qty} group>
-          <Stepper value={line.qty} min={1} max={999} t={t} disabled={disabled} onChange={(qty) => onChange({ qty })} />
-        </Labelled>
-        <IconButton icon={Trash} label={`${t.remove} ${line.code}`} tone="red" disabled={disabled} onClick={onRemove} className="size-10! justify-self-end @[25rem]:order-4" />
-        <Labelled label={t.price}>
-          <IqdInput value={line.price} disabled={disabled} className="h-10!" onChange={(price) => onChange({ price })} />
-        </Labelled>
-        <Labelled label={t.discount}>
-          <IqdInput value={line.discount} max={gross} emptyIsZero placeholder="0" disabled={disabled} className="h-10!" onChange={(discount) => onChange({ discount })} />
-        </Labelled>
+      <div className="mt-3 grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-end gap-2">
+        <Field label={t.qty} group>
+          <Stepper wide value={line.qty} min={1} max={999} t={t} disabled={disabled} onChange={(qty) => onChange({ qty })} />
+        </Field>
+        <Field label={t.price}>
+          <IqdInput value={line.price} disabled={disabled} className="h-10! px-3!" onChange={(price) => onChange({ price })} />
+        </Field>
+        <Field label={t.discount}>
+          <IqdInput value={line.discount} max={gross} emptyIsZero placeholder="0" disabled={disabled} className="h-10! px-3!" onChange={(discount) => onChange({ discount })} />
+        </Field>
+        <IconButton icon={Trash} label={`${t.remove} ${line.code}`} tone="red" disabled={disabled} onClick={onRemove} className="size-10! rounded-xl! border border-slate-200 hover:border-brand-200" />
       </div>
     </li>
   );

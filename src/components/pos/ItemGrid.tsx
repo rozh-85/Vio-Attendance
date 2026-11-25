@@ -4,7 +4,7 @@ import { Minus, Plus, Search, X } from '@/components/icons';
 import { countKey, todayPrice } from '@/services/pos/cart';
 import { CATEGORIES, COLORS, colorName, modelKey, offerRuns, percentOff, searchItems } from '@/services/pos/items';
 import type { PosLang, PosText } from '@/services/pos/i18n';
-import { num, showDay, usd } from '@/services/pos/logic';
+import { num, usd } from '@/services/pos/logic';
 import type { PosItem, PosSettings, PosVariant } from '@/services/pos/types';
 import { cn } from '@/utils/cn';
 import { Photo, field, ltrText } from './ui';
@@ -104,8 +104,8 @@ export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, sear
       </Card>
 
       <section className="flex min-h-0 min-w-0 flex-col">
-        <div className="flex flex-wrap items-center gap-2.5 px-3 pt-3 sm:gap-3 sm:px-4 sm:pt-4 lg:px-0 lg:pt-0">
-          <label className="relative block min-w-0 flex-1 basis-64">
+        <div className="px-3 pt-3 sm:px-4 sm:pt-4 lg:px-0 lg:pt-0">
+          <label className="relative block min-w-0">
             <Search width={18} height={18} className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-ink-400" />
             <input
               ref={searchRef}
@@ -128,10 +128,6 @@ export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, sear
               </button>
             )}
           </label>
-          <span className={cn('inline-flex min-h-9 items-center rounded-full px-3.5 py-1 text-[13px] font-semibold', running ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-ink-500')}>
-            <span className="max-sm:hidden">{running ? t.offerUntil(offer.name, showDay(offer.to)) : t.regularPrices}</span>
-            <span className="sm:hidden">{running ? t.offerShort(offer.name, showDay(offer.to).slice(0, 5)) : t.regularPrices}</span>
-          </span>
         </div>
 
         <nav aria-label={t.allItems} className="flex shrink-0 gap-2 overflow-x-auto px-3 py-3 [scrollbar-width:none] sm:px-4 lg:px-0 min-[90rem]:hidden [&::-webkit-scrollbar]:hidden">

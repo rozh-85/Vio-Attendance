@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, CheckCircle, ChevronDown, Plus, Printer, User } from '@/components/icons';
+import { ArrowLeft, CheckCircle, ChevronDown, Phone, Plus, Printer, User } from '@/components/icons';
 import { latinDigits, normalizePhone } from '@/services/repairs/logic';
 import { MAX_OPEN, MIN_OPEN, changeLine, isEmpty, removeLine, type Cart, type Desk } from '@/services/pos/cart';
 import type { PosLang, PosText } from '@/services/pos/i18n';
@@ -153,23 +153,21 @@ export function Bill({ cart, change, deskSize, rate, items, last, saving, error,
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
         <div className="px-4 pb-4 pt-3.5">
-          <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink-900">
-              <User width={17} height={17} className="text-ink-400" /> {t.customer}
-            </h2>
+          <div className="mb-2.5 flex min-h-8 items-center justify-between gap-3">
+            <h2 className="text-[15px] font-bold text-ink-900">{t.customer}</h2>
             {closable && (
-              <button type="button" disabled={saving} onClick={() => (isEmpty(cart) ? onClose() : setAsking(true))} className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-ink-500 transition hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50">
+              <button type="button" disabled={saving} onClick={() => (isEmpty(cart) ? onClose() : setAsking(true))} className="-me-2 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-ink-500 transition hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50">
                 {isEmpty(cart) ? t.closeCustomer : t.clear}
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 items-start gap-2.5">
-            <Labelled label={t.name} error={nameBad ? t.nameNeeded : undefined}>
-              <input id="pos-name" className={cn(field, nameBad && 'border-rose-400')} dir="auto" autoComplete="off" aria-invalid={nameBad} disabled={saving} value={cart.customerName} onChange={(e) => change((c) => ({ ...c, customerName: e.target.value }))} />
-            </Labelled>
-            <Labelled label={t.phone} error={phoneBad ? t.phoneNeeded : undefined}>
-              <input id="pos-phone" className={cn(field, 'max-[22.5rem]:px-2.5!', phoneBad && 'border-rose-400')} dir="ltr" inputMode="tel" autoComplete="off" placeholder="0750 000 0000" aria-invalid={phoneBad} disabled={saving} value={cart.customerPhone} onChange={(e) => void phoneTyped(latinDigits(e.target.value))} />
-            </Labelled>
+          <div className="space-y-2.5">
+            <IconField icon={User} error={nameBad ? t.nameNeeded : undefined}>
+              <input id="pos-name" className={cn(field, 'ps-10', nameBad && 'border-rose-400')} dir="auto" autoComplete="off" placeholder={t.name} aria-label={t.name} aria-invalid={nameBad} disabled={saving} value={cart.customerName} onChange={(e) => change((c) => ({ ...c, customerName: e.target.value }))} />
+            </IconField>
+            <IconField icon={Phone} ltr error={phoneBad ? t.phoneNeeded : undefined}>
+              <input id="pos-phone" className={cn(field, 'ps-10 tabular-nums', phoneBad && 'border-rose-400')} dir="ltr" inputMode="tel" autoComplete="off" placeholder="0750 000 0000" aria-label={t.phone} aria-invalid={phoneBad} disabled={saving} value={cart.customerPhone} onChange={(e) => void phoneTyped(latinDigits(e.target.value))} />
+            </IconField>
           </div>
         </div>
 
@@ -264,6 +262,20 @@ export function Bill({ cart, change, deskSize, rate, items, last, saving, error,
         />
       )}
     </section>
+  );
+}
+
+/** A box with its icon inside, and what is wrong under it. */
+function IconField({ icon: I, ltr, error, children }: { icon: typeof User; ltr?: boolean; error?: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      {/* A phone number reads left to right, so its icon stays on the left in Kurdish too. */}
+      <div className="relative" dir={ltr ? 'ltr' : undefined}>
+        <I width={17} height={17} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+        {children}
+      </div>
+      {error && <span className="mt-1.5 block text-[13px] font-medium text-rose-600">{error}</span>}
+    </div>
   );
 }
 
