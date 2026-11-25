@@ -204,7 +204,7 @@ const ItemCard = memo(function ItemCard({ item, settings, counts, onAdd, onTake,
     <article
       className={cn(
         'group relative flex min-w-0 flex-col rounded-[20px] border bg-card p-1.5 transition duration-150 hover:shadow-md',
-        chosen ? 'border-brand-300 shadow-sm ring-1 ring-inset ring-brand-300' : 'border-slate-200/80 shadow-sm hover:border-slate-300',
+        chosen ? 'border-slate-400 shadow-sm' : 'border-slate-200/80 shadow-sm hover:border-slate-300',
       )}
     >
       <button
@@ -230,7 +230,7 @@ const ItemCard = memo(function ItemCard({ item, settings, counts, onAdd, onTake,
 
       <div className="px-0.5 pb-0.5 pt-2.5">
         {count > 0 ? (
-          <div role="group" aria-label={`${code} ${t.inInvoice(count)}`} className="flex h-9 items-center rounded-xl bg-brand-600 p-1 text-white [direction:ltr]">
+          <div role="group" aria-label={`${code} ${t.inInvoice(count)}`} className="flex h-9 items-center rounded-xl bg-slate-100 p-1 text-ink-900 [direction:ltr]">
             <StepButton label={`${t.less} ${code}`} icon={Minus} onClick={() => onTake(item, variant)} />
             <span className="min-w-0 flex-1 text-center text-sm font-bold tabular-nums">{count}</span>
             <StepButton label={`${t.more} ${code}`} icon={Plus} onClick={() => onAdd(item, variant)} />
@@ -240,7 +240,7 @@ const ItemCard = memo(function ItemCard({ item, settings, counts, onAdd, onTake,
             type="button"
             aria-label={`${t.add} ${code}`}
             onClick={() => onAdd(item, variant)}
-            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 text-[13px] font-semibold text-ink-700 outline-none transition hover:bg-brand-600 hover:text-white focus-visible:ring-2 focus-visible:ring-brand-500"
+            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 text-[13px] font-semibold text-ink-700 outline-none transition hover:bg-slate-200 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             <Plus width={15} height={15} strokeWidth={2.4} /> {t.add}
           </button>
@@ -249,7 +249,7 @@ const ItemCard = memo(function ItemCard({ item, settings, counts, onAdd, onTake,
 
       {off > 0 && (
         // Its own direction would also decide which side "start" is, so the text inside has it.
-        <span className="pointer-events-none absolute start-3 top-3 rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-bold leading-4 tabular-nums text-white">
+        <span className="pointer-events-none absolute start-3 top-3 rounded-full bg-white px-2 py-0.5 text-[11px] font-bold leading-4 tabular-nums text-[#334155] shadow-sm ring-1 ring-black/5">
           <span className={ltrText}>−{off}%</span>
         </span>
       )}
@@ -267,8 +267,8 @@ const ItemCard = memo(function ItemCard({ item, settings, counts, onAdd, onTake,
                 onClick={() => setIndex(i)}
                 className="relative grid size-7 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
               >
-                <span className={cn('size-4 rounded-full border border-black/15', i === index && 'ring-2 ring-brand-600 ring-offset-2 ring-offset-[#fff]')} style={{ background: COLORS[v.color]?.hex }} />
-                {each[i] > 0 && i !== index && <span className="absolute end-1 top-1 size-2 rounded-full bg-brand-600 ring-2 ring-white" />}
+                <span className={cn('size-4 rounded-full border border-black/15', i === index && 'ring-2 ring-[#475569] ring-offset-2 ring-offset-[#fff]')} style={{ background: COLORS[v.color]?.hex }} />
+                {each[i] > 0 && i !== index && <span className="absolute end-1 top-1 size-2 rounded-full bg-[#475569] ring-2 ring-[#fff]" />}
               </button>
             ))}
           </div>
@@ -283,7 +283,7 @@ const PHOTO = 'aspect-[1/0.88]';
 
 function StepButton({ icon: Icon, label, onClick }: { icon: typeof Plus; label: string; onClick: () => void }) {
   return (
-    <button type="button" aria-label={label} onClick={onClick} className="grid h-7 w-9 shrink-0 place-items-center rounded-lg bg-white/15 outline-none transition hover:bg-white/30 active:bg-white/40 focus-visible:ring-2 focus-visible:ring-white">
+    <button type="button" aria-label={label} onClick={onClick} className="grid h-7 w-9 shrink-0 place-items-center rounded-lg bg-raised text-ink-700 shadow-sm ring-1 ring-slate-200/80 outline-none transition hover:text-ink-900 hover:ring-slate-300 focus-visible:ring-2 focus-visible:ring-brand-500">
       <Icon width={15} height={15} strokeWidth={2.6} />
     </button>
   );
