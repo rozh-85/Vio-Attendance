@@ -7,7 +7,7 @@ import { SalesView } from '@/components/pos/SalesView';
 import { Segmented, VioTile, ltrText } from '@/components/pos/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/Button';
-import { activeCart, addItem, changeCart, closeCart, draftFrom, isEmpty, keepDesk, loadDesk, nextCart, openCart, repriceDesk, type Cart, type Desk } from '@/services/pos/cart';
+import { activeCart, addItem, changeCart, closeCart, countKey, draftFrom, isEmpty, keepDesk, loadDesk, nextCart, openCart, repriceDesk, takeItem, type Cart, type Desk } from '@/services/pos/cart';
 import { TEXT, posErrorMessage, readLang, saveLang, type PosLang } from '@/services/pos/i18n';
 import { DEFAULT_SETTINGS, mergeItems } from '@/services/pos/items';
 import { customerOk, num, piecesOf, rateText, totalOf } from '@/services/pos/logic';
@@ -104,7 +104,10 @@ export function PosPage() {
   const cart = activeCart(desk);
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const l of cart.lines) map.set(l.itemId, (map.get(l.itemId) ?? 0) + l.qty);
+    for (const l of cart.lines) {
+      const key = countKey(l.itemId, l.code, l.color);
+      map.set(key, (map.get(key) ?? 0) + l.qty);
+    }
     return map;
   }, [cart.lines]);
 
@@ -112,6 +115,7 @@ export function PosPage() {
     (item: PosItem, variant?: PosVariant) => change((c) => ({ ...c, lines: addItem(c.lines, item, variant, settings) })),
     [settings, change],
   );
+  const take = useCallback((item: PosItem, variant?: PosVariant) => change((c) => ({ ...c, lines: takeItem(c.lines, item, variant) })), [change]);
 
   const setRate = useCallback(
     async (rate: number) => {
@@ -269,7 +273,7 @@ export function PosPage() {
 
       {view === 'sell' ? (
         <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_340px] md:grid-rows-1 md:gap-3 md:pe-3 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:p-5 min-[90rem]:grid-cols-[216px_minmax(0,1fr)_436px] min-[137rem]:grid-cols-[248px_minmax(0,1fr)_520px] md:max-lg:py-3">
-          <ItemGrid items={items} settings={settings} counts={counts} onAdd={add} lang={lang} t={t} searchRef={search} rate={rateButton('md:hidden [&>span]:hidden')} />
+          <ItemGrid items={items} settings={settings} counts={counts} onAdd={add} onTake={take} lang={lang} t={t} searchRef={search} rate={rateButton('md:hidden [&>span]:hidden')} />
           <Bill
             cart={cart}
             change={change}

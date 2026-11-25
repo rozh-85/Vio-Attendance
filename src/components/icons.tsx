@@ -111,6 +111,12 @@ export const Plus = (p: IconProps) => (
   </svg>
 );
 
+export const Minus = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M5 12h14" />
+  </svg>
+);
+
 export const Pin = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />

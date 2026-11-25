@@ -174,6 +174,17 @@ export const changeLine = (lines: SaleLine[], id: string, change: Partial<SaleLi
     return { ...next, discount: Math.min(next.discount, lineGross(next)) };
   });
 
+/** One piece less; the last one takes the line away. */
+export function takeItem(lines: SaleLine[], item: PosItem, variant: PosVariant | undefined): SaleLine[] {
+  const key = countKey(item.id, variant?.code ?? item.model, variant?.color ?? '');
+  const line = lines.find((l) => countKey(l.itemId, l.code, l.color) === key);
+  if (!line) return lines;
+  return line.qty > 1 ? changeLine(lines, line.id, { qty: line.qty - 1 }) : removeLine(lines, line.id);
+}
+
+/** One colour of an item on an invoice. */
+export const countKey = (itemId: string, code: string, color: string): string => `${itemId}|${code}|${color}`;
+
 export const removeLine = (lines: SaleLine[], id: string): SaleLine[] => lines.filter((l) => l.id !== id);
 
 /**
