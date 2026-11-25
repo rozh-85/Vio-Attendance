@@ -200,3 +200,26 @@ input[type='password']::placeholder {
     transform: translateY(0);
   }
 }
+
+/* The dollar rate: a menu under its button, or a sheet with keys on a phone. */
+@keyframes rate-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+@keyframes rate-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rate-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-[rate-'] {
+    animation: none;
+  }
+}

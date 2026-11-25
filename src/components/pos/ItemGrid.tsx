@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { memo, useMemo, useRef, useState, type RefObject } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Minus, Plus, Search, X } from '@/components/icons';
 import { countKey, todayPrice } from '@/services/pos/cart';
@@ -16,7 +16,7 @@ const countsOf = (item: PosItem, counts: Map<string, number>): string =>
   (item.variants ?? [{ code: item.model, color: '' }]).map((v) => counts.get(countKey(item.id, v.code, v.color)) ?? 0).join(',');
 
 /** Every item as a card: its photo, model, name, price in dinars and dollars — and its colours. */
-export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, searchRef, rate }: {
+export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, searchRef }: {
   items: PosItem[];
   settings: PosSettings;
   /** Pieces of each item and colour on the open invoice. */
@@ -26,8 +26,6 @@ export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, sear
   lang: PosLang;
   t: PosText;
   searchRef: RefObject<HTMLInputElement | null>;
-  /** The dollar button, shown here on a phone. */
-  rate: ReactNode;
 }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState(ALL);
@@ -130,7 +128,6 @@ export function ItemGrid({ items, settings, counts, onAdd, onTake, lang, t, sear
               </button>
             )}
           </label>
-          {rate}
           <span className={cn('inline-flex min-h-9 items-center rounded-full px-3.5 py-1 text-[13px] font-semibold', running ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-ink-500')}>
             <span className="max-sm:hidden">{running ? t.offerUntil(offer.name, showDay(offer.to)) : t.regularPrices}</span>
             <span className="sm:hidden">{running ? t.offerShort(offer.name, showDay(offer.to).slice(0, 5)) : t.regularPrices}</span>

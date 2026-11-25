@@ -268,6 +268,13 @@ export const Building = (p: IconProps) => (
   </svg>
 );
 
+export const Backspace = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M21 5H9l-7 7 7 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z" />
+    <path d="m12 9 6 6M18 9l-6 6" />
+  </svg>
+);
+
 export const DollarSign = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M12 2v20M17 6.5c-.8-1-2.1-1.5-4-1.5-2.5 0-4 1.2-4 3s1.5 3 4 3 4 1.2 4 3-1.5 3-4 3c-1.9 0-3.2-.5-4-1.5" />

@@ -212,30 +212,37 @@ export function PosPage() {
   const tabs = (
     <CustomerTabs desk={desk} saving={saving} errors={errors} onChoose={(id) => setDesk((d) => ({ ...d, active: id }))} onAdd={() => setDesk((d) => openCart(d))} t={t} />
   );
-  const rateButton = (className?: string) => <RateButton rate={settings.rate} isSet={settings.rateSet || !ready} onSave={setRate} t={t} className={className} />;
 
   return (
     <div className="flex h-dvh flex-col bg-surface text-ink-900" dir={lang === 'ku' ? 'rtl' : 'ltr'} lang={lang === 'ku' ? 'ckb' : 'en'}>
       <header className="z-30 flex h-16 shrink-0 items-center gap-2.5 border-b border-slate-200 bg-card px-3 sm:gap-4 sm:px-4 lg:px-6">
-        <VioTile className="size-10" />
+        <VioTile className="size-9 sm:size-10" />
         <span className="hidden text-lg font-bold lg:inline">Vio POS</span>
         <Segmented<'sell' | 'sales'>
           label="Vio POS"
           value={view}
           options={[
             { id: 'sell', label: t.sell },
-            { id: 'sales', label: t.sales },
+            {
+              id: 'sales',
+              label: (
+                <>
+                  <span className="sm:hidden">{t.salesShort}</span>
+                  <span className="max-sm:hidden">{t.sales}</span>
+                </>
+              ),
+            },
           ]}
           onChange={setView}
-          className="lg:ms-3"
+          className="shrink-0 lg:ms-3 max-sm:[&_button]:px-2.5 max-sm:[&_button]:text-[13px]"
         />
-        <div className="ms-auto flex min-w-0 items-center gap-2.5 sm:gap-3">
+        <div className="ms-auto flex min-w-0 items-center gap-2 sm:gap-3">
           <span className={cn('hidden whitespace-nowrap text-sm text-ink-500 min-[86rem]:inline', ltrText)}>{format(today, 'EEE d MMM yyyy')}</span>
           <span className="hidden items-center gap-2 whitespace-nowrap text-sm text-ink-500 min-[76rem]:inline-flex">
             <span className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-amber-500')} />
             {state}
           </span>
-          {rateButton('max-md:hidden')}
+          <RateButton rate={settings.rate} isSet={settings.rateSet || !ready} onSave={setRate} t={t} />
           <div className="hidden sm:block">
             <Segmented<PosLang>
               small
@@ -253,14 +260,15 @@ export function PosPage() {
           </div>
           <button
             type="button"
-            className="h-10 shrink-0 rounded-xl border border-slate-200 bg-card px-3 text-sm font-semibold text-ink-700 sm:hidden"
+            aria-label={lang === 'en' ? 'کوردی' : 'English'}
+            className="h-10 min-w-10 shrink-0 rounded-xl border border-slate-200 bg-card px-2.5 text-sm font-semibold text-ink-700 sm:hidden"
             onClick={() => {
               const next = lang === 'en' ? 'ku' : 'en';
               setLang(next);
               saveLang(next);
             }}
           >
-            {lang === 'en' ? 'کوردی' : 'English'}
+            {lang === 'en' ? 'کوردی' : 'EN'}
           </button>
           <ThemeToggle variant="icon" className="max-sm:hidden" />
         </div>
@@ -273,7 +281,7 @@ export function PosPage() {
 
       {view === 'sell' ? (
         <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_340px] md:grid-rows-1 md:gap-3 md:pe-3 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:p-5 min-[90rem]:grid-cols-[216px_minmax(0,1fr)_436px] min-[137rem]:grid-cols-[248px_minmax(0,1fr)_520px] md:max-lg:py-3">
-          <ItemGrid items={items} settings={settings} counts={counts} onAdd={add} onTake={take} lang={lang} t={t} searchRef={search} rate={rateButton('md:hidden [&>span]:hidden')} />
+          <ItemGrid items={items} settings={settings} counts={counts} onAdd={add} onTake={take} lang={lang} t={t} searchRef={search} />
           <Bill
             cart={cart}
             change={change}

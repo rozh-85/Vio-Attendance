@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ArrowLeft, CheckCircle, ChevronDown, Plus, Printer, User } from '@/components/icons';
 import { latinDigits, normalizePhone } from '@/services/repairs/logic';
@@ -10,7 +10,7 @@ import { cn } from '@/utils/cn';
 import { LineEditor } from './Lines';
 import { Labelled, Notice, PosDialog, field, ltrText } from './ui';
 
-/** Every open invoice: one for each customer being served, and one more when the shop is busy. */
+/** Every open invoice, one quiet tab each: the customer, and the total once there is one. */
 export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
   desk: Desk;
   saving: ReadonlySet<string>;
@@ -19,39 +19,55 @@ export function CustomerTabs({ desk, saving, errors, onChoose, onAdd, t }: {
   onAdd: () => void;
   t: PosText;
 }) {
+  const list = useRef<HTMLDivElement>(null);
+  // The open invoice stays in sight when there are more than fit.
+  useEffect(() => {
+    list.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [desk.active, desk.carts.length]);
   return (
-    <div role="tablist" aria-label={t.invoice} className="@container flex shrink-0 gap-2 overflow-x-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {desk.carts.map((c) => {
-        const on = c.id === desk.active;
-        const busy = saving.has(c.id);
-        const bad = !busy && !!errors[c.id];
-        return (
-          <button
-            key={c.id}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onChoose(c.id)}
-            className={cn(
-              'flex min-w-0 flex-1 shrink-0 basis-24 items-center gap-2.5 rounded-xl px-2.5 py-2 text-start transition @[23rem]:basis-32',
-              on ? 'bg-brand-50 ring-1 ring-brand-200' : 'bg-slate-50 hover:bg-slate-100',
-            )}
-          >
-            <span className={cn('hidden size-9 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums @[23rem]:grid', on ? 'bg-brand-600 text-white' : 'bg-slate-200 text-ink-600')}>{c.no}</span>
-            <span className="min-w-0">
-              <span dir="auto" className={cn('block truncate text-sm font-semibold', on ? 'text-brand-700' : 'text-ink-700')}>
-                {c.customerName.trim() || t.customerNo(c.no)}
+    <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
+      <div ref={list} role="tablist" aria-label={t.invoice} className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {desk.carts.map((c) => {
+          const on = c.id === desk.active;
+          const busy = saving.has(c.id);
+          const bad = !busy && !!errors[c.id];
+          const name = c.customerName.trim() || t.customerNo(c.no);
+          const total = c.lines.length ? num(totalOf(c.lines)) : '';
+          return (
+            <button
+              key={c.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              title={total ? `${name} · ${total} IQD` : name}
+              onClick={() => onChoose(c.id)}
+              className={cn(
+                'flex h-9 min-w-0 shrink-0 grow basis-auto items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition',
+                on ? 'bg-raised text-ink-900 shadow-sm ring-1 ring-slate-200/80' : 'text-ink-500 hover:text-ink-900',
+              )}
+            >
+              {(busy || bad) && (
+                <span className={cn('size-2 shrink-0 rounded-full', busy ? 'animate-pulse bg-amber-500' : 'bg-rose-500')}>
+                  <span className="sr-only">{busy ? t.saving : t.notSaved}</span>
+                </span>
+              )}
+              <span dir="auto" className="max-w-36 truncate">
+                {name}
               </span>
-              <span className={cn('block truncate text-xs tabular-nums', busy ? 'font-semibold text-amber-700' : bad ? 'font-semibold text-rose-600' : 'text-ink-500')}>
-                {busy ? t.saving : bad ? t.notSaved : c.lines.length ? <span className={ltrText}>{num(totalOf(c.lines))} IQD</span> : t.emptyBill}
-              </span>
-            </span>
-          </button>
-        );
-      })}
+              {total && <span className={cn('text-xs font-semibold tabular-nums', ltrText, on ? 'text-brand-600' : 'text-ink-400')}>{total}</span>}
+            </button>
+          );
+        })}
+      </div>
       {desk.carts.length < MAX_OPEN && (
-        <button type="button" title={t.addCustomer} aria-label={t.addCustomer} onClick={onAdd} className="grid min-h-11 w-12 shrink-0 place-items-center rounded-xl border border-dashed border-slate-300 text-ink-500 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700">
-          <Plus width={19} height={19} />
+        <button
+          type="button"
+          title={t.addCustomer}
+          aria-label={t.addCustomer}
+          onClick={onAdd}
+          className="grid size-11 shrink-0 place-items-center rounded-xl bg-slate-100 text-ink-500 transition hover:bg-brand-50 hover:text-brand-700"
+        >
+          <Plus width={18} height={18} />
         </button>
       )}
     </div>
