@@ -64,6 +64,8 @@ export interface PosItemChange {
   /** null takes the offer off. */
   offer?: number | null;
   hidden?: boolean;
+  /** Off the price list and every till; kept so it can be brought back. */
+  deleted?: boolean;
   /** A whole item, when the owner added it. */
   custom?: Omit<PosItem, 'id'>;
 }

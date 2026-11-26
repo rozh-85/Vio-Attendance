@@ -40,6 +40,17 @@ export function photo(image: string, size: 256 | 640 = 256): string {
 
 /** The price list with the owner's changes over it. */
 export function mergeItems(changes: PosItemChange[]): PosItem[] {
+  const gone = new Set(changes.filter((c) => c.deleted).map((c) => c.id));
+  return allItems(changes).filter((i) => !gone.has(i.id));
+}
+
+/** The items the owner deleted, as they were, to be brought back. */
+export function deletedItems(changes: PosItemChange[]): PosItem[] {
+  const gone = new Set(changes.filter((c) => c.deleted).map((c) => c.id));
+  return gone.size ? allItems(changes).filter((i) => gone.has(i.id)) : [];
+}
+
+function allItems(changes: PosItemChange[]): PosItem[] {
   const byId = new Map(changes.map((c) => [c.id, c]));
   const items = BASE_ITEMS.map((item) => {
     const change = byId.get(item.id);
